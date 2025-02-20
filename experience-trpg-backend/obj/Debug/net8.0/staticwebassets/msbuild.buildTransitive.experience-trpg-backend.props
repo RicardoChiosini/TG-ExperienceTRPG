@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="..\buildMultiTargeting\experience-trpg-backend.props" />
+</Project>

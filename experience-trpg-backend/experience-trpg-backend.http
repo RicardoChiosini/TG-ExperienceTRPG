@@ -1,0 +1,6 @@
+@experience_trpg_backend_HostAddress = http://localhost:5056
+
+GET {{experience_trpg_backend_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
