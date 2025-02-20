@@ -1,0 +1,45 @@
+<div class="container mt-5">
+    <div class="row g-3">
+        <div class="col-md-6"> <!-- Coluna para Login -->
+            <h2 class="text-center">Login</h2>
+            <form (ngSubmit)="onLogin()" #loginForm="ngForm"> <!-- Usando ngSubmit -->
+                <div class="mb-3">
+                    <label for="loginEmail" class="form-label">Email</label>
+                    <input type="email" class="form-control" id="loginEmail" [(ngModel)]="loginEmail" placeholder="Digite seu email" name="loginEmail" required email>
+                <div *ngIf="loginForm.controls['loginEmail'].invalid && loginForm.controls['loginEmail'].touched">
+                    <small class="text-danger">Email inválido.</small>
+                </div>
+                </div>
+                <div class="mb-3">
+                    <label for="loginPassword" class="form-label">Senha</label>
+                    <input type="password" class="form-control" id="loginPassword" [(ngModel)]="loginSenha" placeholder="Digite sua senha" name="loginSenha" required>
+                </div>
+                <button type="submit" class="btn btn-primary" [disabled]="!loginForm.form.valid">Logar</button>
+            </form>
+        </div>
+
+        <div class="col-md-6"> <!-- Coluna para Registro -->
+            <h2 class="text-center">Registro</h2>
+            <form (ngSubmit)="onRegister()" #registerForm="ngForm"> <!-- Usando ngSubmit -->
+                <div class="mb-3">
+                    <label for="username" class="form-label">Nome de Usuário</label>
+                    <input type="text" class="form-control" id="username" [(ngModel)]="nomeUsuario" placeholder="Escolha um nome de usuário" name="nomeUsuario" required>
+                </div>
+                <div class="mb-3">
+                    <label for="registerEmail" class="form-label">Email</label>
+                    <input type="email" class="form-control" id="registerEmail" [(ngModel)]="email" placeholder="Digite seu email" name="registerEmail" required>
+                </div>
+                <div class="mb-3">
+                    <label for="registerPassword" class="form-label">Senha</label>
+                    <input type="password" class="form-control" id="registerPassword" [(ngModel)]="senha" placeholder="Crie sua senha" name="registerPassword" required>
+                </div>
+                <div class="mb-3">
+                    <label for="confirmPassword" class="form-label">Confirmação de Senha</label>
+                    <input type="password" class="form-control" id="confirmPassword" [(ngModel)]="confirmacaoSenha" placeholder="Confirme sua senha" name="confirmPassword" required>
+                </div>
+                <button type="submit" class="btn btn-success" [disabled]="!registerForm.form.valid">Registrar-se</button>
+            </form>
+        </div>
+    </div>
+    <div *ngIf="mensagem" class="alert alert-danger mt-3">{{ mensagem }}</div> <!-- Mensagem de erro ou verificacao -->
+</div>

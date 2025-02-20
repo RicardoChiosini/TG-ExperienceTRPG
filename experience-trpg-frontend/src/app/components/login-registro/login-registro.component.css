@@ -1,0 +1,31 @@
+.container {
+    max-width: 100%; /* Limita a largura máxima do container a 90% */
+    margin: 0 auto; /* Centraliza horizontalmente o container */
+  }
+  
+h2 {
+    font-size: 2.5vw;
+    margin-bottom: 5%; /* Espaçamento inferior dos títulos */
+    text-align: center;
+}
+
+label {
+    padding-left: 0.5vw;
+    font-size: 1.2vw;
+    text-align: justify;
+}
+
+button {
+    font-size: 1.2vw;
+    text-align: justify;
+}
+
+.row {
+    width: 100%;                    /* Faz com que a linha ocupe toda a largura */
+}
+
+.col-md-6 {
+    padding: 5%;                 /* Adiciona espaçamento interno entre as colunas */
+    border-radius: 5%;            /* Bordas arredondadas nos blocos */
+    background-color: #343a40;     /* Cor de fundo escura da página */
+}

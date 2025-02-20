@@ -1,0 +1,111 @@
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { MesaDto } from '../dtos/mesa.dto';
+import { FichaDto } from '../dtos/ficha.dto';
+
+@Injectable({
+  providedIn: 'root',
+})
+export class ApiService {
+  private baseUrl = 'http://localhost:5056/api'; // URL base do seu ASP.NET
+
+  constructor(private http: HttpClient) {}
+
+  // Método para obter dados
+  getData(endpoint: string): Observable<any> {
+    return this.http.get(`${this.baseUrl}/${endpoint}`);
+  }
+
+  // Método para registrar um novo usuário
+  register(user: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/usuarios`, user); // Endpoint para registro
+  }
+
+  confirmEmail(email: string, token: string): Observable<any> {
+    return this.http.get(`${this.baseUrl}/usuarios/confirm?email=${email}&token=${token}`);
+  }
+
+  // Método para login de um usuário
+  login(credentials: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/usuarios/login`, credentials); // Endpoint para login
+  }
+
+  // Método para obter as mesas de um usuário
+  getMesasPorUsuario(usuarioId: number): Observable<any> {
+    return this.http.get(`${this.baseUrl}/mesas/usuario/${usuarioId}`);
+  }
+
+  // Método para obter uma mesa específica por ID
+  getMesaPorId(id: number): Observable<MesaDto> {
+    return this.http.get<MesaDto>(`${this.baseUrl}/mesas/${id}`); // Faz uma requisição GET ao endpoint
+  }
+
+  getConvitePorMesaId(mesaId: number): Observable<string> {
+    return this.http.get(`http://localhost:5056/api/mesas/${mesaId}/convite`, { responseType: 'text' });
+  }
+  
+  participarDaMesa(mesaId: number, token: string, usuarioId: number): Observable<any> {
+    return this.http.post(`${this.baseUrl}/mesas/${mesaId}/convites/${token}/participar`, { usuarioId });
+  }
+  
+  // Método para atualizar uma mesa
+  expulsarParticipante(data: { usuarioId: number; mesaId: number }): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/mesas/expulsar-participante`, { body: data });
+  }
+
+  updateUsuario(usuario: any): Observable<any> {
+    return this.http.put(`${this.baseUrl}/usuarios/${usuario.usuarioId}`, usuario);
+  }
+  
+  updateMesa(mesa: MesaDto): Observable<MesaDto> {
+    return this.http.put<MesaDto>(`${this.baseUrl}/mesas/${mesa.mesaId}`, mesa);
+  }
+
+  // Método para criar uma nova mesa
+  createMesa(mesaData: any, token: string | null): Observable<any> {
+    let headers = {};
+    if (token) {
+        headers = {
+            'Authorization': `Bearer ${token}` // Adiciona o token ao cabeçalho
+        };
+    }
+
+    return this.http.post(`${this.baseUrl}/mesas`, mesaData, { headers }); // Passa o cabeçalho na requisição
+  }
+
+  // Método para obter mensagens de uma mesa específica
+  getMensagensPorMesa(mesaId: number): Observable<any> {
+    return this.http.get(`${this.baseUrl}/mesas/${mesaId}/mensagens`);
+  }
+
+  // api.service.ts
+  acessarMesa(mesaId: number): Observable<any> {
+    return this.http.post(`${this.baseUrl}/mesas/acessar/${mesaId}`, {});
+  }
+
+  // Método para sair da mesa
+  leaveMesa(request: { usuarioId: number; mesaId: number }): Observable<any> {
+    return this.http.post(`${this.baseUrl}/mesas/sair`, request);
+  }
+
+  // Método para apagar uma mesa
+  deleteMesa(mesa: any): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/mesas/${mesa.mesaId}`); // Usando o ID da mesa
+  }
+
+  // Busca fichas por mesa
+  getFichasPorMesa(mesaId: number): Observable<FichaDto[]> {
+    return this.http.get<FichaDto[]>(`${this.baseUrl}/fichas/${mesaId}/fichas`);
+  }
+
+  // Cria uma nova ficha
+  criarFicha(mesaId: number): Observable<FichaDto> {
+    return this.http.post<FichaDto>(`${this.baseUrl}/fichas/criarficha/${mesaId}`, {});
+  }
+
+  // Busca uma ficha por ID
+  getFichaPorId(fichaId: number): Observable<FichaDto> {
+    return this.http.get<FichaDto>(`${this.baseUrl}/fichas/${fichaId}`);
+}
+}

@@ -1,0 +1,45 @@
+<div class="container mt-5">
+  <div class="row">
+    
+    <!-- Coluna para "Criar/Entrar em Mesa" -->
+    <div class="col-md-2 justify-content-center align-items-center vh-100">
+        <div class="card text-white bg-dark">
+          <div class="card-body">
+            <a class="btn btn-primary btn-lg w-100 mb-2" routerLink="/criar-mesa">Criar Mesa</a>
+          </div>
+        </div>
+    </div>
+
+    <!-- Coluna para Listagem de Mesas -->
+    <div class="col-md-8 justify-content-center align-items-center vh-100">
+      <div class="card mb-3" *ngFor="let mesa of paginatedMesas"> <!-- Usa a propriedade paginatedMesas -->
+          <div class="card-body">
+              <div class="d-flex">
+                  <img src="{{ mesa.imagem }}" class="img-thumbnail me-3" alt="Imagem da Mesa" style="width: 100px;">
+                  <div class="w-100">
+                      <h5>{{ mesa.nome }}</h5>
+                      <p>Último acesso: {{ mesa.dataUltimoAcesso }}</p>
+                      <p>Mestre: {{ mesa.mesCriador?.nome }}</p>
+                      <p>Participantes: {{ getParticipantesNomes(mesa) }}</p>
+                      <div class="d-flex justify-content-between mt-3">
+                          <button class="btn btn-primary" (click)="entrarNaMesa(mesa)">Entrar</button>
+                          <div>
+                            <button *ngIf="mesa.mesCriador?.usuarioId === usuarioId" class="btn btn-danger me-2" (click)="apagarMesa(mesa)">Apagar Mesa</button>
+                            <button *ngIf="mesa.mesCriador?.usuarioId === usuarioId" class="btn btn-secondary" (click)="configurarMesa(mesa)">Configurações</button>
+                            <button *ngIf="mesa.mesCriador?.usuarioId !== usuarioId" class="btn btn-warning me-2" (click)="sairDaMesa(mesa)">Sair da Mesa</button>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      </div>
+
+      <!-- Navegação de Paginação, movido para baixo da lista de mesas -->
+      <div class="d-flex justify-content-between mt-3">
+        <button class="btn btn-secondary" (click)="previousPage()" [disabled]="currentPage === 0">Anterior</button>
+        <button class="btn btn-secondary" (click)="nextPage()" [disabled]="(currentPage + 1) * itemsPerPage >= totalMesas">Próximo</button>
+      </div>
+
+    </div>
+  </div>
+</div>

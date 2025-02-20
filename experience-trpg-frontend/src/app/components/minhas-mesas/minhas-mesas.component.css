@@ -1,0 +1,17 @@
+.img-thumbnail {
+    width: 60px; /* Tamanho fixo das miniaturas */
+    height: auto;
+}
+
+.card-body h5 {
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+}
+
+.card-body p {
+    margin-bottom: 0.5rem;
+}
+
+.btn-lg {
+    font-size: 1.25rem;
+} 

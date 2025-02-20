@@ -1,0 +1,34 @@
+<div class="container mt-5">
+    <h2>Meu Perfil</h2>
+    <form (ngSubmit)="salvarPerfil()">
+      <!-- Nome do usuário -->
+      <div class="form-group mb-3">
+        <label>Nome</label>
+        <input type="text" class="form-control" [(ngModel)]="usuario.nome" name="nome" required />
+      </div>
+  
+      <!-- Email do usuário (apenas leitura) -->
+      <div class="form-group mb-3">
+        <label>Email</label>
+        <input type="email" class="form-control" [(ngModel)]="usuario.email" name="email" readonly />
+      </div>
+  
+      <!-- Nova senha -->
+      <div class="form-group mb-3">
+        <label>Nova Senha</label>
+        <input type="password" class="form-control" [(ngModel)]="novaSenha" name="novaSenha" placeholder="Deixe em branco para manter a senha atual" />
+      </div>
+  
+      <!-- Confirmar nova senha -->
+      <div class="form-group mb-3">
+        <label>Confirmar Nova Senha</label>
+        <input type="password" class="form-control" [(ngModel)]="confirmarNovaSenha" name="confirmarNovaSenha" placeholder="Confirme a nova senha" />
+      </div>
+  
+      <!-- Mensagem de feedback -->
+      <div *ngIf="mensagem" class="alert alert-info mb-3">{{ mensagem }}</div>
+  
+      <!-- Botão para salvar alterações -->
+      <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+    </form>
+  </div>

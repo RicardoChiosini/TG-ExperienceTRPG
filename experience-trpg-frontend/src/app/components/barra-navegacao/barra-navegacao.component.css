@@ -1,0 +1,66 @@
+nav {
+    user-select: none;
+}
+
+a {
+    color: #ffff;
+    user-select: none;
+}
+
+.navbar-brand {
+    font-size: 1.5vw;
+    user-select: none; /* Impede a seleção do texto */
+    pointer-events: none; /* Remove interações do mouse */
+    white-space: nowrap;
+}
+
+.navbar-brand:hover {
+    cursor: default; /* Altera o cursor para não indicar interatividade */
+    user-select: none;
+}
+
+.navbar-nav {
+    display: flex; /* Usar flexbox para alinhamento */
+    justify-content: center; /* Centraliza horizontalmente */
+    align-items: center; /* Centraliza verticalmente */
+    user-select: none;
+}
+
+.nav-link {
+    font-size: 1.2vw;
+    user-select: none;
+    display: flex; /* Usar flexbox para alinhamento */
+    justify-content: center; /* Centraliza horizontalmente */
+    align-items: center; /* Centraliza verticalmente */
+    user-select: none;
+    white-space: nowrap;
+}
+
+.nav-item {
+    padding-left: 5%; /* Adiciona padding à esquerda */
+    user-select: none;
+    white-space: nowrap;
+}
+
+.navbar {
+    padding-left: 2%;
+    padding-right: 2%;
+    user-select: none;
+}
+
+.dropdown-menu {
+    background-color: #343a40; /* Cor de fundo escura (Bootstrap Dark) */
+    user-select: none;
+}
+
+.dropdown-item {
+    color: #ffffff; /* Cor do texto clara */
+    cursor: pointer;
+    user-select: none;
+}
+
+.dropdown-item:hover {
+    background-color: #495057; /* Cor de fundo ao passar o mouse (Bootstrap Darker) */
+    color: #ffffff; /* Manter o texto claro ao passar o mouse */
+    user-select: none;
+}

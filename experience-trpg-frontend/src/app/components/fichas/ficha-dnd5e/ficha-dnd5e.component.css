@@ -1,0 +1,23 @@
+.modal-window {
+  position: absolute;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  resize: both;
+  overflow: auto;
+}
+
+.modal-header {
+  cursor: move;
+  background-color: #f7f7f7;
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+.modal-body {
+  padding: 10px;
+}
+
+.modal-backdrop {
+  display: none;
+}

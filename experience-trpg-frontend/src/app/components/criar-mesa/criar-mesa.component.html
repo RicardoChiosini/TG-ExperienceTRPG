@@ -1,0 +1,25 @@
+<div class="container mt-5">
+  <h2>Criar Mesa</h2>
+  <form (ngSubmit)="onSubmit(mesaForm)" #mesaForm="ngForm">
+      <div class="mb-3">
+          <label for="nome" class="form-label">Nome da Mesa</label>
+          <input type="text" class="form-control" id="nome" name="nome" [(ngModel)]="Nome" required>
+      </div>
+
+      <div class="mb-3">
+          <label for="descricao" class="form-label">Descrição</label>
+          <textarea class="form-control" id="descricao" name="descricao" [(ngModel)]="Descricao"></textarea>
+      </div>
+
+      <div class="mb-3">
+          <label for="sistema" class="form-label">Sistema</label>
+          <select class="form-select" id="sistema" name="sistema" [(ngModel)]="selectedSistemaId" required>
+            <option *ngFor="let sistema of sistemas" [value]="sistema.sistemaId">
+                {{ sistema.nome }}
+            </option>
+          </select>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Criar Mesa</button>
+  </form>
+</div>
