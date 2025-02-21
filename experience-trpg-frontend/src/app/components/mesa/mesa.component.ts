@@ -4,12 +4,13 @@ import { ActivatedRoute } from '@angular/router';
 import { ChatService } from '../../services/chat.service';
 import { AuthService } from '../../services/auth.service';
 import { ApiService } from '../../services/api.service';
-import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { FichaDto } from '../../dtos/ficha.dto';
+import { Sistema } from '../../models/SistemaModel';
 
 import { FichaDnd5eComponent } from '../fichas/ficha-dnd5e/ficha-dnd5e.component';
+import { FichaTormenta20Component } from '../fichas/ficha-tormenta20/ficha-tormenta20.component';
 
 @Component({
   selector: 'app-mesa',
@@ -36,7 +37,13 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
   isCriador: boolean = false; // Verifica se o usuário é o criador da mesa
 
   fichas: FichaDto[] = []; // Lista de fichas da mesa
-  public modalsAbertas: { ficha: FichaDto; modalRef: any }[] = []; // Lista de modais abertas
+  sistemas: Sistema[] = []; // Lista de sistemas disponíveis
+  sistemaMesa: Sistema | null = null; // Sistema da mesa atual
+  public modalsAbertas: { ficha: FichaDto; modalId: string; top: number; left: number }[] = []; // Lista de modais abertas
+  public isDragging: boolean = false; // Estado de arraste
+  public draggedModal: any = null; // Modal atualmente arrastada
+  public startX: number = 0; // Posição inicial do mouse em X
+  public startY: number = 0; // Posição inicial do mouse em Y
 
   private destroy$ = new Subject<void>(); // Subject para gerenciar a destruição do componente
 
@@ -45,7 +52,6 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
     private chatService: ChatService,
     private authService: AuthService,
     private apiService: ApiService,
-    private modalService: NgbModal
   ) {}
 
   ngOnInit(): void {
@@ -105,25 +111,51 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // Abre o modal com os detalhes da ficha
   abrirFicha(ficha: FichaDto): void {
-    const modalRef = this.modalService.open(FichaDnd5eComponent, { size: 'lg', backdrop: 'static' });
-    modalRef.componentInstance.fichaId = ficha.fichaId; // Acesse o ID da ficha, se necessário
+    const modalId = `modal-${ficha.fichaId}`; // ID único para cada modal
+    this.modalsAbertas.push({ ficha, modalId, top: 100, left: 100 }); // Adiciona a modal à lista de modals abertas
+  }
+
+  fecharModal(modalId: string): void {
+    this.modalsAbertas = this.modalsAbertas.filter(m => m.modalId !== modalId); // Remove a modal da lista
+  }
+
+  startDragging(event: MouseEvent, modal: any): void {
+    this.isDragging = true;
+    this.draggedModal = modal; // Modal que está sendo arrastada
+    this.startX = event.clientX;
+    this.startY = event.clientY;
+  }
+
+  moveModal(event: MouseEvent): void {
+    if (!this.isDragging || !this.draggedModal) return;
   
-    // Armazena a modal com a ficha
-    this.modalsAbertas.push({ ficha, modalRef });
+    const deltaX = event.clientX - this.startX;
+    const deltaY = event.clientY - this.startY;
   
-    modalRef.result.then(
-      () => {
-        console.log('Modal fechado');
-        this.modalsAbertas = this.modalsAbertas.filter(m => m.modalRef !== modalRef); // Remove a modal da lista
-      },
-      () => {
-        console.log('Modal descartado');
-        this.modalsAbertas = this.modalsAbertas.filter(m => m.modalRef !== modalRef); // Remove a modal da lista
-      }
-    );
+    // Atualizar a posição da modal
+    this.draggedModal.top += deltaY;
+    this.draggedModal.left += deltaX;
+  
+    this.startX = event.clientX;
+    this.startY = event.clientY;
   }
   
+  stopDragging(): void {
+    this.isDragging = false;
+    this.draggedModal = null;
+  }
 
+  getComponenteFicha(sistemaNome: string): any {
+    switch (sistemaNome) {
+      case 'Dungeons and Dragons 5E':
+        return FichaDnd5eComponent;
+      case 'Tormenta20':
+        return FichaTormenta20Component;
+      default:
+        return null;
+    }
+  }
+  
   // Carrega as mensagens da mesa
   carregarMensagens(): void {
     this.chatService

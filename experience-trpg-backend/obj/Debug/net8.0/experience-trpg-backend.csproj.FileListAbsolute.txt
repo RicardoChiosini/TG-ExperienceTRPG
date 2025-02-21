@@ -71,3 +71,4 @@ C:\Users\Note\Documents\Projeto TG\experience-trpg-backend\bin\Debug\net8.0\Micr
 C:\Users\Note\Documents\Projeto TG\experience-trpg-backend\bin\Debug\net8.0\System.IdentityModel.Tokens.Jwt.dll
 C:\Users\Note\Documents\Projeto TG\experience-trpg-backend\bin\Debug\net8.0\AutoMapper.dll
 C:\Users\Note\Documents\Projeto TG\experience-trpg-backend\bin\Debug\net8.0\AutoMapper.Extensions.Microsoft.DependencyInjection.dll
+C:\Users\Note\Documents\Projeto TG\experience-trpg-backend\obj\Debug\net8.0\experience-trpg-backend.sourcelink.json

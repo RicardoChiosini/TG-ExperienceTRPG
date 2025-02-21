@@ -158,47 +158,33 @@
   cursor: pointer; /* Cursor de ponteiro indicando interatividade */
 }
 
-/* Estilo para o modal */
-.modal-content {
+.modal-window {
+  position: absolute;
+  border: 1px solid #ccc;
   background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-.modal-backdrop {
-  display: none; /* Remove o escurecimento do fundo */
-}
-
-.modal {
-  z-index: 1051; /* Defina um nível de z-index se necessário */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  resize: both;
+  overflow: auto;
+  z-index: 1050; /* Garante que as modals fiquem acima de outros elementos */
 }
 
 .modal-header {
+  cursor: move;
+  background-color: #f7f7f7;
+  padding: 10px;
   border-bottom: 1px solid #ddd;
-  padding: 16px;
-}
-
-.modal-title {
-  margin: 0;
-  font-size: 1.25rem;
 }
 
 .modal-body {
-  padding: 16px;
+  padding: 10px;
 }
 
 .modal-footer {
   border-top: 1px solid #ddd;
-  padding: 16px;
+  padding: 10px;
   text-align: right;
 }
 
-.btn-secondary {
-  background-color: #6c757d;
-  border-color: #6c757d;
-}
-
-.btn-secondary:hover {
-  background-color: #5a6268;
-  border-color: #545b62;
+.btn-close {
+  cursor: pointer;
 }

@@ -18,6 +18,7 @@ import { ConfirmEmailComponent } from '../components/confirm-email/confirm-email
 import { MesaComponent } from '../components/mesa/mesa.component';
 import { ParticiparMesaComponent } from '../components/participar-mesa/participar-mesa.component';
 import { FichaDnd5eComponent } from '../components/fichas/ficha-dnd5e/ficha-dnd5e.component';
+import { FichaTormenta20Component } from '../components/fichas/ficha-tormenta20/ficha-tormenta20.component';
 
 import { ApiService } from '../services/api.service';
 import { AuthService } from '../services/auth.service';
@@ -38,7 +39,8 @@ import { CommonModule } from '@angular/common';
     ConfirmEmailComponent,
     MesaComponent,
     ParticiparMesaComponent,
-    FichaDnd5eComponent
+    FichaDnd5eComponent,
+    FichaTormenta20Component
   ],
   imports: [
     CommonModule,

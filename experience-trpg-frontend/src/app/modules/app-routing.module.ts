@@ -11,6 +11,7 @@ import { ConfirmEmailComponent } from '../components/confirm-email/confirm-email
 import { MesaComponent } from '../components/mesa/mesa.component';
 import { ParticiparMesaComponent } from '../components/participar-mesa/participar-mesa.component';
 import { FichaDnd5eComponent } from '../components/fichas/ficha-dnd5e/ficha-dnd5e.component';
+import { FichaTormenta20Component } from '../components/fichas/ficha-tormenta20/ficha-tormenta20.component';
 
 const routes: Routes = [
   { path: '', component: HomeComponent }, // Rota principal (home)
@@ -24,7 +25,8 @@ const routes: Routes = [
   { path: 'confirm-email', component: ConfirmEmailComponent},
   { path: 'mesa/:id', component: MesaComponent},
   { path: 'mesa/:mesaId/convite/:token', component: ParticiparMesaComponent},
-  { path: 'ficha-dnd5e/:id', component: FichaDnd5eComponent}
+  { path: 'ficha-dnd5e/:id', component: FichaDnd5eComponent},
+  { path: 'ficha-tormenta20/:id', component: FichaTormenta20Component}
   // Você pode adicionar mais rotas conforme necessário
 ];
 

@@ -36,29 +36,7 @@
         <div *ngFor="let ficha of fichas" class="ficha-item" (click)="abrirFicha(ficha)">
           {{ ficha.nome }}
         </div>
-      </div>
-
-      <ng-container *ngFor="let modal of modalsAbertas">
-        <div class="modal fade show" tabindex="-1" aria-labelledby="fichaModalLabel" style="display: block;">
-          <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-              <div class="modal-header">
-                <h5 class="modal-title">{{ modal.ficha.nome }}</h5>
-                <button type="button" class="btn-close" (click)="modal.modalRef.dismiss()"></button>
-              </div>
-              <div class="modal-body">
-                <p><strong>Descrição:</strong> {{ modal.ficha.descricao }}</p>
-                <p><strong>Sistema ID:</strong> {{ modal.ficha.sistemaId }}</p>
-                <p><strong>Mesa ID:</strong> {{ modal.ficha.mesaId }}</p>
-              </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" (click)="modal.modalRef.dismiss()">Fechar</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </ng-container>
-         
+      </div>         
 
       <!-- Aba de Imagens -->
       <div *ngIf="activeTab === 'imagens'" class="aba-imagens">
@@ -82,3 +60,22 @@
     </div>
   </div>
 </div>
+
+<!-- Modals abertas -->
+<ng-container *ngFor="let modal of modalsAbertas">
+  <div class="modal-window" [id]="modal.modalId" [ngStyle]="{ 'top.px': modal.top, 'left.px': modal.left }">
+    <div class="modal-header" (mousedown)="startDragging($event, modal)" (mouseup)="stopDragging()" (mouseleave)="stopDragging()">
+      <h5 class="modal-title">{{ modal.ficha.nome }}</h5>
+      <button type="button" class="btn-close" (click)="fecharModal(modal.modalId)"></button>
+    </div>
+    <div class="modal-body">
+      <!-- Componente de ficha dinâmico -->
+      <ng-container *ngIf="sistemaMesa">
+        <ng-container *ngComponentOutlet="getComponenteFicha(sistemaMesa.nome); inputs: { fichaId: modal.ficha.fichaId }"></ng-container>
+      </ng-container>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" (click)="fecharModal(modal.modalId)">Fechar</button>
+    </div>
+  </div>
+</ng-container>
