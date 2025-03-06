@@ -25,8 +25,8 @@ const routes: Routes = [
   { path: 'confirm-email', component: ConfirmEmailComponent},
   { path: 'mesa/:id', component: MesaComponent},
   { path: 'mesa/:mesaId/convite/:token', component: ParticiparMesaComponent},
-  { path: 'ficha-dnd5e/:id', component: FichaDnd5eComponent},
-  { path: 'ficha-tormenta20/:id', component: FichaTormenta20Component}
+  { path: 'ficha-dnd5e/:fichaId', component: FichaDnd5eComponent},
+  { path: 'ficha-tormenta20/:fichaId', component: FichaTormenta20Component}
   // Você pode adicionar mais rotas conforme necessário
 ];
 

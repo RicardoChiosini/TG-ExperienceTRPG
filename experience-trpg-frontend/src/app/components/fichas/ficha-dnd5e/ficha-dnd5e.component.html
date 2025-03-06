@@ -1,8 +1,1064 @@
-<div class="ficha-dnd5e">
-    <h4>{{ ficha.nome || 'Ficha sem nome' }}</h4>
-    <div class="atributos">
-      <p><strong>Descrição:</strong> {{ ficha.descricao }}</p>
-      <p><strong>Sistema ID:</strong> {{ ficha.sistemaId }}</p>
-      <p><strong>Mesa ID:</strong> {{ ficha.mesaId }}</p>
+<div class="container bg-dark text-light p-4">
+  <div class="row">
+    <!-- Coluna da Imagem -->
+    <div class="col-md-2 pe-3">
+      <img src="path/to/your/image.jpg" alt="Descrição da imagem" class="img-fluid rounded"
+        style="width: 100%; height: auto; max-height: 200px; object-fit: cover;" />
+    </div>
+
+    <!-- Coluna dos Campos -->
+    <div class="col-md-10">
+
+      <!-- Nome, Nível e Experiência -->
+      <div class="mb-3 row align-items-center">
+        <div class="col-md-6">
+          <label for="nome-personagem" class="form-label">Nome:</label>
+          <input type="text" id="nome-personagem" class="form-control bg-dark text-light form-control-sm"
+            placeholder="Nome do Personagem" />
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Nível:</label>
+          <input type="text" id="nivel" class="form-control bg-dark text-light form-control-sm" [value]="totalNiveis()"
+            readonly />
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Experiência:</label>
+          <input type="text" id="experiencia" class="form-control bg-dark text-light form-control-sm"
+            placeholder="Experiência" />
+        </div>
+      </div>
+
+      <!-- Raça, Antecedente e Tendência -->
+      <div class="mb-3 row align-items-center">
+        <div class="col-md-3">
+          <label for="raca" class="form-label">Raça:</label>
+          <input type="text" id="raca" class="form-control bg-dark text-light form-control-sm" placeholder="Raça" />
+        </div>
+
+        <div class="col-md-3">
+          <label for="antecedente" class="form-label">Antecedente:</label>
+          <input type="text" id="antecedente" class="form-control bg-dark text-light form-control-sm"
+            placeholder="Antecedente" />
+        </div>
+
+        <div class="col-md-3">
+          <label for="tendencia" class="form-label">Tendência:</label>
+          <select id="tendencia" [(ngModel)]="tendencias" class="form-select bg-dark text-light form-control-sm">
+            <option value=""> </option>
+            <option *ngFor="let tendencia of todasTendencias" [value]="tendencia">
+              {{ tendencia }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Botão para Expandir/Colapsar Classes -->
+        <div class="col-md-3">
+          <button class="btn btn-outline-light mt-4" type="button" data-bs-toggle="collapse"
+            data-bs-target="#classesAccordion" aria-expanded="false" aria-controls="classesAccordion">
+            Classes
+          </button>
+        </div>
+      </div>
+
+      <!-- Classes -->
+      <div class="collapse" id="classesAccordion">
+        <div class="mb-3 row align-items-center">
+          <div class="col-md-4">
+            <label class="form-label">1ª Classe:</label>
+            <select [(ngModel)]="classe1" class="form-select bg-dark text-light form-control-sm"
+              (change)="onClassSelected()">
+              <option value=""> </option>
+              <option *ngFor="let classe of todasClasses" [value]="classe" [disabled]="isClassDisabled(classe, 0)">
+                {{ classe }}
+              </option>
+            </select>
+            Nv:
+            <input type="number" [(ngModel)]="nvClasse1" (ngModelChange)="atualizarTotalNiveis()"
+              class="form-control bg-dark text-light form-control-sm" min="0" />
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">2ª Classe:</label>
+            <select [(ngModel)]="classe2" class="form-select bg-dark text-light form-control-sm"
+              (change)="onClassSelected()">
+              <option value=""> </option>
+              <option *ngFor="let classe of todasClasses" [value]="classe" [disabled]="isClassDisabled(classe, 1)">
+                {{ classe }}
+              </option>
+            </select>
+            Nv:
+            <input type="number" [(ngModel)]="nvClasse2" (ngModelChange)="atualizarTotalNiveis()"
+              class="form-control bg-dark text-light form-control-sm" min="0" />
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">3ª Classe:</label>
+            <select [(ngModel)]="classe3" class="form-select bg-dark text-light form-control-sm"
+              (change)="onClassSelected()">
+              <option value=""> </option>
+              <option *ngFor="let classe of todasClasses" [value]="classe" [disabled]="isClassDisabled(classe, 2)">
+                {{ classe }}
+              </option>
+            </select>
+            Nv:
+            <input type="number" [(ngModel)]="nvClasse3" (ngModelChange)="atualizarTotalNiveis()"
+              class="form-control bg-dark text-light form-control-sm" min="0" />
+          </div>
+        </div>
+      </div>
     </div>
   </div>
+</div>
+<div class="container bg-dark text-light p-8">
+  <div class="row">
+    <!-- Abas de Navegação -->
+    <ul class="nav nav-tabs mb-4 d-flex">
+      <li class="nav-item flex-fill">
+        <button class="nav-link w-100" [class.active]="activeTab === 'ficha'"
+          (click)="setActiveTab('ficha')">Ficha</button>
+      </li>
+      <li class="nav-item flex-fill">
+        <button class="nav-link w-100" [class.active]="activeTab === 'inventario'"
+          (click)="setActiveTab('inventario')">Inventário</button>
+      </li>
+      <li class="nav-item flex-fill">
+        <button class="nav-link w-100" [class.active]="activeTab === 'magias'"
+          (click)="setActiveTab('magias')">Magias</button>
+      </li>
+      <li class="nav-item flex-fill">
+        <button class="nav-link w-100" [class.active]="activeTab === 'configuracoes'"
+          (click)="setActiveTab('configuracoes')">Configurações</button>
+      </li>
+    </ul>
+  </div>
+
+  <div class="tab-content">
+    <div class="tab-pane fade" [class.show]="activeTab === 'ficha'" [class.active]="activeTab === 'ficha'">
+      <div class="container">
+        <div class="row g-1">
+          <div class="col-md-9"> <!-- Atributos ocupando 9 colunas -->
+            <div class="card bg-dark text-light mb-1">
+              <div class="card-body d-flex flex-row justify-content-between">
+                <!-- Força -->
+                <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                  <h5>For</h5>
+                  <span class="badge bg-secondary atributo-badge" style="width: 40px;">{{ forModifier >= 0 ? '+' : ''
+                    }}{{ forModifier }}</span>
+                  <input type="number" (input)="setForValue($event)"
+                    class="form-control bg-dark text-light text-center form-control-sm" placeholder="Total"
+                    style="appearance: none; -moz-appearance: textfield; width: 40px;" [value]="forValue" />
+                </div>
+                <!-- Destreza -->
+                <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                  <h5>Des</h5>
+                  <span class="badge bg-secondary atributo-badge" style="width: 40px;">{{ desModifier >= 0 ? '+' : ''
+                    }}{{ desModifier }}</span>
+                  <input type="number" (input)="setDesValue($event)"
+                    class="form-control bg-dark text-light text-center form-control-sm" placeholder="Total"
+                    style="appearance: none; -moz-appearance: textfield; width: 40px;" [value]="desValue" />
+                </div>
+                <!-- Constituição -->
+                <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                  <h5>Con</h5>
+                  <span class="badge bg-secondary atributo-badge" style="width: 40px;">{{ conModifier >= 0 ? '+' : ''
+                    }}{{ conModifier }}</span>
+                  <input type="number" (input)="setConValue($event)"
+                    class="form-control bg-dark text-light text-center form-control-sm" placeholder="Total"
+                    style="appearance: none; -moz-appearance: textfield; width: 40px;" [value]="conValue" />
+                </div>
+                <!-- Inteligência -->
+                <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                  <h5>Int</h5>
+                  <span class="badge bg-secondary atributo-badge" style="width: 40px;">{{ intModifier >= 0 ? '+' : ''
+                    }}{{ intModifier }}</span>
+                  <input type="number" (input)="setIntValue($event)"
+                    class="form-control bg-dark text-light text-center form-control-sm" placeholder="Total"
+                    style="appearance: none; -moz-appearance: textfield; width: 40px;" [value]="intValue" />
+                </div>
+                <!-- Sabedoria -->
+                <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                  <h5>Sab</h5>
+                  <span class="badge bg-secondary atributo-badge" style="width: 40px;">{{ sabModifier >= 0 ? '+' : ''
+                    }}{{ sabModifier }}</span>
+                  <input type="number" (input)="setSabValue($event)"
+                    class="form-control bg-dark text-light text-center form-control-sm" placeholder="Total"
+                    style="appearance: none; -moz-appearance: textfield; width: 40px;" [value]="sabValue" />
+                </div>
+                <!-- Carisma -->
+                <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                  <h5>Car</h5>
+                  <span class="badge bg-secondary atributo-badge" style="width: 40px;">{{ carModifier >= 0 ? '+' : ''
+                    }}{{ carModifier }}</span>
+                  <input type="number" (input)="setCarValue($event)"
+                    class="form-control bg-dark text-light text-center form-control-sm" placeholder="Total"
+                    style="appearance: none; -moz-appearance: textfield; width: 40px;" [value]="carValue" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-md-3 d-flex align-items-stretch"> <!-- Bônus de Proficiência ocupando 3 colunas -->
+            <div class="card bg-dark text-light mb-1 flex-grow-1">
+              <div class="card-body d-flex flex-row align-items-center justify-content-center">
+                <h3>BP:</h3>
+                <span class="badge bg-secondary bp-badge" style="width: 60px;">{{ Proficiencia() >= 0 ? '+' : ''
+                  }}{{ Proficiencia() }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row g-1">
+          <div class="col-md-4">
+            <div class="card bg-dark text-light mb-1">
+              <div class="card-body d-flex flex-row align-items-center justify-content-center">
+                <h5>CA:</h5>
+                <span class="badge bg-secondary cainit-badge" style="width: 40px; align-content: center;">{{ ca
+                  }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="card bg-dark text-light mb-1">
+              <div class="card-body d-flex flex-row align-items-center justify-content-center">
+                <h5>Iniciativa:</h5>
+                <span class="badge bg-secondary cainit-badge" style="width: 40px; align-content: center;">{{ desModifier
+                  + bonusIniciativa + verIniciativa
+                  }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="card bg-dark text-light mb-1">
+              <div class="card-body d-flex flex-row align-items-center justify-content-center">
+                <h5>Deslocamento:</h5>
+                <input type="number" [(ngModel)]="deslocamento"
+                  class="form-control bg-dark text-light text-center form-control-sm"
+                  style="appearance: none; -moz-appearance: textfield; width: 60px;" min="0" step="1.5" />
+                <h5>m</h5>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row g-1"> <!-- Nova linha para Testes de Resistência -->
+          <div class="col-md-3"> <!-- Ocupa 3 colunas -->
+            <div class="card bg-dark text-light mb-1">
+              <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                <h6><small><strong>Testes de Resistência</strong></small></h6>
+                <div class="col-md-12" style="display: flex; flex-direction: column; gap: 10px;">
+                  <div style="display: flex; align-items: center;">
+                    <input type="checkbox" (change)="updateForResistencia($event)" class="form-check-input">
+                    <span class="badge bg-secondary modifier-badge" style="width: 30px;"><small>{{ forResistencia >= 0 ?
+                        '+' :
+                        '' }}{{ forResistencia }}</small></span>
+                    <h6 style="margin-left: 5px;"><small>Força</small></h6>
+                  </div>
+                  <div style="display: flex; align-items: center;">
+                    <input type="checkbox" (change)="updateDesResistencia($event)" class="form-check-input">
+                    <span class="badge bg-secondary modifier-badge" style="width: 30px;"><small>{{ desResistencia >= 0 ?
+                        '+' :
+                        '' }}{{ desResistencia }}</small></span>
+                    <h6 style="margin-left: 5px;"><small>Destreza</small></h6>
+                  </div>
+                  <div style="display: flex; align-items: center;">
+                    <input type="checkbox" (change)="updateConResistencia($event)" class="form-check-input">
+                    <span class="badge bg-secondary modifier-badge" style="width: 30px;"><small>{{ conResistencia >= 0 ?
+                        '+' :
+                        '' }}{{ conResistencia }}</small></span>
+                    <h6 style="margin-left: 5px;"><small>Constituição</small></h6>
+                  </div>
+                  <div style="display: flex; align-items: center;">
+                    <input type="checkbox" (change)="updateIntResistencia($event)" class="form-check-input">
+                    <span class="badge bg-secondary modifier-badge" style="width: 30px;"><small>{{ intResistencia >= 0 ?
+                        '+' :
+                        '' }}{{ intResistencia }}</small></span>
+                    <h6 style="margin-left: 5px;"><small>Inteligência</small></h6>
+                  </div>
+                  <div style="display: flex; align-items: center;">
+                    <input type="checkbox" (change)="updateSabResistencia($event)" class="form-check-input">
+                    <span class="badge bg-secondary modifier-badge" style="width: 30px;"><small>{{ sabResistencia >= 0 ?
+                        '+' :
+                        '' }}{{ sabResistencia }}</small></span>
+                    <h6 style="margin-left: 5px;"><small>Sabedoria</small></h6>
+                  </div>
+                  <div style="display: flex; align-items: center;">
+                    <input type="checkbox" (change)="updateCarResistencia($event)" class="form-check-input">
+                    <span class="badge bg-secondary modifier-badge" style="width: 30px;"><small>{{ carResistencia >= 0 ?
+                        '+' :
+                        '' }}{{ carResistencia }}</small></span>
+                    <h6 style="margin-left: 5px;"><small>Carisma</small></h6>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bloco para o título "Perícias" -->
+          <div class="col-md-9">
+            <div class="card bg-dark text-light mb-1">
+              <div class="card-body d-flex flex-column align-items-center justify-content-center text-center"
+                style="height: 65px;">
+                <h5><strong>Perícias</strong></h5>
+              </div>
+              <div class="row">
+                <div class="col-md-4">
+                  <div class="card bg-dark text-light mb-1 border-0">
+                    <div class="card-body d-flex flex-column align-items-center justify-content-center">
+
+                      <!-- Coluna 1 -->
+                      <table class="table table-borderless bg-dark text-light">
+                        <tbody>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" (change)="updateAcrobacia($event)"></td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ acrobaciaModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  acrobaciaModifier
+                                  }}</small></span></td>
+                            <td style="padding: 1px;"><small>Acrobacia</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" (change)="updateAdestrarAnimais($event)">
+                            </td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ acrobaciaModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  adestrarAnimaisModifier
+                                  }}</small></span>
+                            </td>
+                            <td style="padding: 1px;"><small>Adest. Animais</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" (change)="updateArcanismo($event)"></td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ arcanismoModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  arcanismoModifier
+                                  }}</small></span></td>
+                            <td style="padding: 1px;"><small>Arcanismo</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" (change)="updateAtletismo($event)"></td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ atletismoModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  atletismoModifier
+                                  }}</small></span></td>
+                            <td style="padding: 1px;"><small>Atletismo</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" (change)="updateEnganacao($event)"></td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ enganacaoModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  enganacaoModifier
+                                  }}</small></span></td>
+                            <td style="padding: 1px;"><small>Enganação</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" (change)="updateFurtividade($event)">
+                            </td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ furtividadeModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  furtividadeModifier
+                                  }}</small></span></td>
+                            <td style="padding: 1px;"><small>Furtividade</small></td>
+                          </tr>
+                        </tbody>
+                      </table>
+
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Coluna 2 -->
+                <div class="col-md-4">
+                  <div class="card bg-dark text-light mb-1 border-0">
+                    <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                      <table class="table table-borderless text-light">
+                        <tbody>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" (change)="updateHistoria($event)"></td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ historiaModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  historiaModifier }}</small></span>
+                            </td>
+                            <td style="padding: 1px;"><small>História</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" (change)="updateIntimidacao($event)">
+                            </td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ intimidacaoModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  intimidacaoModifier
+                                  }}</small></span></td>
+                            <td style="padding: 1px;"><small>Intimidação</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" (change)="updateIntuicao($event)"></td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ intuicaoModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  intuicaoModifier }}</small></span>
+                            </td>
+                            <td style="padding: 1px;"><small>Intuição</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" (change)="updateInvestigacao($event)">
+                            </td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ investigacaoModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  investigacaoModifier
+                                  }}</small></span></td>
+                            <td style="padding: 1px;"><small>Investigação</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" (change)="updateMedicina($event)"></td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ medicinaModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  medicinaModifier }}</small></span>
+                            </td>
+                            <td style="padding: 1px;"><small>Medicina</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" (change)="updateNatureza($event)"></td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ naturezaModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  naturezaModifier }}</small></span>
+                            </td>
+                            <td style="padding: 1px;"><small>Natureza</small></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                </div>
+
+                <!-- Coluna 3 -->
+                <div class="col-md-4">
+                  <div class="card bg-dark text-light mb-1 border-0">
+                    <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                      <table class="table table-borderless text-light">
+                        <tbody>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" (change)="updatePercepcao($event)"></td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ percepcaoModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  percepcaoModifier
+                                  }}</small></span></td>
+                            <td style="padding: 1px;"><small>Percepção</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" (change)="updatePerformance($event)">
+                            </td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ performanceModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  performanceModifier
+                                  }}</small></span></td>
+                            <td style="padding: 1px;"><small>Performance</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" (change)="updatePersuasao($event)"></td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ persuasaoModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  persuasaoModifier
+                                  }}</small></span></td>
+                            <td style="padding: 1px;"><small>Persuasão</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" (change)="updatePrestidigitacao($event)">
+                            </td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ prestidigitacaoModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  prestidigitacaoModifier
+                                  }}</small></span></td>
+                            <td style="padding: 1px;"><small>Prestidigitação</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" (change)="updateReligiao($event)"></td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ religiaoModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  religiaoModifier }}</small></span>
+                            </td>
+                            <td style="padding: 1px;"><small>Religião</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" (change)="updateSobrevivencia($event)">
+                            </td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ sobrevivenciaModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  sobrevivenciaModifier
+                                  }}</small></span></td>
+                            <td style="padding: 1px;"><small>Sobrevivência</small></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row g-1">
+          <div class="col-md-4"> <!-- Atributos ocupando 4 colunas -->
+            <div class="card bg-dark text-light mb-1">
+              <div class="card-body d-flex flex-row justify-content-between">
+                <h6>Intuição Passiva:</h6>
+                <span class="badge bg-secondary modifier-badge" style="width: 40px; align-content: center;">{{ 10 +
+                  intuicaoModifier }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4"> <!-- Atributos ocupando 9 colunas -->
+            <div class="card bg-dark text-light mb-1">
+              <div class="card-body d-flex flex-row justify-content-between">
+                <h6>Investigação Passiva:</h6>
+                <span class="badge bg-secondary modifier-badge" style="width: 40px; align-content: center;">{{ 10 +
+                  investigacaoModifier }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4"> <!-- Atributos ocupando 9 colunas -->
+            <div class="card bg-dark text-light mb-1">
+              <div class="card-body d-flex flex-row justify-content-between">
+                <h6>Percepção Passiva:</h6>
+                <span class="badge bg-secondary modifier-badge" style="width: 40px; align-content: center;">{{ 10 +
+                  percepcaoModifier }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="tab-pane fade" [class.active]="activeTab === 'inventario'" [class.show]="activeTab === 'inventario'">
+      <div class="container">
+        <div class="row g-1">
+        </div>
+      </div>
+    </div>
+    <div class="tab-pane fade" [class.active]="activeTab === 'magias'" [class.show]="activeTab === 'magias'">
+      <div class="container">
+        <div class="row g-1">
+        </div>
+      </div>
+    </div>
+    <div class="tab-pane fade" [class.active]="activeTab === 'configuracoes'"
+      [class.show]="activeTab === 'configuracoes'">
+      <div class="container">
+        <div class="row g-1">
+          <div class="col-md-6">
+            <div class="card bg-dark text-light mb-1">
+              <div class="card-body">
+                <h6 style="padding: 1px; text-align: center;">Configuração de Perícias</h6>
+                <table class="table table-borderless text-light">
+                  <tbody>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><strong>Aptidão</strong></td>
+                      <td style="padding: 1px; text-align: center;"><strong>Perícia</strong></td>
+                      <td style="padding: 1px; text-align: center;"><strong>Atributo</strong></td>
+                      <td style="padding: 1px; text-align: center;"><strong>Bônus</strong></td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          (change)="updateAptAcrobacia($event)"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Acrobacia</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <select [(ngModel)]="acrobaciaAtributo" class="form-control form-control-sm">
+                          <option value="Des">Des</option>
+                          <option value="For">For</option>
+                          <option value="Con">Con</option>
+                          <option value="Int">Int</option>
+                          <option value="Sab">Sab</option>
+                          <option value="Car">Car</option>
+                        </select>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusAcrobacia($event)"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;"
+                          [value]="bonusAcrobacia" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          (change)="updateAptAdestrarAnimais($event)">
+                      </td>
+                      <td style="padding: 1px; text-align: center;"><small>Adest. Animais</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="adestrarAnimaisAtributo" class="form-control form-control-sm">
+                            <option value="Sab">Sab</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Int">Int</option>
+                            <option value="Con">Con</option>
+                            <option value="Car">Car</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusAdestrarAnimais($event)"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;"
+                          [value]="bonusAdestrarAnimais" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          (change)="updateAptArcanismo($event)"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Arcanismo</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="arcanismoAtributo" class="form-control form-control-sm">
+                            <option value="Int">Int</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Sab">Sab</option>
+                            <option value="Car">Car</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusArcanismo($event)"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;"
+                          [value]="bonusArcanismo" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          (change)="updateAptAtletismo($event)"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Atletismo</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="atletismoAtributo" class="form-control form-control-sm">
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Int">Int</option>
+                            <option value="Sab">Sab</option>
+                            <option value="Car">Car</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusAtletismo($event)"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;"
+                          [value]="bonusAtletismo" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          (change)="updateAptEnganacao($event)"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Enganação</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="enganacaoAtributo" class="form-control form-control-sm">
+                            <option value="Car">Car</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Int">Int</option>
+                            <option value="Sab">Sab</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusEnganacao($event)"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;"
+                          [value]="bonusEnganacao" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          (change)="updateAptFurtividade($event)"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Furtividade</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="furtividadeAtributo" class="form-control form-control-sm">
+                            <option value="Des">Des</option>
+                            <option value="For">For</option>
+                            <option value="Con">Con</option>
+                            <option value="Int">Int</option>
+                            <option value="Sab">Sab</option>
+                            <option value="Car">Car</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusFurtividade($event)"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;"
+                          [value]="bonusFurtividade" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          (change)="updateAptHistoria($event)"></td>
+                      <td style="padding: 1px; text-align: center;"><small>História</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="historiaAtributo" class="form-control form-control-sm">
+                            <option value="Int">Int</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Sab">Sab</option>
+                            <option value="Car">Car</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusHistoria($event)"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;"
+                          [value]="bonusHistoria" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          (change)="updateAptIntimidacao($event)"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Intimidação</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="intimidacaoAtributo" class="form-control form-control-sm">
+                            <option value="Car">Car</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Int">Int</option>
+                            <option value="Sab">Sab</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusIntimidacao($event)"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;"
+                          [value]="bonusIntimidacao" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          (change)="updateAptIntuicao($event)"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Intuição</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="intuicaoAtributo" class="form-control form-control-sm">
+                            <option value="Car">Car</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Int">Int</option>
+                            <option value="Sab">Sab</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusIntuicao($event)"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;"
+                          [value]="bonusIntuicao" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          (change)="updateAptInvestigacao($event)"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Investigação</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="investigacaoAtributo" class="form-control form-control-sm">
+                            <option value="Int">Int</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Sab">Sab</option>
+                            <option value="Car">Car</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusInvestigacao($event)"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;"
+                          [value]="bonusInvestigacao" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          (change)="updateAptMedicina($event)"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Medicina</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="medicinaAtributo" class="form-control form-control-sm">
+                            <option value="Sab">Sab</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Int">Int</option>
+                            <option value="Car">Car</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusMedicina($event)"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;"
+                          [value]="bonusMedicina" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          (change)="updateAptNatureza($event)"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Natureza</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="naturezaAtributo" class="form-control form-control-sm">
+                            <option value="Int">Int</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Sab">Sab</option>
+                            <option value="Car">Car</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusNatureza($event)"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;"
+                          [value]="bonusNatureza" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          (change)="updateAptPercepcao($event)"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Percepção</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="percepcaoAtributo" class="form-control form-control-sm">
+                            <option value="Sab">Sab</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Int">Int</option>
+                            <option value="Car">Car</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusPercepcao($event)"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;"
+                          [value]="bonusPercepcao" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          (change)="updateAptPerformance($event)"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Performance</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="performanceAtributo" class="form-control form-control-sm">
+                            <option value="Car">Car</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Int">Int</option>
+                            <option value="Sab">Sab</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusPerformance($event)"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;"
+                          [value]="bonusPerformance" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          (change)="updateAptPersuasao($event)"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Persuasão</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="persuasaoAtributo" class="form-control form-control-sm">
+                            <option value="Car">Car</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Int">Int</option>
+                            <option value="Sab">Sab</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusPersuasao($event)"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;"
+                          [value]="bonusPersuasao" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          (change)="updateAptPrestidigitacao($event)">
+                      </td>
+                      <td style="padding: 1px; text-align: center;"><small>Prestidigitação</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="prestidigitacaoAtributo" class="form-control form-control-sm">
+                            <option value="Des">Des</option>
+                            <option value="For">For</option>
+                            <option value="Con">Con</option>
+                            <option value="Int">Int</option>
+                            <option value="Sab">Sab</option>
+                            <option value="Car">Car</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusPrestidigitacao($event)"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;"
+                          [value]="bonusPrestidigitacao" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          (change)="updateAptReligiao($event)"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Religião</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="religiaoAtributo" class="form-control form-control-sm">
+                            <option value="Int">Int</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Sab">Sab</option>
+                            <option value="Car">Car</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusReligiao($event)"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;"
+                          [value]="bonusReligiao" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          (change)="updateAptSobrevivencia($event)"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Sobrevivência</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="sobrevivenciaAtributo" class="form-control form-control-sm">
+                            <option value="Sab">Sab</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Int">Int</option>
+                            <option value="Car">Car</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusSobrevivencia($event)"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;"
+                          [value]="bonusSobrevivencia" />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <table class="table table-borderless text-light">
+                  <tbody>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><strong>Versatilidade:</strong></td>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          (change)="updateVersatilidade($event)"></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card bg-dark text-light mb-1">
+              <div class="card-body">
+                <h6 style="padding: 1px; text-align: center;">Configurações de Personagem:</h6>
+                <table class="table table-borderless text-light">
+                  <tbody>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><small>Classe de Armadura:</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBaseCa($event)"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;"
+                          [value]="baseCa" />
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <select [(ngModel)]="caAtributo1" class="form-control form-control-sm">
+                          <option value="Des">Des</option>
+                          <option value="For">For</option>
+                          <option value="Con">Con</option>
+                          <option value="Int">Int</option>
+                          <option value="Sab">Sab</option>
+                          <option value="Car">Car</option>
+                          <option value=""></option>
+                        </select>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <select [(ngModel)]="caAtributo2" class="form-control form-control-sm">
+                          <option value=""></option>
+                          <option value="For">For</option>
+                          <option value="Des">Des</option>
+                          <option value="Con">Con</option>
+                          <option value="Int">Int</option>
+                          <option value="Sab">Sab</option>
+                          <option value="Car">Car</option>
+                        </select>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusCa($event)"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;"
+                          [value]="bonusCa" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><small>Iniciativa:</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusIniciativa($event)"
+                    class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                    style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" [value]="bonusIniciativa" />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

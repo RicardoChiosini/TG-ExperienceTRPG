@@ -5,4 +5,5 @@ body {
     font-family: Arial, sans-serif; /* Fonte padrão */
     margin: 0; /* Remove margem padrão */
     padding: 0; /* Remove padding padrão */
+    overflow: hidden; /* Evita rolagem da página */
   }

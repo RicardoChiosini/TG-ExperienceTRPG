@@ -91,6 +91,8 @@ VALUES
 ('Aptidão_Sobrevivência', 0, 1, NULL, NULL),
 ('Versatilidade', 0, 1, NULL, NULL),
 ('Talento_Confiável', 0, 1, NULL, NULL),
+('1_Conjurador', 0, 1, NULL, NULL),
+('1/2_Conjurador', 0, 1, NULL, NULL),
 ('1/3_Conjurador', 0, 1, NULL, NULL);
 
 select * from statususuarios;

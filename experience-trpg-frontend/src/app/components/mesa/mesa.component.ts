@@ -39,11 +39,7 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
   fichas: FichaDto[] = []; // Lista de fichas da mesa
   sistemas: Sistema[] = []; // Lista de sistemas disponíveis
   sistemaMesa: Sistema | null = null; // Sistema da mesa atual
-  public modalsAbertas: { ficha: FichaDto; modalId: string; top: number; left: number }[] = []; // Lista de modais abertas
-  public isDragging: boolean = false; // Estado de arraste
-  public draggedModal: any = null; // Modal atualmente arrastada
-  public startX: number = 0; // Posição inicial do mouse em X
-  public startY: number = 0; // Posição inicial do mouse em Y
+  modalsAbertas: { ficha: FichaDto; modalId: string; top: number; left: number; isDragging: boolean }[] = []; // Lista de modals abertas
 
   private destroy$ = new Subject<void>(); // Subject para gerenciar a destruição do componente
 
@@ -109,50 +105,84 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
     );
   }
 
+  // no seu MesaComponent.ts
+  getComponenteFicha(sistemaId: number): any {
+    switch (sistemaId) {
+      case 1:
+        return FichaDnd5eComponent; // ID de D&D 5E
+      case 2:
+        return FichaTormenta20Component; // ID de Tormenta 20
+      default:
+        return null;
+    }
+  }
+
   // Abre o modal com os detalhes da ficha
   abrirFicha(ficha: FichaDto): void {
-    const modalId = `modal-${ficha.fichaId}`; // ID único para cada modal
-    this.modalsAbertas.push({ ficha, modalId, top: 100, left: 100 }); // Adiciona a modal à lista de modals abertas
+    // Verifica se a ficha já está aberta
+    const fichaAberta = this.modalsAbertas.find(m => m.ficha.fichaId === ficha.fichaId);
+  
+    // Se a ficha já estiver aberta, não faça nada
+    if (fichaAberta) {
+      console.log(`A ficha '${ficha.nome}' já está aberta.`);
+      return;
+    }
+  
+    // Gere um ID único para a modal
+    const modalId = `modal-${ficha.fichaId}`; 
+    this.modalsAbertas.push({ ficha, modalId, top: 50, left: 50, isDragging: false }); // Adiciona a modal à lista de modals abertas
   }
 
   fecharModal(modalId: string): void {
     this.modalsAbertas = this.modalsAbertas.filter(m => m.modalId !== modalId); // Remove a modal da lista
   }
 
-  startDragging(event: MouseEvent, modal: any): void {
-    this.isDragging = true;
-    this.draggedModal = modal; // Modal que está sendo arrastada
-    this.startX = event.clientX;
-    this.startY = event.clientY;
-  }
-
-  moveModal(event: MouseEvent): void {
-    if (!this.isDragging || !this.draggedModal) return;
+  iniciarArrastar(event: MouseEvent, modalId: string): void {
+    const modal = this.modalsAbertas.find(m => m.modalId === modalId);
+    if (modal) {
+      modal.isDragging = true;
+      const offsetX = event.clientX - modal.left;
+      const offsetY = event.clientY - modal.top;
   
-    const deltaX = event.clientX - this.startX;
-    const deltaY = event.clientY - this.startY;
+      const moverModal = (e: MouseEvent) => {
+        if (modal.isDragging) {
+          // Calcular nova posição
+          let newLeft = e.clientX - offsetX;
+          let newTop = e.clientY - offsetY;
   
-    // Atualizar a posição da modal
-    this.draggedModal.top += deltaY;
-    this.draggedModal.left += deltaX;
+          // Obter dimensões da modal
+          const modalWidth = 300; // Largura padrão
+          const modalHeight = 200; // Altura padrão (ajuste conforme necessário)
+          const windowWidth = window.innerWidth;
+          const windowHeight = window.innerHeight;
   
-    this.startX = event.clientX;
-    this.startY = event.clientY;
-  }
+          // Restringir a nova posição
+          if (newTop < 0) {
+            newTop = 0; // Limita a parte superior
+          } else if (newTop + modalHeight > windowHeight) {
+            newTop = windowHeight - modalHeight; // Limita a parte inferior
+          }
   
-  stopDragging(): void {
-    this.isDragging = false;
-    this.draggedModal = null;
-  }
-
-  getComponenteFicha(sistemaNome: string): any {
-    switch (sistemaNome) {
-      case 'Dungeons and Dragons 5E':
-        return FichaDnd5eComponent;
-      case 'Tormenta20':
-        return FichaTormenta20Component;
-      default:
-        return null;
+          if (newLeft < 0) {
+            newLeft = 0; // Limita a parte esquerda
+          } else if (newLeft + modalWidth > windowWidth) {
+            newLeft = windowWidth - modalWidth; // Limita a parte direita
+          }
+  
+          // Atualizar a posição da modal
+          modal.left = newLeft;
+          modal.top = newTop;
+        }
+      };
+  
+      const pararArrastar = () => {
+        modal.isDragging = false;
+        document.removeEventListener('mousemove', moverModal);
+        document.removeEventListener('mouseup', pararArrastar);
+      };
+  
+      document.addEventListener('mousemove', moverModal);
+      document.addEventListener('mouseup', pararArrastar);
     }
   }
   

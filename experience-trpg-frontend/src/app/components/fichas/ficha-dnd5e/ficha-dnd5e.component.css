@@ -1,23 +1,63 @@
-.modal-window {
-  position: absolute;
-  border: 1px solid #ccc;
-  background-color: #fff;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  resize: both;
-  overflow: auto;
+.ficha-container {
+  background-color: #1e1e1e; /* Cor de fundo do container da ficha */
+  border-radius: 0.5rem; /* Bordas arredondadas */
+  padding: 1.5rem; /* Espaçamento interno */
 }
 
-.modal-header {
-  cursor: move;
-  background-color: #f7f7f7;
-  padding: 10px;
-  border-bottom: 1px solid #ddd;
+.ficha-container .form-control,
+.ficha-container .form-select {
+  background-color: #343a40; /* Cor de fundo dos inputs e selects */
+  color: #ffffff; /* Cor do texto */
+  border: 1px solid #495057; /* Cor da borda */
 }
 
-.modal-body {
-  padding: 10px;
+.ficha-container .form-label {
+  color: #ffffff; /* Cor das labels */
 }
 
-.modal-backdrop {
-  display: none;
+.ficha-container .nav-tabs .nav-link {
+  color: #ffffff; /* Cor do texto das abas */
+}
+
+.ficha-container .nav-tabs .nav-link.active {
+  background-color: #343a40; /* Cor de fundo da aba ativa */
+  color: #ffffff; /* Cor do texto da aba ativa */
+}
+
+.ficha-container .nav-tabs .nav-link:hover {
+  background-color: #495057; /* Cor de fundo ao passar o mouse nas abas */
+}
+
+.ficha-container h2 {
+  color: #ffffff; /* Cor do título */
+}
+
+.card {
+  min-width: 120px; /* Definindo uma largura mínima para que todos os cards sejam uniformes */
+}
+
+.modifier-badge {
+  font-size: 0.8em; /* Ajuste o tamanho conforme necessário */
+}
+
+.bp-badge {
+  font-size: 1.5em; /* Ajuste o tamanho conforme necessário */
+}
+
+.cainit-badge {
+  font-size: 1em; /* Ajuste o tamanho conforme necessário */
+}
+
+.atributo-badge {
+  font-size: 1em; /* Ajuste o tamanho conforme necessário */
+}
+
+.table {
+  background-color: transparent; /* Para garantir que o fundo não seja branco */
+}
+
+.table td {
+  background-color: transparent; /* Cor de fundo escura */
+  color: white; /* Cor do texto branco */
+  padding: 1px; /* Para ter um espaçamento menor entre os componentes */
 }

@@ -64,18 +64,14 @@
 <!-- Modals abertas -->
 <ng-container *ngFor="let modal of modalsAbertas">
   <div class="modal-window" [id]="modal.modalId" [ngStyle]="{ 'top.px': modal.top, 'left.px': modal.left }">
-    <div class="modal-header" (mousedown)="startDragging($event, modal)" (mouseup)="stopDragging()" (mouseleave)="stopDragging()">
+    <div class="modal-header" (mousedown)="iniciarArrastar($event, modal.modalId)">
       <h5 class="modal-title">{{ modal.ficha.nome }}</h5>
       <button type="button" class="btn-close" (click)="fecharModal(modal.modalId)"></button>
     </div>
     <div class="modal-body">
-      <!-- Componente de ficha dinâmico -->
-      <ng-container *ngIf="sistemaMesa">
-        <ng-container *ngComponentOutlet="getComponenteFicha(sistemaMesa.nome); inputs: { fichaId: modal.ficha.fichaId }"></ng-container>
+      <ng-container 
+        *ngComponentOutlet="getComponenteFicha(modal.ficha.sistemaId); inputs: { fichaId: modal.ficha.fichaId }">
       </ng-container>
-    </div>
-    <div class="modal-footer">
-      <button type="button" class="btn btn-secondary" (click)="fecharModal(modal.modalId)">Fechar</button>
     </div>
   </div>
 </ng-container>
