@@ -19,6 +19,11 @@ public class MappingProfile : Profile
             }));
 
         CreateMap<Usuario, UsuarioDto>();
-        CreateMap<Ficha, FichaDto>();
+        CreateMap<Ficha, FichaDto>()
+            .ForMember(dest => dest.Nome, opt => opt.MapFrom(src => src.Nome ?? string.Empty))
+            .ForMember(dest => dest.Descricao, opt => opt.MapFrom(src => src.Descricao ?? string.Empty));
+        CreateMap<Atributo, AtributoDto>();
+        CreateMap<Habilidade, HabilidadeDto>();
+        CreateMap<Proficiencia, ProficienciaDto>();
     }
 }

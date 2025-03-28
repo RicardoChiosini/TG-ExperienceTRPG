@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using experience_trpg_backend.Models;
+using experience_trpg_backend.DTOs;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Google.Protobuf.WellKnownTypes;
@@ -30,20 +31,57 @@ namespace experience_trpg_backend.Controllers
             return await _context.Fichas.ToListAsync();
         }
 
-        [HttpGet("{id}")]
-        public async Task<ActionResult<FichaDto>> GetFicha(int id)
+        [HttpGet("{fichaId}")]
+        public async Task<ActionResult<FichaDto>> GetFichaPorId(int fichaId)
         {
             var ficha = await _context.Fichas
-                .FirstOrDefaultAsync(f => f.FichaId == id);
+                .Include(f => f.Atributos)    // Inclui Atributos
+                .Include(f => f.Proficiencias) // Inclui Proficiências
+                .Include(f => f.Habilidades)   // Inclui Habilidades
+                .FirstOrDefaultAsync(f => f.FichaId == fichaId);
 
             if (ficha == null)
-            {
-                return NotFound();
-            }
+                return NotFound("Ficha não encontrada.");
 
-            var fichaDto = _mapper.Map<FichaDto>(ficha);
+            var fichaDto = new FichaDto
+            {
+                FichaId = ficha.FichaId,
+                Nome = ficha.Nome ?? string.Empty,   // Utilize string.Empty se o Nome for nulo
+                Descricao = ficha.Descricao ?? string.Empty, // Utilize string.Empty se a Descrição for nula
+                SistemaId = ficha.SistemaId,
+                MesaId = ficha.MesaId,
+
+                // Atributos
+                Atributos = ficha.Atributos.Select(attr => new AtributoDto
+                {
+                    AtributoId = attr.AtributoId,
+                    Nome = attr.Nome,
+                    Valor = attr.Valor,
+                    FichaId = attr.FichaId
+                }).ToList(),
+
+                // Proficiências
+                Proficiencias = ficha.Proficiencias.Select(prof => new ProficienciaDto
+                {
+                    ProficienciaId = prof.ProficienciaId,
+                    Nome = prof.Nome,
+                    Proficiente = prof.Proficiente, // Aqui, use diretamente se for bool
+                    FichaId = prof.FichaId
+                }).ToList(),
+
+                // Habilidades
+                Habilidades = ficha.Habilidades.Select(hab => new HabilidadeDto
+                {
+                    HabilidadeId = hab.HabilidadeId,
+                    Nome = hab.Nome,
+                    Descricao = hab.Descricao,
+                    FichaId = hab.FichaId
+                }).ToList()
+            };
+
             return Ok(fichaDto);
         }
+
 
         [HttpGet("{mesaId}/fichas")]
         public async Task<ActionResult<IEnumerable<FichaDto>>> GetFichasPorMesa(int mesaId)
@@ -94,6 +132,7 @@ namespace experience_trpg_backend.Controllers
             var fichaPadrao = await _context.Fichas
                 .Include(f => f.Atributos) // Inclui os atributos
                 .Include(f => f.Habilidades) // Inclui as habilidades
+                .Include(f => f.Proficiencias) // Inclui as proficiências
                 .FirstOrDefaultAsync(f => f.SistemaId == sistemaId && f.MesaId == null);
 
             if (fichaPadrao == null)
@@ -110,6 +149,7 @@ namespace experience_trpg_backend.Controllers
                 MesaId = mesaId,
                 Atributos = fichaPadrao.Atributos.Select(a => new Atributo { Nome = a.Nome, Valor = a.Valor }).ToList(),
                 Habilidades = fichaPadrao.Habilidades.Select(h => new Habilidade { Nome = h.Nome, Descricao = h.Descricao }).ToList(),
+                Proficiencias = fichaPadrao.Proficiencias.Select(p => new Proficiencia { Nome = p.Nome, Proficiente = p.Proficiente }).ToList()
             };
 
             // Adiciona a nova ficha ao contexto
@@ -130,33 +170,104 @@ namespace experience_trpg_backend.Controllers
         }
 
         // PUT: api/fichas/5
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutFicha(int id, Ficha ficha)
+        [HttpPut("{fichaId}")]
+        public async Task<IActionResult> UpdateFicha(int fichaId, FichaDto fichaDto)
         {
-            if (id != ficha.FichaId)
+            var fichaExistente = await _context.Fichas
+                .Include(f => f.Atributos)
+                .Include(f => f.Proficiencias)
+                .Include(f => f.Habilidades)
+                .FirstOrDefaultAsync(f => f.FichaId == fichaId);
+
+            if (fichaExistente == null)
             {
-                return BadRequest();
+                return NotFound("Ficha não encontrada.");
             }
 
-            _context.Entry(ficha).State = EntityState.Modified;
+            // Atualizando as propriedades da ficha existente
+            fichaExistente.Nome = fichaDto.Nome ?? fichaExistente.Nome; // Mantém o nome atual se não for fornecido
+            fichaExistente.Descricao = fichaDto.Descricao ?? fichaExistente.Descricao; // Mesma lógica para a descrição
 
-            try
+            // Atualização dos atributos
+            foreach (var atributo in fichaDto.Atributos)
             {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!FichaExists(id))
+                var existAttr = fichaExistente.Atributos.FirstOrDefault(a => a.Nome == atributo.Nome);
+                if (existAttr != null)
                 {
-                    return NotFound();
+                    // Atualiza o valor do atributo existente
+                    existAttr.Valor = atributo.Valor;
                 }
                 else
                 {
-                    throw;
+                    // Cria e adiciona um novo atributo se não existir
+                    fichaExistente.Atributos.Add(new Atributo
+                    {
+                        Nome = atributo.Nome,
+                        Valor = atributo.Valor,
+                        FichaId = fichaExistente.FichaId
+                    });
                 }
             }
 
-            return NoContent();
+            // Atualização das proficiências
+            foreach (var proficiencia in fichaDto.Proficiencias)
+            {
+                var existProf = fichaExistente.Proficiencias.FirstOrDefault(p => p.Nome == proficiencia.Nome);
+                if (existProf != null)
+                {
+                    // Atualiza o estado da proficiência existente
+                    existProf.Proficiente = proficiencia.Proficiente; // Continue usando bool diretamente
+                }
+                else
+                {
+                    // Adiciona nova proficiência se não existir
+                    fichaExistente.Proficiencias.Add(new Proficiencia
+                    {
+                        Nome = proficiencia.Nome,
+                        Proficiente = proficiencia.Proficiente, // Usando o valor booleano diretamente
+                        FichaId = fichaExistente.FichaId
+                    });
+                }
+            }
+
+            // Atualização das habilidades
+            foreach (var habilidade in fichaDto.Habilidades)
+            {
+                var existHab = fichaExistente.Habilidades.FirstOrDefault(h => h.Nome == habilidade.Nome);
+                if (existHab != null)
+                {
+                    // Atualiza a descrição da habilidade existente
+                    existHab.Descricao = habilidade.Descricao;
+                }
+                else
+                {
+                    // Adiciona nova habilidade se não existir
+                    fichaExistente.Habilidades.Add(new Habilidade
+                    {
+                        Nome = habilidade.Nome,
+                        Descricao = habilidade.Descricao,
+                        FichaId = fichaExistente.FichaId
+                    });
+                }
+            }
+
+            // Salva todas as mudanças
+            await _context.SaveChangesAsync();
+
+            return NoContent(); // Retorna NoContent se a atualização for bem-sucedida
+        }
+
+        [HttpGet("{fichaId}/mesaId")]
+        public async Task<IActionResult> GetMesaIdByFichaId(int fichaId)
+        {
+            var ficha = await _context.Fichas.FindAsync(fichaId);
+
+            if (ficha == null)
+            {
+                return NotFound(); // Retorna 404 se a ficha não for encontrada
+            }
+
+            return Ok(ficha.MesaId); // Retorna o MesaId da ficha
         }
 
         // DELETE: api/fichas/5

@@ -195,29 +195,6 @@ namespace experience_trpg_backend.Controllers
             }
         }
 
-        [HttpGet("{mesaId}/mensagens")]
-        public async Task<IActionResult> GetMensagens(int mesaId)
-        {
-            var mensagens = await _context.Mensagens
-                .Where(m => m.MesaId == mesaId)
-                .Include(m => m.MenUsuario) // Inclui o usuário associado à mensagem
-                .OrderByDescending(m => m.DataHora) // Ordena as mensagens pela data/hora (mais antigas primeiro)
-                .Take(50) // Retorna apenas as últimas 50 mensagens
-                .Select(m => new
-                {
-                    user = m.MenUsuario.Nome, // Nome do usuário
-                    message = m.Texto, // Texto da mensagem
-                })
-                .ToListAsync();
-
-            if (mensagens == null || !mensagens.Any())
-            {
-                return NotFound("Nenhuma mensagem encontrada para esta mesa.");
-            }
-
-            return Ok(mensagens);
-        }
-
         // Método para criar nova mesa
         [HttpPost]
         public async Task<ActionResult<MesaDto>> CreateMesa([FromBody] MesaDto mesaDto)

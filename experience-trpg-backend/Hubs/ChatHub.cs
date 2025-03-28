@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.SignalR;
-using System.Threading.Tasks;
 using experience_trpg_backend.Models;
-using Microsoft.EntityFrameworkCore;
+using experience_trpg_backend.Dtos;
+using System.Text.Json;
 
 namespace experience_trpg_backend.Hubs
 {
@@ -14,36 +14,45 @@ namespace experience_trpg_backend.Hubs
             _context = context;
         }
 
-        // Método para enviar mensagens
-        public async Task SendMessage(string user, string message, int mesaId, int usuarioId)
+        public async Task SendMessage(string user, string message, int mesaId, int usuarioId,
+                            string? tipoMensagem = null, string? dadosFormatados = null)
         {
-            // Salva a mensagem no banco de dados
+            Console.WriteLine($"Recebida mensagem para mesa {mesaId} de {user}");
+
             var novaMensagem = new Mensagem
             {
                 Texto = message,
                 DataHora = DateTime.Now,
                 UsuarioId = usuarioId,
-                MesaId = mesaId
+                MesaId = mesaId,
+                TipoMensagem = tipoMensagem,
+                DadosFormatados = dadosFormatados
             };
 
             _context.Mensagens.Add(novaMensagem);
             await _context.SaveChangesAsync();
 
-            // Envia a mensagem para o grupo (apenas user e message)
-            await Clients.Group(mesaId.ToString()).SendAsync("ReceiveMessage", user, message);
+            Console.WriteLine($"Enviando mensagem para grupo {mesaId}");
+            await Clients.Group(mesaId.ToString()).SendAsync("ReceiveMessage", new
+            {
+                user,
+                message,
+                tipoMensagem,
+                dadosFormatados,
+                usuarioId,
+                mesaId, // Adicione esta linha
+                dataHora = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss")
+            });
         }
 
-        // Entra no grupo da mesa
         public async Task JoinMesaGroup(int mesaId)
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, mesaId.ToString());
-            Console.WriteLine($"Usuário entrou no grupo da mesa: {mesaId}");
         }
 
         public async Task LeaveMesaGroup(int mesaId)
         {
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, mesaId.ToString());
-            Console.WriteLine($"Usuário saiu do grupo da mesa: {mesaId}");
         }
     }
 }

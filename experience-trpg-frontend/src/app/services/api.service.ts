@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { MesaDto } from '../dtos/mesa.dto';
-import { FichaDto } from '../dtos/ficha.dto';
+import { FichaDto, AtributoDto, HabilidadeDto, ProficienciaDto } from '../dtos/ficha.dto';
 
 @Injectable({
   providedIn: 'root',
@@ -10,7 +10,7 @@ import { FichaDto } from '../dtos/ficha.dto';
 export class ApiService {
   private baseUrl = 'http://localhost:5056/api'; // URL base do seu ASP.NET
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
   // Método para obter dados
   getData(endpoint: string): Observable<any> {
@@ -44,11 +44,11 @@ export class ApiService {
   getConvitePorMesaId(mesaId: number): Observable<string> {
     return this.http.get(`http://localhost:5056/api/mesas/${mesaId}/convite`, { responseType: 'text' });
   }
-  
+
   participarDaMesa(mesaId: number, token: string, usuarioId: number): Observable<any> {
     return this.http.post(`${this.baseUrl}/mesas/${mesaId}/convites/${token}/participar`, { usuarioId });
   }
-  
+
   // Método para atualizar uma mesa
   expulsarParticipante(data: { usuarioId: number; mesaId: number }): Observable<any> {
     return this.http.delete(`${this.baseUrl}/mesas/expulsar-participante`, { body: data });
@@ -57,7 +57,7 @@ export class ApiService {
   updateUsuario(usuario: any): Observable<any> {
     return this.http.put(`${this.baseUrl}/usuarios/${usuario.usuarioId}`, usuario);
   }
-  
+
   updateMesa(mesa: MesaDto): Observable<MesaDto> {
     return this.http.put<MesaDto>(`${this.baseUrl}/mesas/${mesa.mesaId}`, mesa);
   }
@@ -66,9 +66,9 @@ export class ApiService {
   createMesa(mesaData: any, token: string | null): Observable<any> {
     let headers = {};
     if (token) {
-        headers = {
-            'Authorization': `Bearer ${token}` // Adiciona o token ao cabeçalho
-        };
+      headers = {
+        'Authorization': `Bearer ${token}` // Adiciona o token ao cabeçalho
+      };
     }
 
     return this.http.post(`${this.baseUrl}/mesas`, mesaData, { headers }); // Passa o cabeçalho na requisição
@@ -107,5 +107,31 @@ export class ApiService {
   // Busca uma ficha por ID
   getFichaPorId(fichaId: number): Observable<FichaDto> {
     return this.http.get<FichaDto>(`${this.baseUrl}/fichas/${fichaId}`);
-}
+  }
+
+  // Atualiza a ficha
+  updateFicha(fichaId: number, ficha: Partial<FichaDto>): Observable<void> {
+    return this.http.put<void>(`${this.baseUrl}/fichas/${fichaId}`, ficha);
+  }
+
+  // Atualiza um atributo
+  updateAtributo(atributoId: number, atributo: AtributoDto): Observable<void> {
+    console.log("Atualizando atributo:", atributo); // Adicionando log
+    return this.http.put<void>(`${this.baseUrl}/atributos/${atributoId}`, atributo);
+  }
+
+  // Atualiza uma habilidade
+  updateHabilidade(habilidadeId: number, habilidade: HabilidadeDto): Observable<void> {
+    return this.http.put<void>(`${this.baseUrl}/habilidades/${habilidadeId}`, habilidade);
+  }
+
+  // Atualiza uma proficiência
+  updateProficiencia(proficienciaId: number, proficiencia: ProficienciaDto): Observable<void> {
+    return this.http.put<void>(`${this.baseUrl}/proficiencias/${proficienciaId}`, proficiencia);
+  }
+
+  // No seu serviço API, crie um método para buscar o MesaId
+  getMesaIdByFichaId(fichaId: number): Observable<number> {
+    return this.http.get<number>(`${this.baseUrl}/fichas/${fichaId}/mesaId`);
+  }
 }

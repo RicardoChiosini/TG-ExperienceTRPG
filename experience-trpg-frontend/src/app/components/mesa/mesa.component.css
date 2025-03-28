@@ -41,75 +41,24 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
+  overflow: hidden; /* Mantém o overflow escondido no container */
+  min-height: 0; /* Permite que o conteúdo encolha */
 }
 
-.aba-fichas, .aba-imagens, .aba-config {
+/* Garante que o app-chat ocupe todo o espaço */
+app-chat {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.aba-fichas,
+.aba-imagens,
+.aba-config {
   flex: 1;
   display: flex;
   flex-direction: column;
   padding: 10px;
-}
-
-.chat-container {
-  display: flex;
-  flex-direction: column;
-  height: 100%; /* Garante que o container ocupe toda a altura disponível */
-}
-
-/* Container da aba de chat */
-.aba-chat {
-  display: flex;
-  flex-direction: column;
-  height: 100%; /* Ocupa toda a altura disponível */
-}
-
-/* Área de mensagens */
-.mensagens {
-  flex: 1; /* Ocupa o espaço restante */
-  overflow-y: auto; /* Adiciona scroll vertical */
-  padding: 10px;
-  display: flex;
-  flex-direction: column; /* Inverte a ordem das mensagens (mais novas embaixo) */
-}
-
-/* Estilo das mensagens individuais */
-.mensagem {
-  margin-bottom: 10px; /* Espaçamento entre as mensagens */
-}
-
-/* Área de envio de mensagens */
-.enviar-mensagem {
-  display: flex;
-  padding: 10px;
-  background-color: #333; /* Cor de fundo */
-  border-top: 1px solid #ccc; /* Linha separadora */
-  position: sticky; /* Fixa a área de envio no canto inferior */
-  bottom: 0;
-}
-
-/* Estilo do input de mensagem */
-.enviar-mensagem input {
-  flex: 1; /* Faz o input ocupar o espaço disponível */
-  padding: 8px;
-  border: 1px solid #444;
-  border-radius: 4px;
-  margin-right: 10px;
-}
-
-/* Estilo do botão de enviar */
-.enviar-mensagem button {
-  padding: 8px 16px;
-  background-color: #0052aa; /* Cor do botão */
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-/* Efeito ao passar o mouse no botão */
-.enviar-mensagem button:hover {
-  background-color: #0056b3;
 }
 
 .btn-primary {

@@ -15,19 +15,8 @@
     <!-- Conteúdo das Abas -->
     <div class="conteudo-abas">
       <!-- Aba de Chat -->
-      <div *ngIf="activeTab === 'chat'" class="aba-chat">
-        <h3>Chat</h3>
-        <div class="mensagens" #mensagensContainer>
-          <div *ngFor="let msg of mensagens" class="mensagem">
-            <strong>{{ msg.user }}:</strong> {{ msg.message }}
-          </div>
-        </div>
-         <!-- Área de envio de mensagens (fixa no canto inferior) -->
-        <div class="enviar-mensagem">
-          <input [(ngModel)]="novaMensagem" placeholder="Digite sua mensagem..." (keyup.enter)="enviarMensagem()" />
-          <button (click)="enviarMensagem()">Enviar</button>
-        </div>
-      </div>
+      <app-chat [mesaId]="mesaId" [usuarioId]="usuarioId" *ngIf="activeTab === 'chat' && mesaId">
+      </app-chat>
 
       <!-- Aba de Fichas -->
       <div *ngIf="activeTab === 'fichas'" class="aba-fichas">
@@ -36,7 +25,7 @@
         <div *ngFor="let ficha of fichas" class="ficha-item" (click)="abrirFicha(ficha)">
           {{ ficha.nome }}
         </div>
-      </div>         
+      </div>
 
       <!-- Aba de Imagens -->
       <div *ngIf="activeTab === 'imagens'" class="aba-imagens">
@@ -54,7 +43,7 @@
           <div class="censored-link" (click)="copyToClipboard(linkConvite)">
             <span class="censorship-bar"></span>
             <span class="hidden-text">{{ linkConvite }}</span>
-          </div>          
+          </div>
         </div>
       </div>
     </div>
@@ -69,7 +58,7 @@
       <button type="button" class="btn-close" (click)="fecharModal(modal.modalId)"></button>
     </div>
     <div class="modal-body">
-      <ng-container 
+      <ng-container
         *ngComponentOutlet="getComponenteFicha(modal.ficha.sistemaId); inputs: { fichaId: modal.ficha.fichaId }">
       </ng-container>
     </div>

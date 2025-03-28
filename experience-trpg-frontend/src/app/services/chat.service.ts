@@ -1,129 +1,120 @@
 import { Injectable } from '@angular/core';
 import * as signalR from '@microsoft/signalr';
-import { Observable, of, Subject } from 'rxjs';
+import { Observable, Subject, of } from 'rxjs';
+import { map, catchError } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
-import { catchError } from 'rxjs/operators';
+
+
+interface ChatMessage {
+  mensagemId?: number;
+  user: string;
+  message: string;  
+  texto: string;    
+  tipoMensagem: 'normal' | 'dado'; 
+  dadosFormatados?: string;
+  usuarioId: number;
+  mesaId: number;
+  dataHora: string;
+}
 
 @Injectable({
-  providedIn: 'root',
+  providedIn: 'root'
 })
 export class ChatService {
   private hubConnection!: signalR.HubConnection;
-  private baseUrl = 'http://localhost:5056/api';
-  private messageSubject = new Subject<{ user: string; message: string }>();
-  private isConnectionStarted = false; // Flag para controlar se a conexão já foi iniciada
+  private messageSubject = new Subject<ChatMessage>();
+  private baseUrl = 'http://localhost:5056';
+  private connectionStarted = false;
 
   constructor(private http: HttpClient) {
     this.startConnection();
   }
 
-  private startConnection() {
-    if (this.isConnectionStarted) {
-      console.log('Conexão já iniciada.');
-      return;
-    }
+  private startConnection(): void {
+    if (this.connectionStarted) return;
 
     this.hubConnection = new signalR.HubConnectionBuilder()
-      .withUrl('http://localhost:5056/chathub', {
+      .withUrl(`${this.baseUrl}/chathub`, {
         skipNegotiation: true,
-        transport: signalR.HttpTransportType.WebSockets,
+        transport: signalR.HttpTransportType.WebSockets
       })
-      .configureLogging(signalR.LogLevel.Information)
+      .withAutomaticReconnect()
       .build();
 
-    this.hubConnection
-      .start()
+    this.hubConnection.start()
       .then(() => {
-        console.log('Conectado ao SignalR');
-        this.isConnectionStarted = true;
-
-        // Registra o listener para novas mensagens
-        this.hubConnection.on('ReceiveMessage', (user: string, message: string) => {
-          this.messageSubject.next({ user, message });
+        this.connectionStarted = true;
+        console.log('Conexão SignalR estabelecida');
+        
+        this.hubConnection.on('ReceiveMessage', (message: any) => {
+          const chatMessage: ChatMessage = {
+            user: message.user,
+            message: message.message,
+            texto: message.message.replace(/<[^>]*>/g, ''),
+            tipoMensagem: message.tipoMensagem || 'normal',
+            dadosFormatados: message.dadosFormatados,
+            usuarioId: message.usuarioId,
+            mesaId: message.mesaId, // Adicione esta linha
+            dataHora: message.dataHora
+          };
+          this.messageSubject.next(chatMessage);
         });
       })
-      .catch((err) => {
-        console.error('Erro na conexão: ' + err);
-        setTimeout(() => this.startConnection(), 5000); // Tenta reconectar após 5 segundos
-      });
+      .catch(err => console.error('Erro ao conectar ao SignalR:', err));
 
-    // Listener para reconexão em caso de queda
     this.hubConnection.onclose(() => {
-      console.log('Conexão com o SignalR fechada. Tentando reconectar...');
-      this.isConnectionStarted = false; // Reseta a flag para permitir reconexão
+      this.connectionStarted = false;
+      console.log('Conexão SignalR fechada. Tentando reconectar...');
       setTimeout(() => this.startConnection(), 5000);
     });
   }
 
-  // Retorna um Observable para novas mensagens
-  getMessageObservable(): Observable<{ user: string; message: string }> {
+  getMessageObservable(): Observable<ChatMessage> {
     return this.messageSubject.asObservable();
   }
 
-  // Envia uma mensagem
-  sendMessage(user: string, message: string, mesaId: number, usuarioId: number): Observable<void> {
-    return new Observable((observer) => {
-      if (this.hubConnection.state === signalR.HubConnectionState.Connected) {
-        this.hubConnection
-          .invoke('SendMessage', user, message, mesaId, usuarioId)
-          .then(() => {
-            observer.next();
-            observer.complete();
-          })
-          .catch((err) => {
-            console.error('Erro ao enviar mensagem: ' + err);
-            observer.error(err);
-          });
-      } else {
-        console.error('Conexão com o SignalR não está ativa. Tentando reconectar...');
-        this.startConnection();
-        observer.error('Conexão com o SignalR não está ativa.');
-      }
-    });
-  }
-
-  // Obtém mensagens de uma mesa
-  getMensagensPorMesa(mesaId: number): Observable<any> {
-    return this.http.get(`${this.baseUrl}/mesas/${mesaId}/mensagens`).pipe(
-      catchError((error) => {
-        if (error.status === 404) {
-          console.log('Nenhuma mensagem encontrada para esta mesa.');
-          return of([]); // Retorna um array vazio em caso de 404
-        }
-        console.error('Erro ao carregar mensagens: ', error);
-        throw error; // Propaga outros erros
-      })
+  sendMessage(messageData: ChatMessage): Promise<void> {
+    return this.hubConnection.invoke('SendMessage', 
+      messageData.user,
+      messageData.message || messageData.texto || '',
+      messageData.mesaId,
+      messageData.usuarioId,
+      messageData.tipoMensagem,
+      messageData.dadosFormatados
     );
   }
 
-  // Entra no grupo da mesa
-  joinMesaGroup(mesaId: number): void {
-    if (this.hubConnection.state === signalR.HubConnectionState.Connected) {
-      this.hubConnection
-        .invoke('JoinMesaGroup', mesaId)
-        .catch((err) => {
-          console.error('Erro ao entrar no grupo: ' + err);
-          this.startConnection();
-          setTimeout(() => this.joinMesaGroup(mesaId), 2000);
-        });
-    } else {
-      console.error('Conexão com o SignalR não está ativa. Tentando reconectar...');
-      this.startConnection();
-      setTimeout(() => this.joinMesaGroup(mesaId), 2000);
-    }
+  getMensagensPorMesa(mesaId: number): Observable<ChatMessage[]> {
+    return this.http.get<ChatMessage[]>(`${this.baseUrl}/api/mensagens/mesa/${mesaId}`).pipe(
+      map(response => this.mapearRespostaParaChatMessage(response)),
+      catchError(error => {
+        console.error('Erro ao carregar mensagens:', error);
+        return of([]);
+      })
+    );
   }
   
-  // Sai do grupo da mesa
-  leaveMesaGroup(mesaId: number): void {
-    if (this.hubConnection && this.hubConnection.state === signalR.HubConnectionState.Connected) {
-      this.hubConnection
-        .invoke('LeaveMesaGroup', mesaId)
-        .then(() => {
-          console.log('Saiu do grupo da mesa:', mesaId);
-        })
-        .catch((err) => {
-          console.error('Erro ao sair do grupo: ' + err);
-        });
-    }
+  private mapearRespostaParaChatMessage(response: any): ChatMessage[] {
+    if (!Array.isArray(response)) return [];
+    
+    return response.map(msg => ({
+      mensagemId: msg.mensagemId || 0,
+      user: msg.usuarioNome || 'Anônimo',
+      message: msg.texto || '',
+      texto: msg.texto || '',
+      tipoMensagem: msg.tipoMensagem || 'normal',
+      dadosFormatados: msg.dadosFormatados,
+      usuarioId: msg.usuarioId || 0,
+      mesaId: msg.mesaId || 0,
+      dataHora: msg.dataHora || new Date().toISOString()
+    }));
+  }
+
+  joinMesaGroup(mesaId: number): Promise<void> {
+    return this.hubConnection.invoke('JoinMesaGroup', mesaId);
+  }
+
+  leaveMesaGroup(mesaId: number): Promise<void> {
+    return this.hubConnection.invoke('LeaveMesaGroup', mesaId);
   }
 }

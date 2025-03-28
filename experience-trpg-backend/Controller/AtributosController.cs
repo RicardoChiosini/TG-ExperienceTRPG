@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using experience_trpg_backend.Models;
+using experience_trpg_backend.DTOs;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 #pragma warning disable CS8604 // Possível argumento de referência nula.
@@ -8,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace experience_trpg_backend.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/atributos")]
     [ApiController]
     public class AtributosController : ControllerBase
     {
@@ -52,14 +53,21 @@ namespace experience_trpg_backend.Controllers
 
         // PUT: api/atributos/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutAtributo(int id, Atributo atributo)
+        public async Task<IActionResult> PutAtributo(int id, AtributoDto atributoDto)
         {
-            if (id != atributo.AtributoId)
+            if (id != atributoDto.AtributoId)
             {
                 return BadRequest();
             }
 
-            _context.Entry(atributo).State = EntityState.Modified;
+            var atributoAtual = await _context.Atributos.FindAsync(id);
+            if (atributoAtual == null)
+            {
+                return NotFound();
+            }
+
+            // Mapeamento dos valores do DTO para a entidade
+            atributoAtual.Valor = atributoDto.Valor;
 
             try
             {
@@ -73,22 +81,6 @@ namespace experience_trpg_backend.Controllers
                 }
                 throw;
             }
-
-            return NoContent();
-        }
-
-        // DELETE: api/atributos/5
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteAtributo(int id)
-        {
-            var atributo = await _context.Atributos.FindAsync(id);
-            if (atributo == null)
-            {
-                return NotFound();
-            }
-
-            _context.Atributos.Remove(atributo);
-            await _context.SaveChangesAsync();
 
             return NoContent();
         }

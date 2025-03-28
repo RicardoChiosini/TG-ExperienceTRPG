@@ -15,6 +15,7 @@ namespace experience_trpg_backend.Models
         public DbSet<Sistema>? Sistemas { get; set; }
         public DbSet<Imagem>? Imagens { get; set; }
         public DbSet<Atributo>? Atributos { get; set; }
+        public DbSet<Proficiencia>? Proficiencias { get; set; }
         public DbSet<Habilidade>? Habilidades { get; set; }
         public DbSet<Equipamento>? Equipamentos { get; set; }
         public DbSet<UsuarioFicha>? UsuarioFichas { get; set; }
@@ -104,6 +105,10 @@ namespace experience_trpg_backend.Models
             modelBuilder.Entity<Habilidade>()
                 .HasKey(h => h.HabilidadeId);
 
+            // Chave Primária para Proficiencia
+            modelBuilder.Entity<Proficiencia>()
+                .HasKey(p => p.ProficienciaId);
+
             // Relação entre Ficha e Atributo
             modelBuilder.Entity<Ficha>()
                 .HasMany(f => f.Atributos)
@@ -127,6 +132,18 @@ namespace experience_trpg_backend.Models
                 .HasOne(h => h.HabFicha) // A propriedade que referencia a Ficha
                 .WithMany(f => f.Habilidades)
                 .HasForeignKey(h => h.FichaId);
+
+            // Relação entre Ficha e Proficiencia
+            modelBuilder.Entity<Ficha>()
+                .HasMany(f => f.Proficiencias)
+                .WithOne(p => p.ProfFicha) // Propriedade que referencia a Ficha em Proficiencia
+                .HasForeignKey(p => p.FichaId);
+
+            // Relação entre Proficiencia e Ficha
+            modelBuilder.Entity<Proficiencia>()
+                .HasOne(p => p.ProfFicha) // Propriedade que referencia a Ficha
+                .WithMany(f => f.Proficiencias)
+                .HasForeignKey(p => p.FichaId);
 
             // Relação entre Ficha e Equipamento
             modelBuilder.Entity<Ficha>()
@@ -157,6 +174,12 @@ namespace experience_trpg_backend.Models
                 .HasOne(f => f.FicMesa) // Propriedade de relacionamento (a ser definida em Ficha)
                 .WithMany(s => s.Fichas) // Retratação na declaração de Status
                 .HasForeignKey(f => f.MesaId); // Chave estrangeira
+
+                // Relação entre Ficha e Imagem
+            modelBuilder.Entity<Ficha>()
+                .HasOne(f => f.FicImagem) // Propriedade de relacionamento (a ser definida em Ficha)
+                .WithMany(s => s.Fichas) // Retratação na declaração de Status
+                .HasForeignKey(f => f.ImagemId); // Chave estrangeira
         }
 
     }

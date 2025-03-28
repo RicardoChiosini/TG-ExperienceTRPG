@@ -1,17 +1,29 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace experience_trpg_backend.Models
 {
     public class Mensagem
     {
         [Key]
-        public int MensagemId { get; set; } // Chave primária
-        public string Texto { get; set; } = string.Empty; // Texto da mensagem
-        public DateTime DataHora { get; set; } = DateTime.Now; // Data e hora em que a mensagem foi enviada
-        public int UsuarioId { get; set; } // Chave estrangeira para o usuário que enviou a mensagem
-        public int MesaId { get; set; } // Chave estrangeira para a mesa
+        public int MensagemId { get; set; }
+        
+        [Column(TypeName = "text")] // Para garantir espaço suficiente
+        public string Texto { get; set; } = string.Empty;
+        
+        public DateTime DataHora { get; set; } = DateTime.Now;
+        public int UsuarioId { get; set; }
+        public int MesaId { get; set; }
+        
+        // Campos adicionais para formatação
+        public string? TipoMensagem { get; set; } // "normal", "dado", "sistema"
+        public string? DadosFormatados { get; set; } // JSON com dados da rolagem
 
-        public Usuario? MenUsuario { get; set; } // Propriedade de navegação para o usuário
-        public Mesa? MenMesa { get; set; } // Propriedade de navegação para a mesa
+        // Relacionamentos
+        [ForeignKey("UsuarioId")]
+        public Usuario? MenUsuario { get; set; }
+        
+        [ForeignKey("MesaId")]
+        public Mesa? MenMesa { get; set; }
     }
 }

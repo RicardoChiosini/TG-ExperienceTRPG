@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using experience_trpg_backend.Models;
+using experience_trpg_backend.DTOs;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 #pragma warning disable CS8604 // Possível argumento de referência nula.
@@ -8,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace experience_trpg_backend.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/habilidades")]
     [ApiController]
     public class HabilidadesController : ControllerBase
     {
@@ -52,14 +53,23 @@ namespace experience_trpg_backend.Controllers
 
         // PUT: api/habilidades/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutHabilidade(int id, Habilidade habilidade)
+        public async Task<IActionResult> PutHabilidade(int id, HabilidadeDto habilidadeDto)
         {
-            if (id != habilidade.HabilidadeId)
+            if (id != habilidadeDto.HabilidadeId)
             {
                 return BadRequest();
             }
 
-            _context.Entry(habilidade).State = EntityState.Modified;
+            var habilidadeAtual = await _context.Habilidades.FindAsync(id);
+            if (habilidadeAtual == null)
+            {
+                return NotFound();
+            }
+
+            // Mapeamento dos valores do DTO para a entidade
+            habilidadeAtual.Nome = habilidadeDto.Nome;
+            habilidadeAtual.Descricao = habilidadeDto.Descricao;
+            habilidadeAtual.FichaId = habilidadeDto.FichaId;
 
             try
             {
@@ -73,22 +83,6 @@ namespace experience_trpg_backend.Controllers
                 }
                 throw;
             }
-
-            return NoContent();
-        }
-
-        // DELETE: api/habilidades/5
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteHabilidade(int id)
-        {
-            var habilidade = await _context.Habilidades.FindAsync(id);
-            if (habilidade == null)
-            {
-                return NotFound();
-            }
-
-            _context.Habilidades.Remove(habilidade);
-            await _context.SaveChangesAsync();
 
             return NoContent();
         }

@@ -2,14 +2,13 @@ using System.ComponentModel.DataAnnotations;
 
 namespace experience_trpg_backend.Models
 {
-    public class Atributo
+    public class Proficiencia
     {
         [Key]
-        public int AtributoId { get; set; }
+        public int ProficienciaId { get; set; }
         public string Nome { get; set; } = string.Empty; // Inicializa como uma string vazia
-        public float Valor { get; set; }
-
+        public bool Proficiente { get; set; } 
         public int FichaId { get; set; } // Chave estrangeira para Ficha
-        public Ficha? AtriFicha { get; set; } // Propriedade de navegação (anulável)
+        public Ficha? ProfFicha { get; set; } // Propriedade de navegação (anulável)
     }
 }

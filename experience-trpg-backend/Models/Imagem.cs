@@ -12,5 +12,7 @@ namespace experience_trpg_backend.Models
 
         public int MesaId { get; set; } // Chave estrangeira para Mesa
         public Mesa? ImaMesa { get; set; } // Propriedade de navegação (anulável)
+
+        public ICollection<Ficha> Fichas { get; set; } = new List<Ficha>(); // Fichas associadas
     }
 }
