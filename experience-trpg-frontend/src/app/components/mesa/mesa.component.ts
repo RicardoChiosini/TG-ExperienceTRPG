@@ -1,6 +1,5 @@
 import { Component, OnInit, OnDestroy, AfterViewInit, ComponentFactoryResolver, ViewContainerRef } from '@angular/core';
 import Konva from 'konva';
-import * as math from 'mathjs';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActivatedRoute } from '@angular/router';
 import { ChatService } from '../../services/chat.service';
@@ -41,7 +40,14 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
   fichas: FichaDto[] = []; // Lista de fichas da mesa
   sistemas: Sistema[] = []; // Lista de sistemas disponíveis
   sistemaMesa: Sistema | null = null; // Sistema da mesa atual
-  modalsAbertas: { ficha: FichaDto; modalId: string; top: number; left: number; isDragging: boolean }[] = []; // Lista de modals abertas
+  modalsAbertas: { ficha: FichaDto; modalId: string; top: number; left: number; isDragging: boolean }[] = [];
+
+  loadedTabs: { [key: string]: boolean } = {
+    chat: false,
+    fichas: false,
+    imagens: false,
+    config: false
+  };
 
   constructor(
     private route: ActivatedRoute,
@@ -66,9 +72,9 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
     // Inscrever para alterações de ficha
     this.fichaStateService.ficha$.subscribe(ficha => {
       if (ficha) {
-          this.atualizarFichaNaMesa(ficha); // Chama um método para atualizar a ficha na mesa
+        this.atualizarFichaNaMesa(ficha); // Chama um método para atualizar a ficha na mesa
       }
-  });
+    });
   }
 
   ngOnDestroy(): void {
@@ -78,6 +84,7 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   setActiveTab(tab: string): void {
     this.activeTab = tab;
+    this.loadedTabs[tab] = true;
   }
 
   ngAfterViewInit(): void {
@@ -104,13 +111,13 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
   atualizarFichaNaMesa(ficha: FichaDto): void {
     // Atualiza a ficha na lista de fichas abertas
     for (let modal of this.modalsAbertas) {
-        if (modal.ficha.fichaId === ficha.fichaId) {
-            modal.ficha.nome = ficha.nome; // Atualiza o nome na modal
-            break; // Saia do loop após encontrar
-        }
+      if (modal.ficha.fichaId === ficha.fichaId) {
+        modal.ficha.nome = ficha.nome; // Atualiza o nome na modal
+        break; // Saia do loop após encontrar
+      }
     }
   }
-  
+
   // Adiciona uma nova ficha
   adicionarFicha(): void {
     this.apiService.criarFicha(this.mesaId).subscribe(
@@ -135,39 +142,38 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-    // Função para lidar com a abertura da modal da ficha
-    abrirFicha(ficha: FichaDto): void {
+  // Função para lidar com a abertura da modal da ficha
+  abrirFicha(ficha: FichaDto): void {
     // Verifica se a ficha já está aberta
     const fichaAberta = this.modalsAbertas.find(m => m.ficha.fichaId === ficha.fichaId);
 
-    // Se a ficha já estiver aberta, não faça nada
     if (fichaAberta) {
-        console.log(`A ficha '${ficha.nome}' já está aberta.`);
-        return;
+      // Se já está aberta, traz para frente em vez de não fazer nada
+      this.modalsAbertas = this.modalsAbertas.filter(m => m.modalId !== fichaAberta.modalId);
+      this.modalsAbertas.push(fichaAberta);
+      return;
     }
 
-    console.log(`A ficha '${ficha.nome}' abriu.`);
-    // Gere um ID único para a modal
     const modalId = `modal-${ficha.fichaId}`;
-    this.modalsAbertas.push({ ficha, modalId, top: 50, left: 50, isDragging: false }); // Adiciona a modal à lista de modals abertas
+    const novaModal = {
+      ficha,
+      modalId,
+      top: 50 + (this.modalsAbertas.length * 20),
+      left: 50 + (this.modalsAbertas.length * 20),
+      isDragging: false
+    };
 
-    // Obtém o componente correto para a ficha
+    this.modalsAbertas.push(novaModal);
+
     const componenteFicha = this.getComponenteFicha(ficha.sistemaId);
-
     if (componenteFicha) {
       const modalComponent = this.componentFactoryResolver.resolveComponentFactory(componenteFicha);
       const componentRef = this.viewContainerRef.createComponent(modalComponent);
-    
-      // Passa o fichaId para o componente da modal
+
       if (componentRef.instance instanceof FichaDnd5eComponent) {
-          componentRef.instance.fichaId = ficha.fichaId;
-          // Lógica para exibir a modal
-          this.modalService.open(componentRef.instance); // Chame aqui o serviço para exibir a modal
-      } else {
-          console.error('O componente instanciado não é do tipo esperado.');
-       }
-    } else {
-      console.error('Componente de ficha não encontrado para o sistema.');
+        componentRef.instance.fichaId = ficha.fichaId;
+        this.modalService.open(componentRef.instance);
+      }
     }
   }
 

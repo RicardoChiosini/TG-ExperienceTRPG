@@ -15,11 +15,12 @@
     <!-- Conteúdo das Abas -->
     <div class="conteudo-abas">
       <!-- Aba de Chat -->
-      <app-chat [mesaId]="mesaId" [usuarioId]="usuarioId" *ngIf="activeTab === 'chat' && mesaId">
+      <app-chat [mesaId]="mesaId" [usuarioId]="usuarioId" *ngIf="loadedTabs['chat'] && mesaId"
+        [hidden]="activeTab !== 'chat'">
       </app-chat>
 
       <!-- Aba de Fichas -->
-      <div *ngIf="activeTab === 'fichas'" class="aba-fichas">
+      <div *ngIf="loadedTabs['fichas']" class="aba-fichas" [hidden]="activeTab !== 'fichas'">
         <h3>Fichas</h3>
         <button (click)="adicionarFicha()" class="btn btn-primary mb-3">Adicionar Ficha</button>
         <div *ngFor="let ficha of fichas" class="ficha-item" (click)="abrirFicha(ficha)">
@@ -28,13 +29,13 @@
       </div>
 
       <!-- Aba de Imagens -->
-      <div *ngIf="activeTab === 'imagens'" class="aba-imagens">
+      <div *ngIf="loadedTabs['imagens']" class="aba-imagens" [hidden]="activeTab !== 'imagens'">
         <h3>Imagens</h3>
         <!-- Implemente a lista de imagens aqui -->
       </div>
 
       <!-- Aba de Configurações -->
-      <div *ngIf="activeTab === 'config'" class="aba-config">
+      <div *ngIf="loadedTabs['config']" class="aba-config" [hidden]="activeTab !== 'config'">
         <h3>Configurações</h3>
         <!-- Exibe o link de convite apenas para o criador da mesa -->
         <div *ngIf="isCriador && linkConvite" class="link-convite">

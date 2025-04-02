@@ -165,3 +165,8 @@ body {
   font-weight: bold;
   color: #f8f8f8;
 }
+
+#chat-container-component .dice-error {
+  color: #ff4444;
+  font-style: italic;
+}

@@ -13,6 +13,8 @@ interface DiceRollResult {
   ignorados?: number[];
   total: number;
   operacoes?: string;
+  expressaoOriginal?: string;
+  erro?: string;
 }
 
 @Component({
@@ -26,7 +28,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   @Input() usuarioId!: number;
   @ViewChild('mensagensContainer') private mensagensContainer!: ElementRef;
   @ViewChildren('scrollAnchor') scrollAnchors!: QueryList<any>;
-  
+
   mensagens: any[] = [];
   novaMensagem: string = '';
   usuarioNome: string = '';
@@ -36,17 +38,17 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   constructor(
     private chatService: ChatService,
     private authService: AuthService
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     this.usuarioId = this.authService.getUserId()!;
     this.usuarioNome = this.authService.getUserName() || 'Anônimo';
-  
+
     if (!this.mesaId || isNaN(this.mesaId)) {
       console.error('ID da mesa inválido:', this.mesaId);
       return;
     }
-  
+
     // Primeiro conecta ao grupo, depois carrega mensagens
     this.chatService.joinMesaGroup(this.mesaId).then(() => {
       this.carregarMensagens();
@@ -92,14 +94,14 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
         }
       });
   }
-  
-  
+
+
   private formatarMensagemParaExibicao(msg: ChatMessage): string {
     // Se já estiver formatado (mensagens recebidas via SignalR)
     if (msg.message && !msg.texto) {
       return msg.message;
     }
-  
+
     // Formata mensagens carregadas do banco de dados
     if (msg.tipoMensagem === 'dado' && msg.dadosFormatados) {
       try {
@@ -109,7 +111,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
         console.error('Erro ao formatar mensagem de dados:', e);
       }
     }
-    
+
     // Mensagem normal
     return `<strong>${msg.user}:</strong> ${msg.texto || msg.message}`;
   }
@@ -132,7 +134,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.mensagens.push(mensagemFormatada);
     this.shouldScroll = true;
   }
-  
+
   private extrairTexto(html?: string): string {
     if (!html) return '';
     return html.replace(/<[^>]*>/g, '');
@@ -151,7 +153,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   private enviarMensagemNormal(): void {
     const textoMensagem = this.novaMensagem.trim();
     if (!textoMensagem) return;
-  
+
     const mensagemParaEnviar: ChatMessage = {
       user: this.usuarioNome,
       message: `<strong>${this.usuarioNome}:</strong> ${textoMensagem}`,
@@ -162,7 +164,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
       mesaId: this.mesaId,
       dataHora: new Date().toISOString()
     };
-  
+
     this.chatService.sendMessage(mensagemParaEnviar)
       .then(() => this.novaMensagem = '')
       .catch(err => this.tratarErroEnvio(err));
@@ -185,7 +187,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   private processarComando(): void {
     const resultado = this.interpretarComandoDados(this.novaMensagem);
-    
+
     if (resultado) {
       this.enviarMensagemDados(resultado);
     } else {
@@ -194,20 +196,48 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   private interpretarComandoDados(comando: string): DiceRollResult | null {
-    const regex = /\/(r|rode)\s*(\d*)d(\d+)([ ]?(ma|me)(\d+))?(.*)?/;
-    const matches = comando.match(regex);
+    // Padrão para expressões complexas entre parênteses com operações externas
+    const parentesisPattern = /\/r\s*\((.*?)\)\s*([+\-*/].*)?/;
+    const parentesisMatch = comando.match(parentesisPattern);
 
-    if (!matches) return null;
+    if (parentesisMatch) {
+      const resultado = this.interpretarExpressaoComplexa(parentesisMatch[1]);
+      const operacoesExternas = parentesisMatch[2]?.trim();
 
-    const quantia = matches[2] ? parseInt(matches[2]) : 1;
-    const lados = parseInt(matches[3]);
-    const tipoRolagem = matches[5];
-    const y = matches[6] ? parseInt(matches[6]) : null;
-    const operacoes = matches[7]?.trim() || '';
+      if (resultado && operacoesExternas) {
+        try {
+          resultado.total = math.evaluate(`${resultado.total}${operacoesExternas}`);
+          resultado.operacoes = `(${resultado.expressaoOriginal || ''})${operacoesExternas}`;
+        } catch (e) {
+          resultado.erro = 'Operações externas inválidas';
+        }
+      }
+      return resultado;
+    }
 
-    let resultados: number[] = Array.from({length: quantia}, () => 
+    // Restante do código para rolagens simples tradicionais...
+    const simplePattern = /\/(r|rode)\s*(\d*)d(\d+)([ ]?(ma|me)(\d+))?(.*)?/;
+    const simpleMatch = comando.match(simplePattern);
+
+    if (!simpleMatch) {
+      return {
+        quantia: 0,
+        lados: 0,
+        resultados: [],
+        total: 0,
+        erro: 'Formato de comando inválido'
+      };
+    }
+
+    const quantia = simpleMatch[2] ? parseInt(simpleMatch[2]) : 1;
+    const lados = parseInt(simpleMatch[3]);
+    const tipoRolagem = simpleMatch[5];
+    const y = simpleMatch[6] ? parseInt(simpleMatch[6]) : null;
+    const operacoes = simpleMatch[7]?.trim() || '';
+
+    let resultados: number[] = Array.from({ length: quantia }, () =>
       Math.ceil(Math.random() * lados));
-    
+
     let ignorados: number[] = [];
     let resultadosFinais = [...resultados];
 
@@ -242,10 +272,86 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
     };
   }
 
+  private interpretarExpressaoComplexa(expressao: string): DiceRollResult {
+    const resultado: DiceRollResult = {
+      quantia: 0,
+      lados: 0,
+      resultados: [],
+      total: 0,
+      expressaoOriginal: expressao
+    };
+
+    if (!this.validarExpressao(expressao)) {
+      resultado.erro = 'Expressão inválida';
+      return resultado;
+    }
+
+    const dicePattern = /(\d*)d(\d+)/g;
+    let match;
+    const rolls: DiceRollResult[] = [];
+
+    try {
+      // Processar cada rolagem de dados na expressão
+      while ((match = dicePattern.exec(expressao)) !== null) {
+        const quantia = match[1] ? parseInt(match[1]) : 1;
+        const lados = parseInt(match[2]);
+
+        const resultados = Array.from({ length: quantia }, () => Math.ceil(Math.random() * lados));
+        const total = resultados.reduce((sum, num) => sum + num, 0);
+
+        rolls.push({
+          quantia,
+          lados,
+          resultados,
+          total,
+          expressaoOriginal: match[0]
+        });
+      }
+
+      if (rolls.length === 0) {
+        resultado.erro = 'Nenhum dado encontrado na expressão';
+        return resultado;
+      }
+
+      // Substituir cada rolagem pelo seu total na expressão
+      let expressaoCalculo = expressao;
+      rolls.forEach(roll => {
+        expressaoCalculo = expressaoCalculo.replace(roll.expressaoOriginal!, `(${roll.total})`);
+      });
+
+      // Calcular o resultado total
+      resultado.quantia = rolls.reduce((sum, roll) => sum + roll.quantia, 0);
+      resultado.lados = rolls[0]?.lados || 0; // Usar o primeiro dado como referência
+      resultado.resultados = rolls.flatMap(r => r.resultados);
+      resultado.total = math.evaluate(expressaoCalculo);
+      resultado.operacoes = expressao;
+
+    } catch (e) {
+      console.error('Erro ao processar expressão:', e);
+      resultado.erro = 'Erro no cálculo';
+    }
+
+    return resultado;
+  }
+
+  private validarExpressao(expressao: string): boolean {
+    const allowedChars = /^[\dd+\-*\/() maeme\d\s]+$/;
+    if (!allowedChars.test(expressao)) return false;
+
+    // Verifica parênteses balanceados
+    let balance = 0;
+    for (const char of expressao) {
+      if (char === '(') balance++;
+      if (char === ')') balance--;
+      if (balance < 0) return false;
+    }
+    return balance === 0;
+  }
+
   private enviarMensagemDados(resultado: DiceRollResult): void {
     const mensagemHtml = this.formatarMensagemDados(this.usuarioNome, resultado);
     const textoSimples = this.extractTextFromHtml(mensagemHtml); // Extrai texto sem formatação HTML
-  
+
     const mensagemParaEnviar: ChatMessage = {
       user: this.usuarioNome,
       message: mensagemHtml,
@@ -256,7 +362,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
       dadosFormatados: JSON.stringify(resultado),
       dataHora: new Date().toISOString()
     };
-  
+
     this.chatService.sendMessage(mensagemParaEnviar)
       .then(() => {
         this.novaMensagem = '';
@@ -280,6 +386,15 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   private extractTextFromHtml(html: string): string {
     const temp = document.createElement('div');
     temp.innerHTML = html;
+
+    // Extrai texto formatado para o banco de dados
+    const diceRoll = temp.querySelector('.dice-roll');
+    if (diceRoll) {
+      const content = diceRoll.querySelector('.dice-roll-content')?.textContent || '';
+      const total = diceRoll.querySelector('.dice-total')?.textContent || '';
+      return `${content} ${total}`.trim();
+    }
+
     return temp.textContent || temp.innerText || '';
   }
 
@@ -290,25 +405,75 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
       if (num === lados) return `<span class="dice-critical-success">${numStr}</span>`;
       return `<span class="dice-normal">${numStr}</span>`;
     };
-  
-    let mensagem = `<div class="dice-roll"><span class="dice-roll-content"><strong>${usuario}:</strong> ${resultado.quantia}d${resultado.lados} (`;
-    
-    // Resultados considerados
-    mensagem += resultado.resultados.map(n => formatarNumero(n, resultado.lados)).join(', ');
-  
-    // Resultados ignorados
-    if (resultado.ignorados?.length) {
-      mensagem += ` | <span class="dice-ignored">${resultado.ignorados.map(n => formatarNumero(n, resultado.lados)).join(', ')}</span>`;
+
+    let mensagem = `<div class="dice-roll"><span class="dice-roll-content"><strong>${usuario}:</strong> `;
+
+    // Trata mensagens de erro
+    if (resultado.erro) {
+      mensagem += `<span class="dice-error">[Erro: ${resultado.erro}]</span>`;
     }
-  
-    mensagem += `)`;
-  
-    if (resultado.operacoes) {
-      mensagem += ` ${resultado.operacoes}`;
+    // Formata expressões complexas
+    else if (resultado.expressaoOriginal) {
+      // Mostra a expressão completa com operações externas se existirem
+      const expressaoCompleta = resultado.operacoes || `(${resultado.expressaoOriginal})`;
+      mensagem += `${expressaoCompleta} = `;
+
+      // Processa a expressão original para mostrar os valores dos dados
+      let expressaoComValores = resultado.expressaoOriginal;
+      let index = 0;
+
+      // Substitui cada rolagem de dados pelos valores reais
+      const dicePattern = /(\d*)d(\d+)/g;
+      let match;
+
+      while ((match = dicePattern.exec(resultado.expressaoOriginal)) !== null) {
+        const quantia = match[1] ? parseInt(match[1]) : 1;
+        const lados = parseInt(match[2]);
+        const valores = resultado.resultados.slice(index, index + quantia);
+
+        expressaoComValores = expressaoComValores.replace(
+          match[0],
+          `[${valores.map(v => formatarNumero(v, lados)).join(', ')}]`
+        );
+
+        index += quantia;
+      }
+
+      // Adiciona os valores dos dados à mensagem
+      mensagem += expressaoComValores;
+
+      // Se houver operações externas, mostra o cálculo final
+      if (resultado.operacoes && resultado.operacoes !== `(${resultado.expressaoOriginal})`) {
+        const totalInterno = math.evaluate(resultado.expressaoOriginal
+          .replace(/(\d*)d(\d+)/g, (match, quantia, lados) => {
+            const qtd = quantia ? parseInt(quantia) : 1;
+            const dados = resultado.resultados.slice(0, qtd);
+            resultado.resultados = resultado.resultados.slice(qtd);
+            return dados.reduce((a, b) => a + b, 0).toString();
+          }));
+
+        mensagem += ` = ${totalInterno}`;
+        mensagem += resultado.operacoes.replace(`(${resultado.expressaoOriginal})`, '');
+      }
     }
-  
-    mensagem += `</span><div class="dice-total"> ${resultado.total}</div></div>`;
-  
+    // Formata rolagens simples
+    else {
+      mensagem += `${resultado.quantia}d${resultado.lados} (`;
+      mensagem += resultado.resultados.map(n => formatarNumero(n, resultado.lados)).join(', ');
+
+      if (resultado.ignorados?.length) {
+        mensagem += ` | <span class="dice-ignored">${resultado.ignorados.map(n => formatarNumero(n, resultado.lados)).join(', ')}</span>`;
+      }
+
+      mensagem += `)`;
+
+      if (resultado.operacoes) {
+        mensagem += ` ${resultado.operacoes}`;
+      }
+    }
+
+    mensagem += `</span><div class="dice-total">= ${resultado.total}</div></div>`;
+
     return mensagem;
   }
 
