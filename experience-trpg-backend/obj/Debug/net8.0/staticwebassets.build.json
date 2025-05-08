@@ -1,11 +1,19 @@
 {
   "Version": 1,
-  "Hash": "/Ll41JfAzlCKs+DB+IQJihOLPpxXTXE2oSTG7xSbRok=",
+  "Hash": "xyTbig7Dr3xRHIQoazaW/prqyuSShhxkq82aXjdUf2o=",
   "Source": "experience-trpg-backend",
   "BasePath": "_content/experience-trpg-backend",
   "Mode": "Default",
   "ManifestType": "Build",
   "ReferencedProjectsConfiguration": [],
-  "DiscoveryPatterns": [],
+  "DiscoveryPatterns": [
+    {
+      "Name": "experience-trpg-backend\\wwwroot",
+      "Source": "experience-trpg-backend",
+      "ContentRoot": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\",
+      "BasePath": "_content/experience-trpg-backend",
+      "Pattern": "**"
+    }
+  ],
   "Assets": []
 }

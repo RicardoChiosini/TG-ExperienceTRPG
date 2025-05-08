@@ -1,4 +1,4 @@
-namespace experience_trpg_backend.Dtos
+namespace experience_trpg_backend.DTOs
 {
     public class MensagemDto
     {

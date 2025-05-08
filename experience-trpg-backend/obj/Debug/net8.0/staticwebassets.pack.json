@@ -1,0 +1,25 @@
+{
+  "Files": [
+    {
+      "Id": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\images\\a415da42-4ad8-4559-b141-449c469191ec.jpg",
+      "PackagePath": "staticwebassets\\images\\a415da42-4ad8-4559-b141-449c469191ec.jpg"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.build.experience-trpg-backend.props",
+      "PackagePath": "build\\experience-trpg-backend.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.buildMultiTargeting.experience-trpg-backend.props",
+      "PackagePath": "buildMultiTargeting\\experience-trpg-backend.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.buildTransitive.experience-trpg-backend.props",
+      "PackagePath": "buildTransitive\\experience-trpg-backend.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.experience-trpg-backend.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    }
+  ],
+  "ElementsToRemove": []
+}

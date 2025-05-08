@@ -1,5 +1,5 @@
 import { Component, Input, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewChecked, ViewChildren, QueryList } from '@angular/core';
-import { ChatService } from '../../services/chat.service';
+import { SessaoService } from '../../services/sessao.service';
 import { AuthService } from '../../services/auth.service';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
@@ -36,7 +36,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   private shouldScroll = false;
 
   constructor(
-    private chatService: ChatService,
+    private sessaoService: SessaoService,
     private authService: AuthService
   ) { }
 
@@ -50,7 +50,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
 
     // Primeiro conecta ao grupo, depois carrega mensagens
-    this.chatService.joinMesaGroup(this.mesaId).then(() => {
+    this.sessaoService.joinMesaGroup(this.mesaId).then(() => {
       this.carregarMensagens();
       this.iniciarEscutaMensagens();
     }).catch(err => {
@@ -61,7 +61,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
-    this.chatService.leaveMesaGroup(this.mesaId);
+    this.sessaoService.leaveMesaGroup(this.mesaId);
   }
 
   ngAfterViewInit(): void {
@@ -78,7 +78,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   private carregarMensagens(): void {
-    this.chatService.getMensagensPorMesa(this.mesaId)
+    this.sessaoService.getMensagensPorMesa(this.mesaId)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (mensagens: ChatMessage[]) => {
@@ -117,7 +117,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   private iniciarEscutaMensagens(): void {
-    this.chatService.getMessageObservable()
+    this.sessaoService.getMessageObservable()
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (msg: ChatMessage) => this.processarNovaMensagem(msg),
@@ -165,7 +165,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
       dataHora: new Date().toISOString()
     };
 
-    this.chatService.sendMessage(mensagemParaEnviar)
+    this.sessaoService.sendMessage(mensagemParaEnviar)
       .then(() => this.novaMensagem = '')
       .catch(err => this.tratarErroEnvio(err));
   }
@@ -242,13 +242,15 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
     let resultadosFinais = [...resultados];
 
     if (tipoRolagem === 'ma' && y) {
+      // Para maiores valores: ordena em ordem decrescente e pega os y primeiros
       resultados.sort((a, b) => b - a);
-      ignorados = resultados.slice(y);
       resultadosFinais = resultados.slice(0, y);
+      ignorados = resultados.slice(y);
     } else if (tipoRolagem === 'me' && y) {
+      // Para menores valores: ordena em ordem crescente e pega os y primeiros
       resultados.sort((a, b) => a - b);
-      ignorados = resultados.slice(0, resultados.length - y);
-      resultadosFinais = resultados.slice(-y);
+      resultadosFinais = resultados.slice(0, y);
+      ignorados = resultados.slice(y);
     }
 
     let total = resultadosFinais.reduce((sum, num) => sum + num, 0);
@@ -363,7 +365,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
       dataHora: new Date().toISOString()
     };
 
-    this.chatService.sendMessage(mensagemParaEnviar)
+    this.sessaoService.sendMessage(mensagemParaEnviar)
       .then(() => {
         this.novaMensagem = '';
       })
@@ -479,11 +481,12 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   private rolarParaBaixo(): void {
     try {
-      if (this.scrollAnchors && this.scrollAnchors.last) {
-        this.scrollAnchors.last.nativeElement.scrollIntoView({ behavior: 'smooth' });
-      }
+      setTimeout(() => {
+        this.mensagensContainer.nativeElement.scrollTop =
+          this.mensagensContainer.nativeElement.scrollHeight;
+      }, 100);
     } catch (err) {
-      console.error('Erro ao rolar para baixo:', err);
+      console.error('Erro ao rolar chat:', err);
     }
   }
 

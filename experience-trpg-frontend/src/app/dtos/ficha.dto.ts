@@ -1,3 +1,5 @@
+import { ImagemDto } from './imagem.dto';
+
 export interface AtributoDto {
   atributoId: number;
   nome: string;
@@ -25,6 +27,9 @@ export interface FichaDto {
     descricao: string;
     sistemaId: number;
     mesaId: number;
+    imagemId: number;
+
+    imagem?: ImagemDto;
 
     // Adicionar coleções para atributos, proficiências e habilidades
     atributos: AtributoDto[];      // Lista de Atributos

@@ -148,3 +148,5 @@ select * from habilidades;
 select * from mesas;
 select * from usuariomesas;
 select * from mensagens;
+select * from imagens;
+select * from mapas;

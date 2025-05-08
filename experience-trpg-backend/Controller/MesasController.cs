@@ -222,6 +222,20 @@ namespace experience_trpg_backend.Controllers
                 _context.Mesas.Add(mesa);
                 await _context.SaveChangesAsync(); // Salva a mesa criada e gera o MesaId
 
+                // Cria o mapa inicial para a mesa
+                var mapaInicial = new Mapa
+                {
+                    MesaId = mesa.MesaId,
+                    Nome = "Mapa Principal",
+                    Largura = 30,
+                    Altura = 30,
+                    TamanhoHex = 40,
+                    EstadoJson = "{}", // Estado inicial vazio ou com configuração padrão
+                    UltimaAtualizacao = DateTime.UtcNow
+                };
+
+                _context.Mapas.Add(mapaInicial);
+
                 // Adiciona o usuário à tabela UsuarioMesas
                 var usuarioMesa = new UsuarioMesa
                 {
@@ -296,31 +310,78 @@ namespace experience_trpg_backend.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteMesa(int id)
         {
-            var mesa = await _context.Mesas
-                .Include(m => m.Participantes)
-                .ThenInclude(um => um.UMUsuario)
-                .FirstOrDefaultAsync(m => m.MesaId == id);
+            // Configura um timeout maior para esta operação
+            _context.Database.SetCommandTimeout(300); // 300 segundos = 5 minutos
 
-            if (mesa == null)
-            {
-                return NotFound(); // Retornar 404 se a mesa não for encontrada
-            }
+            using var transaction = await _context.Database.BeginTransactionAsync();
 
             try
             {
-                // Remover todos os registros da tabela UsuarioMesas associados à mesa
-                var usuarioMesas = await _context.UsuarioMesas.Where(um => um.MesaId == id).ToListAsync();
-                _context.UsuarioMesas.RemoveRange(usuarioMesas); // Remove as associações
+                // 1. Remove todas as relações muitos-para-muitos (participantes)
+                await _context.UsuarioMesas
+                    .Where(um => um.MesaId == id)
+                    .ExecuteDeleteAsync();
 
-                // Remove a mesa
-                _context.Mesas.Remove(mesa);
-                await _context.SaveChangesAsync(); // Salva todas as mudanças feitas ao contexto
+                // 2. Obtém todos os IDs de fichas relacionadas a esta mesa
+                var fichaIds = await _context.Fichas
+                    .Where(f => f.MesaId == id)
+                    .Select(f => f.FichaId)
+                    .ToListAsync();
 
-                return NoContent(); // Retorna 204 No Content após sucesso
+                if (fichaIds.Any())
+                {
+                    // 3. Remove todas as relações muitos-para-muitos das fichas
+                    await _context.UsuarioFichas
+                        .Where(uf => fichaIds.Contains(uf.FichaId))
+                        .ExecuteDeleteAsync();
+
+                    // 4. Remove todos os atributos das fichas
+                    await _context.Atributos
+                        .Where(a => fichaIds.Contains(a.FichaId))
+                        .ExecuteDeleteAsync();
+
+                    // 5. Remove todas as habilidades das fichas
+                    await _context.Habilidades
+                        .Where(h => fichaIds.Contains(h.FichaId))
+                        .ExecuteDeleteAsync();
+
+                    // 6. Remove todas as proficiencias das fichas
+                    await _context.Proficiencias
+                        .Where(p => fichaIds.Contains(p.FichaId))
+                        .ExecuteDeleteAsync();
+
+                    // 7. Remove todos os equipamentos das fichas
+                    await _context.Equipamentos
+                        .Where(e => fichaIds.Contains(e.FichaId))
+                        .ExecuteDeleteAsync();
+
+                    // 8. Remove todas as fichas
+                    await _context.Fichas
+                        .Where(f => fichaIds.Contains(f.FichaId))
+                        .ExecuteDeleteAsync();
+                }
+
+                // 9. Remove todas as imagens da mesa
+                await _context.Imagens
+                    .Where(i => i.MesaId == id)
+                    .ExecuteDeleteAsync();
+
+                // 10. Remove todas as mensagens da mesa
+                await _context.Mensagens
+                    .Where(m => m.MesaId == id)
+                    .ExecuteDeleteAsync();
+
+                // 11. Finalmente, remove a mesa
+                await _context.Mesas
+                    .Where(m => m.MesaId == id)
+                    .ExecuteDeleteAsync();
+
+                await transaction.CommitAsync();
+                return NoContent();
             }
             catch (Exception ex)
             {
-                // Log ou tratar a exceção aqui
+                await transaction.RollbackAsync();
                 return StatusCode(500, $"Erro ao deletar mesa: {ex.Message}");
             }
         }
@@ -391,6 +452,7 @@ namespace experience_trpg_backend.Controllers
 
             return Ok(new { message = "Você agora é participante da mesa!" });
         }
+        
 
         private int GetCurrentUserId()
         {

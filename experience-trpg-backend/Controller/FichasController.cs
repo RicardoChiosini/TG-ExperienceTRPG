@@ -17,11 +17,13 @@ namespace experience_trpg_backend.Controllers
     {
         private readonly IMapper _mapper;
         private readonly AppDbContext _context;
+        private readonly ILogger<FichasController> _logger;
 
-        public FichasController(IMapper mapper, AppDbContext context)
+        public FichasController(IMapper mapper, AppDbContext context, ILogger<FichasController> logger)
         {
-            _mapper = mapper;
+            _logger = logger;
             _context = context;
+            _mapper = mapper;
         }
 
         // GET: api/fichas
@@ -34,43 +36,57 @@ namespace experience_trpg_backend.Controllers
         [HttpGet("{fichaId}")]
         public async Task<ActionResult<FichaDto>> GetFichaPorId(int fichaId)
         {
-            var ficha = await _context.Fichas
-                .Include(f => f.Atributos)    // Inclui Atributos
-                .Include(f => f.Proficiencias) // Inclui Proficiências
-                .Include(f => f.Habilidades)   // Inclui Habilidades
-                .FirstOrDefaultAsync(f => f.FichaId == fichaId);
+            // Configuração para evitar múltiplas queries de coleção
+            _context.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.NoTracking;
 
-            if (ficha == null)
+            var ficha = await _context.Fichas
+                .Include(f => f.Atributos)
+                .Include(f => f.Proficiencias)
+                .Include(f => f.Habilidades)
+                .AsSplitQuery() // Evita cartesian explosion
+                .Select(f => new
+                {
+                    Ficha = f,
+                    Imagem = f.FicImagem // Carrega a imagem em uma única consulta
+                })
+                .FirstOrDefaultAsync(f => f.Ficha.FichaId == fichaId);
+
+            if (ficha?.Ficha == null)
                 return NotFound("Ficha não encontrada.");
 
             var fichaDto = new FichaDto
             {
-                FichaId = ficha.FichaId,
-                Nome = ficha.Nome ?? string.Empty,   // Utilize string.Empty se o Nome for nulo
-                Descricao = ficha.Descricao ?? string.Empty, // Utilize string.Empty se a Descrição for nula
-                SistemaId = ficha.SistemaId,
-                MesaId = ficha.MesaId,
-
-                // Atributos
-                Atributos = ficha.Atributos.Select(attr => new AtributoDto
+                FichaId = ficha.Ficha.FichaId,
+                Nome = ficha.Ficha.Nome ?? string.Empty,
+                Descricao = ficha.Ficha.Descricao ?? string.Empty,
+                SistemaId = ficha.Ficha.SistemaId,
+                MesaId = ficha.Ficha.MesaId,
+                ImagemId = ficha.Ficha.ImagemId,
+                // Inclui a imagem diretamente no DTO se existir
+                Imagem = ficha.Imagem != null ? new ImagemDto
+                {
+                    ImagemId = ficha.Imagem.ImagemId,
+                    Nome = ficha.Imagem.Nome,
+                    Extensao = ficha.Imagem.Extensao,
+                    Dados = Convert.ToBase64String(ficha.Imagem.Dados),
+                    ImageUrl = ficha.Imagem.ImageUrl,
+                    MesaId = ficha.Imagem.MesaId
+                } : null,
+                Atributos = ficha.Ficha.Atributos.Select(attr => new AtributoDto
                 {
                     AtributoId = attr.AtributoId,
                     Nome = attr.Nome,
                     Valor = attr.Valor,
                     FichaId = attr.FichaId
                 }).ToList(),
-
-                // Proficiências
-                Proficiencias = ficha.Proficiencias.Select(prof => new ProficienciaDto
+                Proficiencias = ficha.Ficha.Proficiencias.Select(prof => new ProficienciaDto
                 {
                     ProficienciaId = prof.ProficienciaId,
                     Nome = prof.Nome,
-                    Proficiente = prof.Proficiente, // Aqui, use diretamente se for bool
+                    Proficiente = prof.Proficiente,
                     FichaId = prof.FichaId
                 }).ToList(),
-
-                // Habilidades
-                Habilidades = ficha.Habilidades.Select(hab => new HabilidadeDto
+                Habilidades = ficha.Ficha.Habilidades.Select(hab => new HabilidadeDto
                 {
                     HabilidadeId = hab.HabilidadeId,
                     Nome = hab.Nome,
@@ -289,6 +305,84 @@ namespace experience_trpg_backend.Controllers
         private bool FichaExists(int id)
         {
             return _context.Fichas.Any(e => e.FichaId == id);
+        }
+
+        // POST: api/fichas/{fichaId}/vincular/{imagemId}
+        [HttpPost("{fichaId}/vincular/{imagemId}")]
+        public async Task<ActionResult<FichaDto>> VincularImagemAFicha(int fichaId, int imagemId)
+        {
+            try
+            {
+                var ficha = await _context.Fichas
+                    .Include(f => f.FicImagem)
+                    .FirstOrDefaultAsync(f => f.FichaId == fichaId);
+
+                if (ficha == null)
+                    return NotFound($"Ficha com ID {fichaId} não encontrada");
+
+                var imagem = await _context.Imagens
+                    .FirstOrDefaultAsync(i => i.ImagemId == imagemId && i.MesaId == ficha.MesaId);
+
+                if (imagem == null)
+                    return NotFound($"Imagem com ID {imagemId} não encontrada ou não pertence à mesa da ficha");
+
+                ficha.ImagemId = imagemId;
+                await _context.SaveChangesAsync();
+
+                // Carrega a imagem relacionada para incluir no retorno
+                await _context.Entry(ficha).Reference(f => f.FicImagem).LoadAsync();
+
+                return Ok(_mapper.Map<FichaDto>(ficha));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Erro ao vincular imagem {imagemId} à ficha {fichaId}");
+                return StatusCode(500, "Erro interno ao processar a requisição");
+            }
+        }
+
+        // DELETE: api/fichas/{fichaId}/remover-imagem
+        [HttpDelete("{fichaId}/remover-imagem")]
+        public async Task<ActionResult<FichaDto>> RemoverImagemDaFicha(int fichaId)
+        {
+            try
+            {
+                var ficha = await _context.Fichas.FindAsync(fichaId);
+                if (ficha == null)
+                    return NotFound($"Ficha com ID {fichaId} não encontrada");
+
+                ficha.ImagemId = null;
+                await _context.SaveChangesAsync();
+
+                return Ok(_mapper.Map<FichaDto>(ficha));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Erro ao remover imagem da ficha {fichaId}");
+                return StatusCode(500, "Erro interno ao processar a requisição");
+            }
+        }
+
+        // GET: api/fichas/{fichaId}/imagem
+        [HttpGet("{fichaId}/imagem")]
+        public async Task<ActionResult<ImagemDto>> GetImagemDaFicha(int fichaId)
+        {
+            try
+            {
+                var ficha = await _context.Fichas
+                    .Include(f => f.FicImagem)
+                    .FirstOrDefaultAsync(f => f.FichaId == fichaId);
+
+                if (ficha?.FicImagem == null)
+                    return NotFound("Ficha não possui imagem vinculada");
+
+                return Ok(_mapper.Map<ImagemDto>(ficha.FicImagem));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Erro ao obter imagem da ficha {fichaId}");
+                return StatusCode(500, "Erro interno ao processar a requisição");
+            }
         }
     }
 }

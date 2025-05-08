@@ -1,8 +1,82 @@
-<div class="mesa-container">
-  <!-- Área do Mapa (75%) -->
-  <div id="konva-container" class="mapa"></div>
+<div class="mesa-container" [class.loading]="isLoading">
+  <!-- Tela de loading -->
+  <div *ngIf="isLoading" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <p>Carregando mesa...</p>
+  </div>
 
-  <!-- Menu (25%) -->
+  <!-- Conteúdo Principal (80%) com o Mapa SEMPRE visível -->
+  <div class="conteudo-principal">
+    <!-- Container do Phaser (sempre visível) -->
+    <div #gameContainer class="game-container" (dragover)="allowDrop($event)" (drop)="onDrop($event)"></div>
+
+    <!-- Controles no canto superior direito -->
+    <div class="map-controls-top">
+      <!-- Botão de configurações (visível apenas para criadores) -->
+      <button *ngIf="isCriador" (click)="toggleGridControls()" title="Controles do Grid"
+        class="map-control-button map-settings-button">
+        <!-- O ícone será substituído pelo pseudo-elemento CSS -->
+      </button>
+
+      <!-- Painel de configurações do grid -->
+      <div class="grid-config-panel" *ngIf="gridControlsVisible && isCriador">
+        <h4>Configurações do Mapa</h4>
+        <div class="grid-config-form">
+          <div class="form-group">
+            <label for="mapWidth">Largura:</label>
+            <input type="number" id="mapWidth" [(ngModel)]="maps[currentMapIndex].gridSize.cols"
+              (change)="updateGridSize('cols', maps[currentMapIndex].gridSize.cols)" min="5" max="100">
+          </div>
+
+          <div class="form-group">
+            <label for="mapHeight">Altura:</label>
+            <input type="number" id="mapHeight" [(ngModel)]="maps[currentMapIndex].gridSize.rows"
+              (change)="updateGridSize('rows', maps[currentMapIndex].gridSize.rows)" min="5" max="100">
+          </div>
+
+          <div class="form-group">
+            <label for="hexSize">Tamanho Hex:</label>
+            <input type="number" id="hexSize" [(ngModel)]="maps[currentMapIndex].hexRadius"
+              (change)="updateHexSize(maps[currentMapIndex].hexRadius)" min="10" max="100">
+          </div>
+
+          <button class="save-config-btn" (click)="saveMapConfig()">
+            <i class="fas fa-save"></i> Salvar Configuração
+          </button>
+        </div>
+      </div>
+
+      <!-- Seletor de mapas (visível apenas para criador) -->
+      <div *ngIf="isCriador" class="map-selector">
+        <select [(ngModel)]="currentMapId" (change)="mudarMapaAtual(currentMapId)">
+          <option *ngFor="let map of allMaps" [value]="map.mapaId">
+            {{ map.nome }}
+          </option>
+        </select>
+
+        <button class="add-map-btn" (click)="criarNovoMapa()" title="Adicionar Mapa">
+          <i class="fas fa-plus"></i>
+        </button>
+
+        <button *ngIf="maps.length > 1" class="remove-map-btn" (click)="removeCurrentMap()" title="Remover Mapa">
+          <i class="fas fa-trash"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Controles de zoom no canto inferior direito -->
+    <div class="zoom-controls">
+      <button (click)="zoomIn()" title="Zoom In (+10%)" class="zoom-button zoom-in">
+      </button>
+      <div class="zoom-display">
+        {{ zoomPercentual }}%
+      </div>
+      <button (click)="zoomOut()" title="Zoom Out (-10%)" class="zoom-button zoom-out">
+      </button>
+    </div>
+  </div>
+
+  <!-- Menu (20%) -->
   <div class="menu">
     <!-- Abas do Menu -->
     <div class="abas">
@@ -21,7 +95,6 @@
 
       <!-- Aba de Fichas -->
       <div *ngIf="loadedTabs['fichas']" class="aba-fichas" [hidden]="activeTab !== 'fichas'">
-        <h3>Fichas</h3>
         <button (click)="adicionarFicha()" class="btn btn-primary mb-3">Adicionar Ficha</button>
         <div *ngFor="let ficha of fichas" class="ficha-item" (click)="abrirFicha(ficha)">
           {{ ficha.nome }}
@@ -29,14 +102,36 @@
       </div>
 
       <!-- Aba de Imagens -->
-      <div *ngIf="loadedTabs['imagens']" class="aba-imagens" [hidden]="activeTab !== 'imagens'">
-        <h3>Imagens</h3>
-        <!-- Implemente a lista de imagens aqui -->
+      <div *ngIf="activeTab === 'imagens'" class="imagens-container">
+        <!-- Botão de Upload simplificado -->
+        <div class="upload-area">
+          <input type="file" accept="image/*" (change)="onFileSelected($event)" #fileInput hidden>
+          <button class="upload-button" (click)="fileInput.click()">
+            <i class="fas fa-upload"></i> Enviar Imagem
+          </button>
+        </div>
+
+        <!-- Lista de Imagens -->
+        <div class="imagens-list">
+          <div *ngFor="let img of imagens" class="imagem-item" draggable="true" (dragstart)="dragImage($event, img)">
+            <div class="imagem-preview">
+              <img [src]="img.url" [alt]="img.nome" onerror="this.src='assets/imagem-padrao.png'">
+              <button class="delete-button" (click)="deletarImagem(img.imagemId); $event.stopPropagation()"
+                title="Excluir imagem">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+            <div class="imagem-info">
+              <div class="imagem-nome" contenteditable="true" (blur)="atualizarNomeImagem(img, $event)">
+                {{ img.nome }}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Aba de Configurações -->
       <div *ngIf="loadedTabs['config']" class="aba-config" [hidden]="activeTab !== 'config'">
-        <h3>Configurações</h3>
         <!-- Exibe o link de convite apenas para o criador da mesa -->
         <div *ngIf="isCriador && linkConvite" class="link-convite">
           <strong>Link de Convite: </strong>

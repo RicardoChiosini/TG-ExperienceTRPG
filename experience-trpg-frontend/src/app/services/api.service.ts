@@ -1,8 +1,11 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpEvent, HttpEventType } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { MesaDto } from '../dtos/mesa.dto';
+import { ImagemDto } from '../dtos/imagem.dto';
 import { FichaDto, AtributoDto, HabilidadeDto, ProficienciaDto } from '../dtos/ficha.dto';
+import { MapaDto } from '../dtos/mapa.dto';
+import { HttpHeaders } from '@angular/common/http';
 
 @Injectable({
   providedIn: 'root',
@@ -133,5 +136,84 @@ export class ApiService {
   // No seu serviço API, crie um método para buscar o MesaId
   getMesaIdByFichaId(fichaId: number): Observable<number> {
     return this.http.get<number>(`${this.baseUrl}/fichas/${fichaId}/mesaId`);
+  }
+
+  getImagensPorMesa(mesaId: number): Observable<ImagemDto[]> {
+    return this.http.get<ImagemDto[]>(`${this.baseUrl}/imagens/mesa/${mesaId}`);
+  }
+
+  uploadImagem(formData: FormData): Observable<HttpEvent<any>> {
+    return this.http.post(`${this.baseUrl}/imagens/upload`, formData, {
+      reportProgress: true,
+      observe: 'events'
+    });
+  }
+
+  updateImagem(imagemId: number, imagemDto: ImagemDto): Observable<ImagemDto> {
+    return this.http.patch<ImagemDto>(
+      `${this.baseUrl}/imagens/${imagemId}`,
+      imagemDto,
+      {
+        headers: new HttpHeaders({
+          'Content-Type': 'application/json'
+        })
+      }
+    );
+  }
+
+  deleteImagem(imagemId: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/imagens/${imagemId}`);
+  }
+
+  getImagemPorId(imagemId: number): Observable<ImagemDto> {
+    return this.http.get<ImagemDto>(`${this.baseUrl}/imagens/${imagemId}`);
+  }
+
+  vincularImagemAFicha(fichaId: number, imagemId: number): Observable<FichaDto> {
+    return this.http.post<FichaDto>(`${this.baseUrl}/fichas/${fichaId}/vincular/${imagemId}`, {});
+  }
+
+  removerImagemDaFicha(fichaId: number): Observable<FichaDto> {
+    return this.http.delete<FichaDto>(`${this.baseUrl}/fichas/${fichaId}/remover-imagem`);
+  }
+
+  getImagemDaFicha(fichaId: number): Observable<ImagemDto> {
+    return this.http.get<ImagemDto>(`${this.baseUrl}/fichas/${fichaId}/imagem`);
+  }
+
+  getMapaMaisRecentePorMesa(mesaId: number): Observable<MapaDto> {
+    return this.http.get<MapaDto>(`${this.baseUrl}/map/${mesaId}/mapa/recente`);
+  }
+
+  salvarEstadoMapa(mapaId: number, estado: any): Observable<any> {
+    return this.http.put(`${this.baseUrl}/map/${mapaId}/mapa/estado`, estado);
+  }
+
+  salvarConfigMapa(mapaId: number, config: any): Observable<any> {
+    return this.http.put(`${this.baseUrl}/map/mapa/${mapaId}/config`, config);
+  }
+
+  getTokensDoMapa(mesaId: number): Observable<any> {
+    return this.http.get(`${this.baseUrl}/map/${mesaId}/mapa/tokens`);
+  }
+
+  getTodosMapasPorMesa(mesaId: number): Observable<MapaDto[]> {
+    return this.http.get<MapaDto[]>(`${this.baseUrl}/map/${mesaId}/mapas`);
+  }
+
+  getMapaById(mesaId: number, mapaId: number): Observable<MapaDto> {
+    return this.http.get<MapaDto>(`${this.baseUrl}/map/${mesaId}/mapa/${mapaId}`);
+  }
+
+  getMapaAtual(mesaId: number): Observable<MapaDto> {
+    return this.http.get<MapaDto>(`${this.baseUrl}/map/${mesaId}/mapa/atual`);
+  }
+
+  atualizarVisibilidadeMapa(mesaId: number, mapaId: number, visivel: boolean): Observable<any> {
+    return this.http.put(`${this.baseUrl}/map/${mesaId}/mapa/${mapaId}/visibilidade`, visivel);
+  }
+
+  criarMapa(mesaId: number, mapa: MapaDto): Observable<MapaDto> {
+    return this.http.post<MapaDto>(`${this.baseUrl}/map/${mesaId}/mapa`, mapa);
   }
 }

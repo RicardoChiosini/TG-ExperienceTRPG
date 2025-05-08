@@ -17,12 +17,19 @@ interface ChatMessage {
   dataHora: string;
 }
 
+interface MapUpdate {
+  mapId: number;
+  mapState: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
-export class ChatService {
+export class SessaoService {
   private hubConnection!: signalR.HubConnection;
   private messageSubject = new Subject<ChatMessage>();
+  private mapUpdateSubject = new Subject<MapUpdate>();
+  private currentMapSubject = new Subject<number>();
   private baseUrl = 'http://localhost:5056';
   private connectionStarted = false;
 
@@ -34,7 +41,7 @@ export class ChatService {
     if (this.connectionStarted) return;
 
     this.hubConnection = new signalR.HubConnectionBuilder()
-      .withUrl(`${this.baseUrl}/chathub`, {
+      .withUrl(`${this.baseUrl}/sessaohub`, {
         skipNegotiation: true,
         transport: signalR.HttpTransportType.WebSockets
       })
@@ -46,19 +53,9 @@ export class ChatService {
         this.connectionStarted = true;
         console.log('Conexão SignalR estabelecida');
         
-        this.hubConnection.on('ReceiveMessage', (message: any) => {
-          const chatMessage: ChatMessage = {
-            user: message.user,
-            message: message.message,
-            texto: message.message.replace(/<[^>]*>/g, ''),
-            tipoMensagem: message.tipoMensagem || 'normal',
-            dadosFormatados: message.dadosFormatados,
-            usuarioId: message.usuarioId,
-            mesaId: message.mesaId, // Adicione esta linha
-            dataHora: message.dataHora
-          };
-          this.messageSubject.next(chatMessage);
-        });
+        // Configuração dos listeners
+        this.setupMessageListener();
+        this.setupMapListeners();
       })
       .catch(err => console.error('Erro ao conectar ao SignalR:', err));
 
@@ -69,6 +66,33 @@ export class ChatService {
     });
   }
 
+  private setupMessageListener(): void {
+    this.hubConnection.on('ReceiveMessage', (message: any) => {
+      const chatMessage: ChatMessage = {
+        user: message.user,
+        message: message.message,
+        texto: message.message.replace(/<[^>]*>/g, ''),
+        tipoMensagem: message.tipoMensagem || 'normal',
+        dadosFormatados: message.dadosFormatados,
+        usuarioId: message.usuarioId,
+        mesaId: message.mesaId,
+        dataHora: message.dataHora
+      };
+      this.messageSubject.next(chatMessage);
+    });
+  }
+
+  private setupMapListeners(): void {
+    this.hubConnection.on('ReceiveMapUpdate', (mapId: number, mapState: string) => {
+      this.mapUpdateSubject.next({ mapId, mapState });
+    });
+
+    this.hubConnection.on('ReceiveCurrentMap', (mapId: number) => {
+      this.currentMapSubject.next(mapId);
+    });
+  }
+
+  // Métodos para o Chat
   getMessageObservable(): Observable<ChatMessage> {
     return this.messageSubject.asObservable();
   }
@@ -84,6 +108,33 @@ export class ChatService {
     );
   }
 
+  // Métodos para o Mapa
+  getMapUpdateObservable(): Observable<MapUpdate> {
+    return this.mapUpdateSubject.asObservable();
+  }
+
+  getCurrentMapObservable(): Observable<number> {
+    return this.currentMapSubject.asObservable();
+  }
+
+  sendMapUpdate(mesaId: string, mapId: number, mapState: string): Promise<void> {
+    return this.hubConnection.invoke('SendMapUpdate', mesaId, mapId, mapState);
+  }
+
+  sendCurrentMap(mesaId: string, mapId: number): Promise<void> {
+    return this.hubConnection.invoke('UpdateCurrentMap', mesaId, mapId);
+  }
+
+  // Métodos compartilhados
+  joinMesaGroup(mesaId: number | string): Promise<void> {
+    return this.hubConnection.invoke('JoinMesaGroup', mesaId.toString());
+  }
+
+  leaveMesaGroup(mesaId: number | string): Promise<void> {
+    return this.hubConnection.invoke('LeaveMesaGroup', mesaId.toString());
+  }
+
+  // Métodos HTTP (mantidos do serviço original)
   getMensagensPorMesa(mesaId: number): Observable<ChatMessage[]> {
     return this.http.get<ChatMessage[]>(`${this.baseUrl}/api/mensagens/mesa/${mesaId}`).pipe(
       map(response => this.mapearRespostaParaChatMessage(response)),
@@ -108,13 +159,5 @@ export class ChatService {
       mesaId: msg.mesaId || 0,
       dataHora: msg.dataHora || new Date().toISOString()
     }));
-  }
-
-  joinMesaGroup(mesaId: number): Promise<void> {
-    return this.hubConnection.invoke('JoinMesaGroup', mesaId);
-  }
-
-  leaveMesaGroup(mesaId: number): Promise<void> {
-    return this.hubConnection.invoke('LeaveMesaGroup', mesaId);
   }
 }

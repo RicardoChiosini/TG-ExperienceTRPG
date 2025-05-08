@@ -16,7 +16,7 @@ namespace experience_trpg_backend.Models
 
         public int SistemaId { get; set; } // Chave estrangeira para Sistema
         public Sistema? MesSistema { get; set; } // Propriedade de navegação para Sistema
-        
+        public ICollection<Mapa> Mapas { get; set; } = new List<Mapa>();
         public ICollection<UsuarioMesa> Participantes { get; set; } = new List<UsuarioMesa>(); // Participantes da mesa
         public ICollection<Ficha> Fichas { get; set; } = new List<Ficha>(); // Fichas associadas
         public ICollection<Imagem> Imagens { get; set; } = new List<Imagem>(); // Imagens associadas

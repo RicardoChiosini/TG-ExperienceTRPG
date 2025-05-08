@@ -9,6 +9,7 @@ namespace experience_trpg_backend.Models
         // DbSets para cada entidade
         public DbSet<Usuario>? Usuarios { get; set; }
         public DbSet<Mesa>? Mesas { get; set; }
+        public DbSet<Mapa>? Mapas { get; set; }
         public DbSet<Mensagem> Mensagens { get; set; }
         public DbSet<Ficha>? Fichas { get; set; }
         public DbSet<StatusUsuario>? StatusUsuarios { get; set; }
@@ -50,6 +51,9 @@ namespace experience_trpg_backend.Models
             // Chave Primária para Mesa
             modelBuilder.Entity<Mesa>()
                 .HasKey(m => m.MesaId);
+
+            modelBuilder.Entity<Mapa>()
+                .HasKey(m => m.MapaId);
 
             // Relação muitos-para-muitos entre Usuario e Mesa através da tabela UsuarioMesa
             modelBuilder.Entity<UsuarioMesa>()
@@ -168,18 +172,67 @@ namespace experience_trpg_backend.Models
                 .HasOne(f => f.FicSistema) // Propriedade de relacionamento (a ser definida em Ficha)
                 .WithMany(s => s.Fichas) // Retratação na declaração de Status
                 .HasForeignKey(f => f.SistemaId); // Chave estrangeira
-            
+
             // Relação entre Ficha e Mesa
             modelBuilder.Entity<Ficha>()
                 .HasOne(f => f.FicMesa) // Propriedade de relacionamento (a ser definida em Ficha)
                 .WithMany(s => s.Fichas) // Retratação na declaração de Status
                 .HasForeignKey(f => f.MesaId); // Chave estrangeira
 
-                // Relação entre Ficha e Imagem
+            // Relação entre Ficha e Imagem
             modelBuilder.Entity<Ficha>()
                 .HasOne(f => f.FicImagem) // Propriedade de relacionamento (a ser definida em Ficha)
                 .WithMany(s => s.Fichas) // Retratação na declaração de Status
                 .HasForeignKey(f => f.ImagemId); // Chave estrangeira
+
+            // Configuração para Mesa -> Fichas
+            modelBuilder.Entity<Mesa>()
+                .HasMany(m => m.Fichas)
+                .WithOne(f => f.FicMesa)
+                .HasForeignKey(f => f.MesaId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Configuração para Mesa -> Imagens
+            modelBuilder.Entity<Mesa>()
+                .HasMany(m => m.Imagens)
+                .WithOne(i => i.ImaMesa)
+                .HasForeignKey(i => i.MesaId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Configuração para Ficha -> Atributos
+            modelBuilder.Entity<Ficha>()
+                .HasMany(f => f.Atributos)
+                .WithOne(a => a.AtriFicha)
+                .HasForeignKey(a => a.FichaId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Configuração para Ficha -> Habilidades
+            modelBuilder.Entity<Ficha>()
+                .HasMany(f => f.Habilidades)
+                .WithOne(h => h.HabFicha)
+                .HasForeignKey(h => h.FichaId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Configuração para Ficha -> Proficiencias
+            modelBuilder.Entity<Ficha>()
+                .HasMany(f => f.Proficiencias)
+                .WithOne(p => p.ProfFicha)
+                .HasForeignKey(p => p.FichaId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Configuração para Ficha -> Equipamentos
+            modelBuilder.Entity<Ficha>()
+                .HasMany(f => f.Equipamentos)
+                .WithOne(e => e.EquFicha)
+                .HasForeignKey(e => e.FichaId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Configuração para Ficha -> UsuarioFichas
+            modelBuilder.Entity<Ficha>()
+                .HasMany(f => f.UsuarioFichas)
+                .WithOne(uf => uf.UFFicha)
+                .HasForeignKey(uf => uf.FichaId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
 
     }

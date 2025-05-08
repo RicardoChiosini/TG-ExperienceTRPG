@@ -30,7 +30,7 @@ namespace experience_trpg_backend
                 options.UseMySql(Configuration.GetConnectionString("DefaultConnection"),
                 new MySqlServerVersion(new Version(8, 3, 0))));
 
-            services.AddAutoMapper(typeof(MappingProfile)); // Registra o AutoMapper
+            services.AddAutoMapper(typeof(MappingProfile));
 
             services.AddControllers();
 
@@ -38,9 +38,10 @@ namespace experience_trpg_backend
             {
                 options.AddPolicy("AllowAllOrigins", builder =>
                 {
-                    builder.AllowAnyOrigin()
+                    builder.WithOrigins("http://localhost:4200", "http://localhost:5056")
                            .AllowAnyMethod()
-                           .AllowAnyHeader();
+                           .AllowAnyHeader()
+                           .AllowCredentials();
                 });
             });
 
@@ -78,18 +79,43 @@ namespace experience_trpg_backend
             {
                 app.UseDeveloperExceptionPage();
             }
+            else
+            {
+                // Utiliza um manipulador de exceções mais apropriado para produção
+                app.UseExceptionHandler("/Home/Error");
+                app.UseHsts();
+            }
+
+            app.UseHttpsRedirection();
+
+            // Configuração para arquivos estáticos com CORS
+            app.UseStaticFiles(new StaticFileOptions
+            {
+                OnPrepareResponse = ctx =>
+                {
+                    var origin = ctx.Context.Request.Headers["Origin"];
+                    if (!string.IsNullOrEmpty(origin))
+                    {
+                        ctx.Context.Response.Headers["Access-Control-Allow-Origin"] = origin;
+                        ctx.Context.Response.Headers["Access-Control-Allow-Credentials"] = "true";
+                    }
+                }
+            });
 
             app.UseRouting();
 
+            // Configura CORS
             app.UseCors("AllowAllOrigins");
 
+            // Configura autenticação e autorização
             app.UseAuthentication();
             app.UseAuthorization();
 
+            // Mapeia endpoints
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
-                endpoints.MapHub<ChatHub>("/chathub");
+                endpoints.MapHub<SessaoHub>("/sessaohub");
             });
         }
     }

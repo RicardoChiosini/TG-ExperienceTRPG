@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using experience_trpg_backend.Models;
-using experience_trpg_backend.Dtos;
+using experience_trpg_backend.DTOs;
 
 namespace experience_trpg_backend.Controllers
 {

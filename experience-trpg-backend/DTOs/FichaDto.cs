@@ -13,6 +13,8 @@ namespace experience_trpg_backend.DTOs
         public int? MesaId { get; set; }
         public int? ImagemId { get; set; }
 
+        public ImagemDto? Imagem { get; set; }
+
         public List<AtributoDto> Atributos { get; set; } = new List<AtributoDto>();
         public List<HabilidadeDto> Habilidades { get; set; } = new List<HabilidadeDto>();
         public List<ProficienciaDto> Proficiencias { get; set; } = new List<ProficienciaDto>();

@@ -4,6 +4,8 @@ import { BrowserModule } from '@angular/platform-browser';
 import { HttpClientModule } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { AppRoutingModule } from './app-routing.module';
+import { ToastrModule } from 'ngx-toastr';
+import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 
 import { AppComponent } from '../app.component';
 import { HomeComponent } from '../components/home/home.component'; // Supondo que você tenha um componente Home
@@ -23,7 +25,7 @@ import { ChatComponent } from '../components/chat/chat.component';
 
 import { ApiService } from '../services/api.service';
 import { AuthService } from '../services/auth.service';
-import { ChatService } from '../services/chat.service';
+import { SessaoService } from '../services/sessao.service';
 import { CommonModule } from '@angular/common';
 
 @NgModule({
@@ -50,9 +52,10 @@ import { CommonModule } from '@angular/common';
     AppRoutingModule,
     HttpClientModule,
     FormsModule,
-    NgbModule
+    NgbModule,
+    ToastrModule.forRoot()
   ],
-  providers: [ApiService, AuthService, ChatService],
+  providers: [ApiService, AuthService, SessaoService, provideAnimationsAsync()],
   bootstrap: [AppComponent]
 })
 export class AppModule { }

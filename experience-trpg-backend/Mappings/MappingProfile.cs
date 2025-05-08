@@ -1,6 +1,7 @@
 using AutoMapper;
 using experience_trpg_backend.Models;
 using experience_trpg_backend.DTOs;
+using System.Text.Json;
 
 public class MappingProfile : Profile
 {
@@ -18,12 +19,62 @@ public class MappingProfile : Profile
                 Nome = src.MesCriador.Nome
             }));
 
+        CreateMap<Imagem, ImagemDto>()
+            .ForMember(dest => dest.Nome, opt => opt.MapFrom(src => src.Nome ?? string.Empty))
+            .ForMember(dest => dest.Extensao, opt => opt.MapFrom(src => src.Extensao ?? string.Empty))
+            .ForMember(dest => dest.ImageUrl, opt => opt.MapFrom(src => src.ImageUrl ?? string.Empty));
+
         CreateMap<Usuario, UsuarioDto>();
         CreateMap<Ficha, FichaDto>()
             .ForMember(dest => dest.Nome, opt => opt.MapFrom(src => src.Nome ?? string.Empty))
-            .ForMember(dest => dest.Descricao, opt => opt.MapFrom(src => src.Descricao ?? string.Empty));
+            .ForMember(dest => dest.Descricao, opt => opt.MapFrom(src => src.Descricao ?? string.Empty))
+            .ForMember(dest => dest.Imagem, opt => opt.MapFrom(src => src.FicImagem));
         CreateMap<Atributo, AtributoDto>();
         CreateMap<Habilidade, HabilidadeDto>();
         CreateMap<Proficiencia, ProficienciaDto>();
+
+        // Novos mapeamentos para Mapa
+        CreateMap<Mapa, MapaDto>()
+            .ForMember(dest => dest.Estado, opt => opt.ConvertUsing(new JsonToEstadoConverter(), src => src.EstadoJson));
+
+        CreateMap<MapaDto, Mapa>()
+            .ForMember(dest => dest.EstadoJson, opt => opt.ConvertUsing(new EstadoToJsonConverter(), src => src.Estado))
+            .ForMember(dest => dest.MapMesa, opt => opt.Ignore());
+
+        // Mapeamento para MapaEstadoDto e TokenDto (se necessário)
+        CreateMap<MapaEstadoDto, MapaEstadoDto>(); // Pode ser útil para cópias
+        CreateMap<TokenDto, TokenDto>(); // Pode ser útil para cópias
+    }
+}
+
+public class JsonToEstadoConverter : IValueConverter<string, MapaEstadoDto>
+{
+    private static readonly JsonSerializerOptions _options = new JsonSerializerOptions
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    public MapaEstadoDto Convert(string sourceMember, ResolutionContext context)
+    {
+        if (string.IsNullOrEmpty(sourceMember))
+            return new MapaEstadoDto();
+
+        return JsonSerializer.Deserialize<MapaEstadoDto>(sourceMember, _options) ?? new MapaEstadoDto();
+    }
+}
+
+public class EstadoToJsonConverter : IValueConverter<MapaEstadoDto, string>
+{
+    private static readonly JsonSerializerOptions _options = new JsonSerializerOptions
+    {
+        WriteIndented = false
+    };
+
+    public string Convert(MapaEstadoDto sourceMember, ResolutionContext context)
+    {
+        if (sourceMember == null)
+            return "{}";
+
+        return JsonSerializer.Serialize(sourceMember, _options);
     }
 }
