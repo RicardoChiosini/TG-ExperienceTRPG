@@ -22,8 +22,10 @@ namespace experience_trpg_backend.DTOs
         public int DonoId { get; set; } // Alterado para int para corresponder ao usuárioId
         public bool VisivelParaTodos { get; set; } = true;
         public bool Bloqueado { get; set; }
+        public int MapaId { get; set; }
         public Dictionary<string, string> Metadados { get; set; } = new Dictionary<string, string>();
         public DateTime DataCriacao { get; set; } = DateTime.UtcNow;
+        public DateTime? DataAtualizacao { get; set; }
     }
 
     public class CamadaDto

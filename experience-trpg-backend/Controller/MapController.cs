@@ -60,11 +60,21 @@ namespace experience_trpg_backend.Controllers
             }
         }
 
-        [HttpPut("{mapaId}/mapa/estado")]
-        public async Task<IActionResult> SalvarEstadoMapa(
-            [Range(1, int.MaxValue)] int mapaId,
-            [FromBody] MapaEstadoDto estado)
+        [HttpPut("{mapaId}/estado")]
+        public async Task<IActionResult> SalvarEstadoMapa(int mapaId, [FromBody] MapaEstadoDto estado)
         {
+            // Validação adicional para URLs de imagem
+            if (estado.Tokens != null)
+            {
+                foreach (var token in estado.Tokens)
+                {
+                    if (!Uri.IsWellFormedUriString(token.ImagemDados, UriKind.Absolute) &&
+                        !token.ImagemDados.StartsWith("data:image/"))
+                    {
+                        return BadRequest(new { Message = $"Token {token.Id} possui URL de imagem inválida" });
+                    }
+                }
+            }
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
@@ -97,7 +107,7 @@ namespace experience_trpg_backend.Controllers
 
                 await _context.SaveChangesAsync();
 
-                // Notifica apenas com os dados essenciais
+                // Notificação via SignalR (mantém mesaId apenas para o grupo)
                 var minimalState = new
                 {
                     Tokens = estado.Tokens?.Select(t => new { t.Id, t.X, t.Y }),
@@ -130,7 +140,6 @@ namespace experience_trpg_backend.Controllers
         [HttpPut("mapa/{mapaId}/config")]
         public async Task<IActionResult> SalvarConfigMapa(int mapaId, [FromBody] MapaConfigDto config)
         {
-            // Busca o mapa pelo ID
             var mapa = await _context.Mapas
                 .FirstOrDefaultAsync(m => m.MapaId == mapaId);
 
@@ -139,16 +148,32 @@ namespace experience_trpg_backend.Controllers
                 return NotFound($"Mapa com ID {mapaId} não encontrado");
             }
 
-            // Atualiza apenas as configurações
+            // Atualiza TODAS as propriedades
+            mapa.Nome = config.Nome;
             mapa.Largura = config.Largura;
             mapa.Altura = config.Altura;
             mapa.TamanhoHex = config.TamanhoHex;
             mapa.UltimaAtualizacao = DateTime.UtcNow;
 
+            // Se está marcando como visível, atualiza os outros mapas
+            if (config.Visivel)
+            {
+                var outrosMapas = await _context.Mapas
+                    .Where(m => m.MapaId != mapaId && m.MesaId == mapa.MesaId)
+                    .ToListAsync();
+
+                foreach (var outroMapa in outrosMapas)
+                {
+                    outroMapa.Visivel = false;
+                }
+            }
+
+            mapa.Visivel = config.Visivel;
+
             try
             {
                 await _context.SaveChangesAsync();
-                return Ok();
+                return Ok(mapa);
             }
             catch (DbUpdateException ex)
             {
@@ -168,16 +193,27 @@ namespace experience_trpg_backend.Controllers
 
                 if (mapa == null || string.IsNullOrEmpty(mapa.EstadoJson))
                 {
-                    return Ok(new MapaEstadoDto());
+                    return Ok(new MapaEstadoDto
+                    {
+                        Tokens = new List<TokenDto>(),
+                        Camadas = new List<CamadaDto>(),
+                        Objetos = new List<ObjetoDeMapaDto>(),
+                        Configuracoes = new ConfiguracaoMapaDto()
+                    });
                 }
 
                 var estado = JsonSerializer.Deserialize<MapaEstadoDto>(mapa.EstadoJson);
 
-                // Filtra apenas os tokens visíveis para o usuário
+                // Garante que as configurações não sejam nulas
+                estado.Configuracoes ??= new ConfiguracaoMapaDto();
+
+                // Filtra tokens e verifica URLs
                 if (estado.Tokens != null)
                 {
                     estado.Tokens = estado.Tokens
-                        .Where(t => t.VisivelParaTodos)
+                        .Where(t => t.VisivelParaTodos &&
+                                   (t.ImagemDados.StartsWith("http") ||
+                                    t.ImagemDados.StartsWith("data:image")))
                         .ToList();
                 }
 

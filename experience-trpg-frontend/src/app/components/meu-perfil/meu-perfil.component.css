@@ -1,0 +1,126 @@
+/* Tema escuro principal */
+.dark-theme {
+  background-color: #121212;
+  color: #e0e0e0;
+  min-height: 100vh;
+}
+
+/* Card principal */
+.dark-card {
+  background-color: #1e1e1e;
+  border: 1px solid #333;
+  color: #e0e0e0;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Título do perfil */
+.profile-title {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  color: #f8f9fa;
+  margin-bottom: 0.5rem;
+}
+
+/* Avatar do usuário */
+.avatar-container {
+  position: relative;
+  display: inline-block;
+}
+
+.profile-avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #6c5ce7;
+}
+
+.avatar-upload-btn {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  background-color: #6c5ce7;
+  color: white;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.avatar-upload-btn:hover {
+  background-color: #5649c0;
+  transform: scale(1.1);
+}
+
+/* Inputs */
+.dark-input {
+  background-color: #2d2d2d;
+  border: 1px solid #444;
+  color: #e0e0e0;
+  padding: 0.75rem;
+}
+
+.dark-input:focus {
+  background-color: #3a3a3a;
+  border-color: #6c5ce7;
+  color: #fff;
+  box-shadow: 0 0 0 0.25rem rgba(108, 92, 231, 0.25);
+}
+
+.dark-input[readonly] {
+  background-color: #252525;
+  border-color: #333;
+}
+
+/* Lista de estatísticas */
+.stats-list {
+  background-color: transparent;
+}
+
+.dark-list-item {
+  background-color: #252525;
+  color: #e0e0e0;
+  border-color: #333;
+}
+
+/* Alertas */
+.alert-info {
+  background-color: rgba(45, 152, 218, 0.2);
+  border-color: rgba(45, 152, 218, 0.3);
+  color: #2d98da;
+}
+
+/* Botões */
+.btn-primary {
+  background-color: #6c5ce7;
+  border-color: #6c5ce7;
+  padding: 0.75rem;
+  font-weight: 500;
+}
+
+.btn-primary:hover {
+  background-color: #5649c0;
+  border-color: #5649c0;
+}
+
+.btn-primary:disabled {
+  background-color: #444;
+  border-color: #444;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .profile-avatar {
+    width: 100px;
+    height: 100px;
+  }
+  
+  .profile-title {
+    font-size: 1.5rem;
+  }
+}

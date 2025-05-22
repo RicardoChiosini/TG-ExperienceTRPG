@@ -14,7 +14,7 @@ export class MinhasMesasComponent implements OnInit {
   mesas: MesaDto[] = []; // Inicialize como uma lista vazia
   usuarioId: number = 0;
   currentPage: number = 0; // Página atual
-  itemsPerPage: number = 3; // Número de mesas por página
+  itemsPerPage: number = 4; // Número de mesas por página
   totalMesas: number = 0; // Total de mesas
 
   constructor(private apiService: ApiService, private router: Router, private authService: AuthService) {}

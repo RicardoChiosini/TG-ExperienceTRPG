@@ -199,6 +199,13 @@ namespace experience_trpg_backend.Models
                 .HasForeignKey(i => i.MesaId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            // Configuração para Mesa -> Mapas
+            modelBuilder.Entity<Mesa>()
+                .HasMany(m => m.Mapas)
+                .WithOne(i => i.MapMesa)
+                .HasForeignKey(i => i.MesaId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             // Configuração para Ficha -> Atributos
             modelBuilder.Entity<Ficha>()
                 .HasMany(f => f.Atributos)

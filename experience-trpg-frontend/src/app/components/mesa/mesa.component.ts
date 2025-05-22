@@ -12,7 +12,7 @@ import { ModalService } from '../../services/modal.service';
 import { FichaDto } from '../../dtos/ficha.dto';
 import { ImagemDto } from '../../dtos/imagem.dto';
 import { MapaDto } from '../../dtos/mapa.dto';
-import { TokenDto, MapaEstadoDto } from '../../dtos/mapaEstado.dto';
+import { TokenDto, CamadaDto, ObjetoDeMapaDto, ConfiguracaoMapaDto, MapaEstadoDto } from '../../dtos/mapaEstado.dto';
 import { Sistema } from '../../models/SistemaModel';
 import { FichaStateService } from '../../services/ficha-state.service';
 
@@ -21,6 +21,13 @@ import { FichaTormenta20Component } from '../fichas/ficha-tormenta20/ficha-torme
 
 // Importações do Phaser
 import * as Phaser from 'phaser';
+
+interface HexGridConfig {
+  cols: number;
+  rows: number;
+  hexRadius: number;
+  name?: string; // Opcional, apenas para mapas locais
+}
 
 @Component({
   selector: 'app-mesa',
@@ -33,10 +40,24 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
   phaserGame!: Phaser.Game;
   private config: Phaser.Types.Core.GameConfig;
 
+  configuracoesAbertas = false;
   currentMap: MapaDto | null = null;
   mapaCarregado = false;
   allMaps: MapaDto[] = [];
   currentMapId: number = 0;
+
+  estadosMapa: { [mapaId: number]: MapaEstadoDto } = {};
+
+  isZooming: boolean = false;
+  selectedToken: Phaser.GameObjects.Sprite | null = null;
+  rotationHandle: Phaser.GameObjects.Arc | null = null;
+  resizeHandle: Phaser.GameObjects.Rectangle | null = null;
+  resizeHandles: Phaser.GameObjects.Rectangle[] = [];
+  selectionRectangle: Phaser.GameObjects.Rectangle | null = null;
+
+  // Tamanho mínimo e máximo para redimensionamento
+  readonly MIN_TOKEN_SIZE = 40;
+  readonly MAX_TOKEN_SIZE = 20000;
 
   activeTab: string = 'chat';
   mesaId: number = 0;
@@ -110,6 +131,7 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Inicia o carregamento dos recursos
     this.carregarRecursos();
+    this.setupFichaStateSubscription();
   }
 
   private carregarRecursos(): void {
@@ -132,9 +154,10 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
 
       // Inscreva-se para atualizações do mapa
       this.sessaoService.getMapUpdateObservable().subscribe(({ mapId, mapState }) => {
+        // Aplica apenas se for o mapa atual
         if (this.currentMapId === mapId) {
-          this.currentMap!.estadoJson = mapState;
-          this.applyMapChanges(JSON.parse(mapState));
+          const parsedState = typeof mapState === 'string' ? JSON.parse(mapState) : mapState;
+          this.applyMapChanges(parsedState);
         }
       });
     }).catch(error => {
@@ -147,6 +170,8 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+
+    this.cleanupTextures();
 
     // Destrói o jogo Phaser quando o componente é destruído
     if (this.phaserGame) {
@@ -174,10 +199,21 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
   private carregarTodosMapas(): void {
     this.apiService.getTodosMapasPorMesa(this.mesaId).subscribe({
       next: (mapas) => {
-        this.allMaps = mapas;
-        const mapaAtual = mapas.find(m => m.visivel) || mapas[0];
+        // Garante que apenas um mapa está marcado como visível
+        let mapaVisivelEncontrado = false;
+        this.allMaps = mapas.map(mapa => {
+          if (mapa.visivel) {
+            if (mapaVisivelEncontrado) {
+              // Se já encontramos um mapa visível, marca este como não visível
+              mapa.visivel = false;
+            } else {
+              mapaVisivelEncontrado = true;
+            }
+          }
+          return mapa;
+        });
 
-        // Garante que sempre terá um valor numérico
+        const mapaAtual = mapas.find(m => m.visivel) || mapas[0];
         this.currentMapId = mapaAtual?.mapaId ?? 0;
 
         if (this.currentMapId !== 0) {
@@ -206,6 +242,27 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
     );
   }
 
+  private setupFichaStateSubscription(): void {
+    this.fichaStateService.ficha$.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(fichaAtualizada => {
+      if (fichaAtualizada) {
+        // Atualiza a ficha na lista de fichas
+        const index = this.fichas.findIndex(f => f.fichaId === fichaAtualizada.fichaId);
+        if (index !== -1) {
+          this.fichas[index] = { ...this.fichas[index], ...fichaAtualizada };
+        }
+
+        // Atualiza a ficha nas modais abertas
+        this.modalsAbertas.forEach(modal => {
+          if (modal.ficha.fichaId === fichaAtualizada.fichaId) {
+            modal.ficha = { ...modal.ficha, ...fichaAtualizada };
+          }
+        });
+      }
+    });
+  }
+
   // Método para carregar imagens
   carregarImagens(): void {
     this.apiService.getImagensPorMesa(this.mesaId).subscribe({
@@ -219,7 +276,7 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
       error: (error) => console.error('Erro ao carregar imagens:', error)
     });
   }
-  
+
   // Método auxiliar para criar URL de dados se necessário
   private createImageUrl(img: ImagemDto): string {
     if (img.dados && img.extensao) {
@@ -378,11 +435,14 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // Função para lidar com a abertura da modal da ficha
   abrirFicha(ficha: FichaDto): void {
+    // Notifica o serviço de estado sobre a ficha que está sendo aberta
+    this.fichaStateService.updateFicha(ficha);
+
     // Verifica se a ficha já está aberta
     const fichaAberta = this.modalsAbertas.find(m => m.ficha.fichaId === ficha.fichaId);
 
     if (fichaAberta) {
-      // Se já está aberta, traz para frente em vez de não fazer nada
+      // Se já está aberta, traz para frente
       this.modalsAbertas = this.modalsAbertas.filter(m => m.modalId !== fichaAberta.modalId);
       this.modalsAbertas.push(fichaAberta);
       return;
@@ -554,24 +614,25 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   public drawHexGrid(scene: Phaser.Scene) {
-    // Limpa qualquer gráfico anterior
+    // Limpa qualquer elemento anterior do grid de forma mais abrangente
     scene.children.each(child => {
-      if (child instanceof Phaser.GameObjects.Graphics) {
+      if (child instanceof Phaser.GameObjects.Graphics ||
+        child instanceof Phaser.GameObjects.Text ||
+        (child instanceof Phaser.GameObjects.Sprite && child.getData('gridElement'))) {
         child.destroy();
       }
     });
 
-    const graphics = scene.add.graphics();
-    const currentMap = this.maps[this.currentMapIndex];
-    const hexRadius = currentMap.hexRadius;
+    const graphics = scene.add.graphics().setData('gridElement', true);
 
-    // Calcula o tamanho total do mapa
-    const mapWidth = currentMap.gridSize.cols * hexRadius * Math.sqrt(3);
-    const mapHeight = currentMap.gridSize.rows * hexRadius * 1.5;
+    const gridConfig = this.getCurrentGridConfig();
+    const hexRadius = gridConfig.hexRadius;
+    const cols = gridConfig.cols;
+    const rows = gridConfig.rows;
 
-    // Desenha o grid de hexágonos
-    for (let y = 0; y < currentMap.gridSize.rows; y++) {
-      for (let x = 0; x < currentMap.gridSize.cols; x++) {
+    // Desenha o grid sem os textos de coordenadas
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
         let xPos = x * hexRadius * Math.sqrt(3);
         const yPos = y * hexRadius * 1.5;
 
@@ -588,10 +649,36 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     // Atualiza os limites da câmera
-    const padding = Math.min(mapWidth, mapHeight) * 0.5; // 50% do menor lado
-    scene.cameras.main.setBounds(-padding, -padding,
-      mapWidth + padding * 2,
-      mapHeight + padding * 2);
+    const mapWidth = cols * hexRadius * Math.sqrt(3);
+    const mapHeight = rows * hexRadius * 1.5;
+    const padding = Math.min(mapWidth, mapHeight) * 0.5;
+    scene.cameras.main.setBounds(-padding, -padding, mapWidth + padding * 2, mapHeight + padding * 2);
+  }
+
+  private getCurrentGridConfig(): HexGridConfig {
+    if (this.currentMap) {
+      // Usando o MapaDto
+      return {
+        cols: this.currentMap.largura,
+        rows: this.currentMap.altura,
+        hexRadius: this.currentMap.tamanhoHex
+      };
+    } else if (this.maps.length > 0 && this.currentMapIndex < this.maps.length) {
+      // Usando o mapa local
+      const localMap = this.maps[this.currentMapIndex];
+      return {
+        cols: localMap.gridSize.cols,
+        rows: localMap.gridSize.rows,
+        hexRadius: localMap.hexRadius
+      };
+    }
+
+    // Retorno padrão caso não haja mapas
+    return {
+      cols: 30,
+      rows: 30,
+      hexRadius: 40
+    };
   }
 
   private drawHexagon(graphics: Phaser.GameObjects.Graphics, x: number, y: number, radius: number, fill: boolean) {
@@ -618,6 +705,109 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
     } else {
       graphics.strokePath();
     }
+  }
+
+  /**
+ * Converte coordenadas de tela (x,y) para coordenadas de grid hexagonal (col, row)
+ */
+  private screenToHexGrid(x: number, y: number, hexRadius: number): { col: number, row: number } {
+    const size = hexRadius;
+    const q = (x * Math.sqrt(3) / 3 - y / 3) / size;
+    const r = y * 2 / 3 / size;
+
+    // Convert to axial coordinates
+    const axial = this.cubeToAxial(this.roundCube(this.axialToCube(q, r)));
+
+    return {
+      col: axial.q,
+      row: axial.r
+    };
+  }
+
+  /**
+   * Converte coordenadas de grid hexagonal (col, row) para coordenadas de tela (x,y)
+   */
+  private hexGridToScreen(col: number, row: number, hexRadius: number): { x: number, y: number } {
+    const size = hexRadius;
+    const x = size * Math.sqrt(3) * (col + row / 2);
+    const y = size * 3 / 2 * row;
+
+    return { x, y };
+  }
+
+  public toggleSnapToGrid(): void {
+    try {
+      const configuracoes = this.getConfiguracoesMapaAtual();
+      configuracoes.snapToGrid = !configuracoes.snapToGrid;
+
+      this.saveMapState(this.currentMapId);
+      this.toastr.info(`Snap to grid ${configuracoes.snapToGrid ? 'ativado' : 'desativado'}`);
+    } catch (error) {
+      console.error('Erro ao alternar snap to grid:', error);
+      this.toastr.error('Erro ao alterar configurações do grid');
+    }
+  }
+
+  private getEstadoMapaAtual(): MapaEstadoDto {
+    if (!this.currentMapId) {
+      throw new Error('Nenhum mapa está carregado atualmente');
+    }
+
+    // Se não existir estado para o mapa atual, cria um novo com valores padrão
+    if (!this.estadosMapa[this.currentMapId]) {
+      this.estadosMapa[this.currentMapId] = {
+        tokens: [],
+        configuracoes: {
+          tipoGrid: 'hexagonal',
+          tamanhoCelula: 40,
+          corGrid: '#cccccc',
+          snapToGrid: true
+        }
+      };
+    }
+
+    return this.estadosMapa[this.currentMapId];
+  }
+
+  private getConfiguracoesMapaAtual(): ConfiguracaoMapaDto {
+    const estado = this.getEstadoMapaAtual();
+    return estado.configuracoes;
+  }
+
+  // Funções auxiliares para conversão entre sistemas de coordenadas hexagonais
+  private axialToCube(q: number, r: number): { q: number, r: number, s: number } {
+    return {
+      q: q,
+      r: r,
+      s: -q - r
+    };
+  }
+
+  private cubeToAxial(cube: { q: number, r: number, s: number }): { q: number, r: number } {
+    return {
+      q: cube.q,
+      r: cube.r
+    };
+  }
+
+  private roundCube(cube: { q: number, r: number, s: number }): { q: number, r: number, s: number } {
+    let q = Math.round(cube.q);
+    let r = Math.round(cube.r);
+    let s = Math.round(cube.s);
+
+    const qDiff = Math.abs(q - cube.q);
+    const rDiff = Math.abs(r - cube.r);
+    const sDiff = Math.abs(s - cube.s);
+
+    if (qDiff > rDiff && qDiff > sDiff) {
+      q = -r - s;
+    } else if (rDiff > sDiff) {
+      r = -q - s;
+    } else {
+      s = -q - r;
+    }
+
+    return { q, r, s };
   }
 
   update() {
@@ -650,8 +840,42 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.drawHexGrid(this.phaserGame.scene.scenes[0]);
   }
 
-  public toggleGridControls() {
+  public toggleGridControls(): void {
     this.gridControlsVisible = !this.gridControlsVisible;
+    this.configuracoesAbertas = this.gridControlsVisible;
+
+    // Desabilita/habilita interações com o mapa
+    this.toggleMapInteractions(!this.configuracoesAbertas);
+  }
+
+  private toggleMapInteractions(enable: boolean): void {
+    if (!this.phaserGame) return;
+
+    const scene = this.phaserGame.scene.scenes[0];
+    if (!scene) return;
+
+    // Ativa/desativa todos os tokens
+    scene.children.each(child => {
+      if (child instanceof Phaser.GameObjects.Sprite && child.getData('tokenData')) {
+        child.disableInteractive();
+
+        if (enable) {
+          // Habilita interação apenas para tokens do usuário ou se for criador
+          const tokenData = child.getData('tokenData') as TokenDto;
+          if (this.isCriador || tokenData.donoId === this.usuarioId) {
+            child.setInteractive();
+          }
+        }
+      }
+    });
+
+    // Adiciona/remove classe CSS para feedback visual
+    const container = this.gameContainer.nativeElement;
+    if (enable) {
+      container.classList.remove('map-disabled');
+    } else {
+      container.classList.add('map-disabled');
+    }
   }
 
   zoomPercentual: number = 100; // Valor inicial em 100%
@@ -660,26 +884,47 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
   readonly ZOOM_INCREMENTO: number = 10;
 
   public zoomIn(): void {
+    if (this.isZooming) return;
+
     const novoZoom = Math.min(this.zoomPercentual + this.ZOOM_INCREMENTO, this.ZOOM_MAXIMO);
     this.aplicarZoom(novoZoom);
   }
 
   public zoomOut(): void {
+    if (this.isZooming) return;
+
     const novoZoom = Math.max(this.zoomPercentual - this.ZOOM_INCREMENTO, this.ZOOM_MINIMO);
     this.aplicarZoom(novoZoom);
   }
 
   private aplicarZoom(novoZoomPercentual: number): void {
-    if (!this.phaserGame) return;
+    if (!this.phaserGame || this.isZooming) return;
 
+    this.isZooming = true;
     const scene = this.phaserGame.scene.scenes[0];
     const camera = scene.cameras.main;
 
     // Converte porcentagem para fator de zoom (100% = 1.0)
     const novoZoomFator = novoZoomPercentual / 100;
 
-    camera.zoomTo(novoZoomFator, 200);
-    this.zoomPercentual = novoZoomPercentual;
+    camera.zoomTo(novoZoomFator, 200, 'Power2', true, (camera: Phaser.Cameras.Scene2D.Camera, progress: number) => {
+      if (progress === 1) {
+        this.isZooming = false;
+      }
+      this.zoomPercentual = Math.round(camera.zoom * 100);
+    });
+  }
+
+  private resetZoom(): void {
+    if (!this.phaserGame) return;
+
+    const scene = this.phaserGame.scene.scenes[0];
+    const camera = scene.cameras.main;
+
+    camera.zoomTo(1, 200, 'Power2', true, () => {
+      this.zoomPercentual = 100;
+      this.isZooming = false;
+    });
   }
 
   readonly ZOOM_SENSITIVITY: number = 1;
@@ -702,6 +947,18 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
     const dragThreshold = 5;
 
     scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (this.configuracoesAbertas) return;
+      if (pointer.leftButtonDown()) {
+        // Verifica se clicou em um objeto interativo
+        const hitObjects = scene.input.hitTestPointer(pointer);
+
+        // Se não clicou em nada interativo ou clicou no grid, limpa a seleção
+        if (hitObjects.length === 0 ||
+          (hitObjects.length === 1 && hitObjects[0] instanceof Phaser.GameObjects.Graphics)) {
+          this.clearSelection();
+        }
+      }
+
       if (pointer.rightButtonDown()) {
         isDragging = false;
         lastX = pointer.x;
@@ -716,6 +973,7 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
     });
 
     scene.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if (this.configuracoesAbertas) return;
       if (pointer.rightButtonDown()) {
         if (!isDragging && (Math.abs(pointer.x - lastX) > dragThreshold ||
           Math.abs(pointer.y - lastY) > dragThreshold)) {
@@ -734,35 +992,89 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private carregarMapa(mapaId: number): void {
+    // 1. Limpeza completa do estado anterior
+    this.clearSelection();
+    this.cleanupTextures();
+
+    // 2. Marca como não carregado (mas mantém o mapaId)
+    this.currentMap = null;
+    this.mapaCarregado = false;
+
     this.apiService.getMapaById(this.mesaId, mapaId).subscribe({
       next: (mapa) => {
+        // 3. Limpeza adicional para garantir
+        this.clearSelection();
+        this.cleanupTextures();
+
+        // 4. Atualiza o estado com o novo mapa
         this.currentMap = mapa;
         this.currentMapId = mapa.mapaId;
         this.mapaCarregado = true;
 
-        // Reseta o zoom para 100% ao carregar novo mapa
-        this.zoomPercentual = 100;
+        // 5. Inicializa um estado vazio se não existir
+        if (!this.estadosMapa[mapaId]) {
+          this.estadosMapa[mapaId] = {
+            tokens: [],
+            configuracoes: {
+              tipoGrid: 'hexagonal',
+              tamanhoCelula: 40,
+              corGrid: '#cccccc',
+              snapToGrid: true
+            }
+          };
+        }
 
-        this.updatePhaserMap();
+        // 6. Carrega o estado do mapa se existir
+        if (mapa.estadoJson) {
+          try {
+            const estado = JSON.parse(mapa.estadoJson) as MapaEstadoDto;
+            this.estadosMapa[mapaId] = estado;
+          } catch (e) {
+            console.error('Erro ao parsear estado do mapa:', e);
+          }
+        }
+
+        // 7. Aplica o estado do mapa atual
+        this.applyMapChanges(this.estadosMapa[mapaId]);
+
+        // 8. Redesenha o grid hexagonal
+        this.drawHexGrid(this.phaserGame.scene.scenes[0]);
+
+        // 9. Carrega tokens do servidor
+        this.carregarTokensDoServidor();
       },
-      error: (err) => console.error('Erro ao carregar mapa:', err)
+      error: (err) => {
+        console.error('Erro ao carregar mapa:', err);
+        this.toastr.error('Erro ao carregar o mapa');
+        // Restaura o mapa anterior em caso de erro
+        if (this.currentMap) {
+          this.carregarMapa(this.currentMap.mapaId);
+        }
+      }
+    });
+  }
+
+  private carregarTokensDoServidor(): void {
+    this.apiService.getTokensDoMapa(this.mesaId).subscribe({
+      next: (estado: MapaEstadoDto) => {
+        if (estado.tokens && estado.tokens.length > 0 && this.currentMapId) {
+          // Atualiza o estado local
+          this.estadosMapa[this.currentMapId] = estado;
+          this.applyMapChanges(estado);
+        }
+      },
+      error: (err) => console.error('Erro ao carregar tokens:', err)
     });
   }
 
   private updatePhaserMap(): void {
-    if (!this.phaserGame || !this.currentMap) {
-      console.error('Phaser game ou currentMap não está disponível');
-      return;
-    }
+    if (!this.phaserGame || !this.currentMap) return;
 
     const scene = this.phaserGame.scene.scenes[0];
-    if (!scene) {
-      console.error('Cena do Phaser não encontrada');
-      return;
-    }
+    if (!scene) return;
 
-    // Encontra ou cria a entrada para o mapa atual
-    let mapIndex = this.maps.findIndex(m => m.name === this.currentMap?.nome);
+    // Atualiza o mapa local correspondente
+    const mapIndex = this.maps.findIndex(m => m.name === this.currentMap?.nome);
     if (mapIndex === -1) {
       this.maps.push({
         name: this.currentMap.nome,
@@ -772,9 +1084,8 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
         },
         hexRadius: this.currentMap.tamanhoHex
       });
-      mapIndex = this.maps.length - 1;
+      this.currentMapIndex = this.maps.length - 1;
     } else {
-      // Atualiza as configurações do mapa existente
       this.maps[mapIndex] = {
         name: this.currentMap.nome,
         gridSize: {
@@ -783,12 +1094,11 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
         },
         hexRadius: this.currentMap.tamanhoHex
       };
+      this.currentMapIndex = mapIndex;
     }
 
-    this.currentMapIndex = mapIndex;
     this.drawHexGrid(scene);
 
-    // Aplica o estado do mapa se existir
     if (this.currentMap.estadoJson) {
       try {
         const estado = JSON.parse(this.currentMap.estadoJson);
@@ -799,206 +1109,740 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  private applyMapChanges(mapState: any): void {
-    if (!this.phaserGame || !this.currentMap) {
-      console.error('Phaser game ou currentMap não está disponível');
-      return;
-    }
+  private applyMapChanges(mapState: MapaEstadoDto): void {
+    if (!this.phaserGame || !this.currentMapId) return;
 
     const scene = this.phaserGame.scene.scenes[0];
-    if (!scene) {
-      console.error('Cena do Phaser não encontrada');
-      return;
-    }
+    if (!scene) return;
 
-    // Limpa tokens anteriores
+    // Limpa apenas tokens que pertencem ao mapa atual
     scene.children.each(child => {
-      if (child instanceof Phaser.GameObjects.Image ||
-        child instanceof Phaser.GameObjects.Sprite) {
-        child.destroy();
+      if (child instanceof Phaser.GameObjects.Sprite && child.getData('tokenData')) {
+        const tokenData = child.getData('tokenData');
+        if (tokenData.mapaId === this.currentMapId) {
+          child.destroy();
+        }
       }
     });
 
-    // Aplica o novo estado dos tokens
-    if (mapState.Tokens && Array.isArray(mapState.Tokens)) {
-      mapState.Tokens.forEach((token: TokenDto) => {
-        try {
-          if (!token.imagemDados) {
-            console.error('Token sem dados de imagem:', token);
-            return;
-          }
-
+    // Carrega novos tokens apenas se pertencerem ao mapa atual
+    (mapState.tokens || []).forEach((token: TokenDto) => {
+      try {
+        if (token.mapaId === this.currentMapId) {
           const key = `token-${token.id}`;
-          const imageData = token.imagemDados.split(',')[1];
-          scene.textures.addBase64(key, imageData);
-
-          const img = scene.add.image(token.x, token.y, key);
-          img.setInteractive();
-
-          // Configure draggable se o usuário for o criador
-          if (this.isCriador) {
-            scene.input.setDraggable(img);
-
-            img.on('drag', (pointer: Phaser.Input.Pointer, dragX: number, dragY: number) => {
-              img.x = dragX;
-              img.y = dragY;
-
-              // Atualiza o estado local com verificação de nulidade
-              if (this.currentMap?.estadoJson) {
-                try {
-                  const estado = JSON.parse(this.currentMap.estadoJson);
-                  const tokenIndex = estado.Tokens.findIndex((t: TokenDto) => t.id === token.id);
-                  if (tokenIndex !== -1) {
-                    estado.Tokens[tokenIndex].x = dragX;
-                    estado.Tokens[tokenIndex].y = dragY;
-                    this.onLocalMapChange(estado);
-                  }
-                } catch (e) {
-                  console.error('Erro ao atualizar posição do token:', e);
-                }
-              }
-            });
-          }
-        } catch (error) {
-          console.error('Erro ao criar token visual:', error);
+          this.createTokenSprite(scene, key, token);
         }
-      });
+      } catch (e) {
+        console.error('Erro ao aplicar mudanças no token:', e);
+      }
+    });
+  }
+
+  private createTokenSprite(scene: Phaser.Scene, textureKey: string, token: TokenDto): void {
+    try {
+      // Verifica se a textura já existe e está pronta
+      if (scene.textures.exists(textureKey)) {
+        const texture = scene.textures.get(textureKey);
+        if (texture && texture.source.length > 0) {
+          this.instantiateToken(scene, textureKey, token);
+          return;
+        }
+      }
+
+      // Carrega a textura com tratamento de erro
+      const onLoad = () => {
+        scene.load.off(`filecomplete-image-${textureKey}`, onLoad);
+        this.instantiateToken(scene, textureKey, token);
+      };
+
+      const onError = () => {
+        scene.load.off(`loaderror-image-${textureKey}`, onError);
+        console.error(`Falha ao carregar textura: ${textureKey}`);
+      };
+
+      scene.load.once(`filecomplete-image-${textureKey}`, onLoad);
+      scene.load.once(`loaderror-image-${textureKey}`, onError);
+
+      if (token.imagemDados.startsWith('http') || token.imagemDados.startsWith('data:')) {
+        scene.load.image(textureKey, token.imagemDados);
+      } else {
+        scene.textures.addBase64(textureKey, token.imagemDados);
+      }
+
+      scene.load.start();
+    } catch (error) {
+      console.error('Erro ao criar token:', error);
     }
   }
 
-  public onLocalMapChange(mapState: any): void {
-    if (!this.isCriador || !this.currentMapId || !mapState?.Tokens) {
+  private instantiateToken(scene: Phaser.Scene, textureKey: string, token: TokenDto): void {
+    const sprite = scene.add.sprite(token.x, token.y, textureKey)
+      .setInteractive()
+      .setData('tokenData', token)
+      .setDisplaySize(token.metadados?.width || 80, token.metadados?.height || 80)
+      .setDepth(token.z || 1);
+
+    // Desativa interação se configurações estiverem abertas
+    if (this.configuracoesAbertas) {
+      sprite.disableInteractive();
+    }
+
+    // Adiciona rotação se existir nos metadados
+    if (token.metadados?.rotation) {
+      sprite.setAngle(token.metadados.rotation);
+    }
+
+    // Configura interação de clique
+    sprite.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (pointer.leftButtonDown()) {
+        this.selectToken(sprite);
+      }
+    });
+
+    if (this.isCriador || token.donoId === this.usuarioId) {
+      scene.input.setDraggable(sprite);
+      this.setupTokenDrag(scene, sprite, token);
+    }
+  }
+
+  private selectToken(token: Phaser.GameObjects.Sprite): void {
+    const scene = this.phaserGame.scene.scenes[0];
+
+    // Remove a seleção anterior
+    this.clearSelection();
+
+    // Define o token selecionado
+    this.selectedToken = token;
+
+    // Cria um retângulo de seleção
+    this.selectionRectangle = scene.add.rectangle(
+      token.x,
+      token.y,
+      token.displayWidth + 20,
+      token.displayHeight + 20
+    )
+      .setStrokeStyle(2, 0x0066cc) // Azul (#0066cc)
+      .setFillStyle(0, 0)
+      .setDepth(token.depth + 1);
+
+    // Adiciona alça de rotação (círculo no topo)
+    this.rotationHandle = scene.add.circle(
+      token.x,
+      token.y - token.displayHeight / 2 - 20,
+      10,
+      0x0066cc // Azul (#0066cc)
+    )
+      .setDepth(token.depth + 2)
+      .setInteractive({ cursor: 'pointer' });
+
+    // Adiciona alça de redimensionamento (apenas no canto inferior direito)
+    this.resizeHandle = scene.add.rectangle(
+      token.x + token.displayWidth / 2 + 10,
+      token.y + token.displayHeight / 2 + 10,
+      15,
+      15,
+      0x0066cc // Azul (#0066cc)
+    )
+      .setDepth(token.depth + 2)
+      .setInteractive({ cursor: 'nwse-resize' });
+
+    // Configura interação para rotação
+    this.setupRotationHandle(scene);
+
+    // Configura interação para redimensionamento
+    this.setupResizeHandle(scene);
+
+    // Adiciona feedback visual
+    token.setTint(0xcccccc); // Leve escurecimento do token selecionado
+  }
+
+  private setupResizeHandles(scene: Phaser.Scene): void {
+    if (!this.resizeHandles || !this.selectedToken) return;
+
+    let startWidth = 0;
+    let startHeight = 0;
+    let startPointerX = 0;
+    let startPointerY = 0;
+    let activeHandleIndex = -1;
+
+    // Configura evento pointerdown para todas as alças
+    this.resizeHandles.forEach((handle, index) => {
+      handle.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+        activeHandleIndex = index;
+        startWidth = this.selectedToken!.displayWidth;
+        startHeight = this.selectedToken!.displayHeight;
+        startPointerX = pointer.x;
+        startPointerY = pointer.y;
+      });
+    });
+
+    scene.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if (pointer.isDown && activeHandleIndex !== -1) {
+        const deltaX = pointer.x - startPointerX;
+        const deltaY = pointer.y - startPointerY;
+
+        let newWidth = startWidth;
+        let newHeight = startHeight;
+
+        // Determina qual alça está sendo usada e como redimensionar
+        switch (activeHandleIndex) {
+          case 0: // Topo
+            newHeight = startHeight - deltaY * 2;
+            break;
+          case 1: // Direita
+            newWidth = startWidth + deltaX * 2;
+            break;
+          case 2: // Baixo
+            newHeight = startHeight + deltaY * 2;
+            break;
+          case 3: // Esquerda
+            newWidth = startWidth - deltaX * 2;
+            break;
+        }
+
+        // Mantém a proporção original (shift pressionado)
+        if (pointer.event.shiftKey) {
+          const aspectRatio = startWidth / startHeight;
+          if (activeHandleIndex === 0 || activeHandleIndex === 2) { // Topo ou Baixo
+            newWidth = newHeight * aspectRatio;
+          } else { // Direita ou Esquerda
+            newHeight = newWidth / aspectRatio;
+          }
+        }
+
+        // Limita o tamanho
+        newWidth = Phaser.Math.Clamp(newWidth, this.MIN_TOKEN_SIZE, this.MAX_TOKEN_SIZE);
+        newHeight = Phaser.Math.Clamp(newHeight, this.MIN_TOKEN_SIZE, this.MAX_TOKEN_SIZE);
+
+        this.selectedToken!.setDisplaySize(newWidth, newHeight);
+
+        // Atualiza a posição das alças de redimensionamento
+        this.updateResizeHandles();
+
+        // Atualiza o retângulo de seleção
+        this.updateSelectionRectangle();
+      }
+    });
+
+    scene.input.on('pointerup', () => {
+      activeHandleIndex = -1;
+      this.saveTokenState();
+    });
+  }
+
+  private updateResizeHandles(): void {
+    if (!this.selectedToken || !this.resizeHandles) return;
+
+    const halfWidth = this.selectedToken.displayWidth / 2;
+    const halfHeight = this.selectedToken.displayHeight / 2;
+
+    // Atualiza posições das alças
+    this.resizeHandles[0].setPosition(this.selectedToken.x, this.selectedToken.y - halfHeight - 10); // Topo
+    this.resizeHandles[1].setPosition(this.selectedToken.x + halfWidth + 10, this.selectedToken.y); // Direita
+    this.resizeHandles[2].setPosition(this.selectedToken.x, this.selectedToken.y + halfHeight + 10); // Baixo
+    this.resizeHandles[3].setPosition(this.selectedToken.x - halfWidth - 10, this.selectedToken.y); // Esquerda
+  }
+
+  private clearSelection(): void {
+    if (this.selectionRectangle) {
+      this.selectionRectangle.destroy();
+      this.selectionRectangle = null;
+    }
+
+    if (this.rotationHandle) {
+      this.rotationHandle.destroy();
+      this.rotationHandle = null;
+    }
+
+    if (this.resizeHandle) {
+      this.resizeHandle.destroy();
+      this.resizeHandle = null;
+    }
+
+    if (this.selectedToken) {
+      this.selectedToken.clearTint(); // Remove o efeito visual de seleção
+      this.selectedToken = null;
+    }
+  }
+
+  private setupRotationHandle(scene: Phaser.Scene): void {
+    if (!this.rotationHandle || !this.selectedToken) return;
+
+    let isRotating = false;
+    let startAngle = 0;
+    let startRotation = 0;
+    const ROTATION_SNAP = 45; // Rotação em incrementos de 45 graus
+    let lastSnappedRotation = 0;
+
+    this.rotationHandle.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      isRotating = true;
+      startAngle = Phaser.Math.Angle.Between(
+        this.selectedToken!.x,
+        this.selectedToken!.y,
+        pointer.x,
+        pointer.y
+      );
+      startRotation = this.selectedToken!.angle;
+      lastSnappedRotation = Math.round(startRotation / ROTATION_SNAP) * ROTATION_SNAP;
+    });
+
+    scene.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if (isRotating && pointer.isDown) {
+        const newAngle = Phaser.Math.Angle.Between(
+          this.selectedToken!.x,
+          this.selectedToken!.y,
+          pointer.x,
+          pointer.y
+        );
+
+        // Calcula a diferença angular desde o início da rotação
+        let rotationDelta = Phaser.Math.Angle.Wrap(newAngle - startAngle);
+
+        // Converte para graus e aplica ao ângulo inicial
+        let newRotation = startRotation + Phaser.Math.RadToDeg(rotationDelta);
+
+        // Calcula o snap mais próximo de 45 graus
+        const targetRotation = Math.round(newRotation / ROTATION_SNAP) * ROTATION_SNAP;
+
+        // Suaviza a transição entre snaps
+        if (Math.abs(targetRotation - lastSnappedRotation) >= ROTATION_SNAP) {
+          lastSnappedRotation = targetRotation;
+        }
+
+        // Aplica a rotação com snap
+        this.selectedToken!.setAngle(lastSnappedRotation);
+
+        // Atualiza posições das alças
+        this.updateHandlePositions();
+      }
+    });
+
+    scene.input.on('pointerup', () => {
+      if (isRotating) {
+        isRotating = false;
+        // Garante que o ângulo final seja um múltiplo exato de 45
+        const finalRotation = Math.round(this.selectedToken!.angle / ROTATION_SNAP) * ROTATION_SNAP;
+        this.selectedToken!.setAngle(finalRotation);
+        this.updateHandlePositions();
+        this.saveTokenState();
+      }
+    });
+  }
+
+  private updateHandlePositions(): void {
+    if (!this.selectedToken) return;
+
+    // Atualiza alça de rotação
+    if (this.rotationHandle) {
+      const distance = this.selectedToken.displayHeight / 2 + 20;
+      const angleRad = Phaser.Math.DegToRad(this.selectedToken.angle - 90);
+      this.rotationHandle.setPosition(
+        this.selectedToken.x + Math.cos(angleRad) * distance,
+        this.selectedToken.y + Math.sin(angleRad) * distance
+      );
+    }
+
+    // Atualiza alça de redimensionamento
+    if (this.resizeHandle) {
+      this.resizeHandle.setPosition(
+        this.selectedToken.x + this.selectedToken.displayWidth / 2 + 10,
+        this.selectedToken.y + this.selectedToken.displayHeight / 2 + 10
+      );
+    }
+
+    // Atualiza retângulo de seleção
+    if (this.selectionRectangle) {
+      this.selectionRectangle.setSize(
+        this.selectedToken.displayWidth + 20,
+        this.selectedToken.displayHeight + 20
+      );
+      this.selectionRectangle.setPosition(
+        this.selectedToken.x,
+        this.selectedToken.y
+      );
+    }
+  }
+
+  private setupResizeHandle(scene: Phaser.Scene): void {
+    if (!this.resizeHandle || !this.selectedToken) return;
+
+    let isResizing = false;
+    let startWidth = 0;
+    let startHeight = 0;
+    let startPointerX = 0;
+    let startPointerY = 0;
+    const originalAspectRatio = this.selectedToken.displayWidth / this.selectedToken.displayHeight;
+
+    this.resizeHandle.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      isResizing = true;
+      startWidth = this.selectedToken!.displayWidth;
+      startHeight = this.selectedToken!.displayHeight;
+      startPointerX = pointer.x;
+      startPointerY = pointer.y;
+    });
+
+    scene.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if (isResizing && pointer.isDown) {
+        const deltaX = pointer.x - startPointerX;
+
+        // Calcula o novo tamanho mantendo a proporção original
+        const scale = 1 + (deltaX / startWidth);
+        let newWidth = startWidth * scale;
+        let newHeight = newWidth / originalAspectRatio;
+
+        // Limita o tamanho
+        newWidth = Phaser.Math.Clamp(newWidth, this.MIN_TOKEN_SIZE, this.MAX_TOKEN_SIZE);
+        newHeight = Phaser.Math.Clamp(newHeight, this.MIN_TOKEN_SIZE, this.MAX_TOKEN_SIZE);
+
+        this.selectedToken!.setDisplaySize(newWidth, newHeight);
+        this.updateHandlePositions();
+      }
+    });
+
+    scene.input.on('pointerup', () => {
+      if (isResizing) {
+        isResizing = false;
+        this.saveTokenState();
+      }
+    });
+  }
+
+  private updateSelectionRectangle(): void {
+    if (!this.selectedToken || !this.selectionRectangle) return;
+
+    this.selectionRectangle.setSize(
+      this.selectedToken.displayWidth + 20,
+      this.selectedToken.displayHeight + 20
+    );
+    this.selectionRectangle.setPosition(
+      this.selectedToken.x,
+      this.selectedToken.y
+    );
+  }
+
+  private saveTokenState(): void {
+    if (this.configuracoesAbertas) return;
+    if (!this.selectedToken || !this.currentMapId) return;
+
+    try {
+      const tokenData = this.selectedToken.getData('tokenData') as TokenDto;
+
+      const metadados: { [key: string]: string } = {
+        rotation: this.selectedToken.angle.toString(),
+        width: this.selectedToken.displayWidth.toString(),
+        height: this.selectedToken.displayHeight.toString()
+      };
+
+      const tokenAtualizado: TokenDto = {
+        id: tokenData.id,
+        nome: tokenData.nome,
+        x: this.selectedToken.x,
+        y: this.selectedToken.y,
+        z: tokenData.z || 1,
+        imagemDados: tokenData.imagemDados,
+        donoId: tokenData.donoId,
+        visivelParaTodos: tokenData.visivelParaTodos !== false,
+        bloqueado: tokenData.bloqueado || false,
+        mapaId: this.currentMapId, // Usa o currentMapId atual
+        metadados: metadados
+      };
+
+      // Obtém o estado atual do mapa correto
+      const estadoAtual = this.estadosMapa[this.currentMapId] || {
+        tokens: [],
+        configuracoes: {
+          tipoGrid: 'hexagonal',
+          tamanhoCelula: 40,
+          corGrid: '#cccccc',
+          snapToGrid: true
+        }
+      };
+
+      // Atualiza ou adiciona o token
+      const tokenIndex = estadoAtual.tokens.findIndex(t => t.id === tokenAtualizado.id);
+      if (tokenIndex !== -1) {
+        estadoAtual.tokens[tokenIndex] = tokenAtualizado;
+      } else {
+        estadoAtual.tokens.push(tokenAtualizado);
+      }
+
+      // Salva no servidor
+      this.apiService.salvarEstadoMapa(this.currentMapId, estadoAtual).subscribe({
+        next: () => {
+          // Atualiza o estado local
+          this.estadosMapa[this.currentMapId] = estadoAtual;
+          if (this.currentMap) {
+            this.currentMap.estadoJson = JSON.stringify(estadoAtual);
+          }
+        },
+        error: (err) => {
+          console.error('Erro ao salvar estado:', err);
+          this.toastr.error('Erro ao salvar alterações');
+        }
+      });
+    } catch (e) {
+      console.error('Erro ao preparar estado:', e);
+    }
+  }
+
+  public onLocalMapChange(mapState: MapaEstadoDto): void {
+    if (!this.currentMapId || !this.currentMap) {
       return;
     }
 
-    const minimalState = {
-      Tokens: mapState.Tokens.map((t: TokenDto) => ({
-        id: t.id,
-        x: t.x,
-        y: t.y
-      }))
+    // Verifica se o estado recebido pertence ao mapa atual
+    const tokensDoMapaAtual = (mapState.tokens || []).filter(token => token.mapaId === this.currentMapId);
+
+    if (tokensDoMapaAtual.length === 0 && (mapState.tokens || []).length > 0) {
+      // Ignora atualizações que não são para o mapa atual
+      return;
+    }
+
+    // Garante que o estado tenha a estrutura correta
+    const estadoCompleto: MapaEstadoDto = {
+      tokens: tokensDoMapaAtual,
+      camadas: mapState.camadas || [],
+      objetos: mapState.objetos || [],
+      configuracoes: mapState.configuracoes || {
+        tipoGrid: 'hexagonal',
+        tamanhoCelula: 40,
+        corGrid: '#cccccc',
+        snapToGrid: true
+      }
     };
 
-    this.sessaoService.sendMapUpdate(
-      this.mesaId.toString(),
-      this.currentMapId,
-      JSON.stringify(minimalState)
-    );
+    // Atualiza o estado local apenas para o mapa atual
+    this.estadosMapa[this.currentMapId] = estadoCompleto;
+    this.currentMap.estadoJson = JSON.stringify(estadoCompleto);
 
-    // Verifica se currentMap existe antes de salvar
-    if (this.currentMap) {
-      this.apiService.salvarEstadoMapa(this.currentMapId, mapState).subscribe({
-        error: (err) => console.error('Erro ao salvar estado do mapa:', err)
-      });
+    // Envia atualização para outros jogadores apenas se for o criador
+    if (this.isCriador) {
+      this.sessaoService.sendMapUpdate(
+        this.mesaId.toString(),
+        this.currentMapId,
+        this.currentMap.estadoJson
+      );
     }
+
+    // Salva no servidor
+    this.apiService.salvarEstadoMapa(this.currentMapId, estadoCompleto).subscribe({
+      error: (err) => console.error('Erro ao salvar estado do mapa:', err)
+    });
   }
 
+  // Método para salvar as configurações
   saveMapConfig(): void {
-    if (this.currentMap && this.isCriador) {
-      const config = {
-        largura: this.maps[this.currentMapIndex].gridSize.cols,
-        altura: this.maps[this.currentMapIndex].gridSize.rows,
-        tamanhoHex: this.maps[this.currentMapIndex].hexRadius
-      };
+    if (!this.currentMap || !this.isCriador) return;
 
-      // Envia apenas o mapaId, não o mesaId
-      this.apiService.salvarConfigMapa(this.currentMapId, config).subscribe({
-        next: () => {
-          this.toastr.success('Configurações do mapa salvas');
-          this.drawHexGrid(this.phaserGame.scene.scenes[0]);
-        },
-        error: (err) => this.toastr.error('Erro ao salvar configurações')
-      });
-    }
-  }
+    const config = {
+      nome: this.currentMap.nome,
+      largura: this.currentMap.largura,
+      altura: this.currentMap.altura,
+      tamanhoHex: this.currentMap.tamanhoHex,
+      visivel: this.currentMap.visivel  // Adicionando a propriedade visivel
+    };
 
-  saveMapState(): void {
-    if (this.currentMap) {
-      const scene = this.phaserGame.scene.scenes[0];
-      const tokens: any[] = [];
-
-      // Coleta todos os tokens da cena
-      scene.children.each(child => {
-        if (child instanceof Phaser.GameObjects.Image ||
-          child instanceof Phaser.GameObjects.Sprite) {
-          tokens.push({
-            id: child.name || Date.now().toString(), // Usa o nome ou um ID temporário
-            x: child.x,
-            y: child.y,
-            imagemUrl: child.texture.key
-          });
+    this.apiService.salvarConfigMapa(this.currentMap.mapaId, config).subscribe({
+      next: (mapaAtualizado) => {
+        // Atualiza a lista local de mapas
+        const index = this.allMaps.findIndex(m => m.mapaId === mapaAtualizado.mapaId);
+        if (index !== -1) {
+          this.allMaps[index] = mapaAtualizado;
         }
-      });
 
-      const estado = { tokens };
+        // Atualiza o mapa atual
+        this.currentMap = { ...mapaAtualizado };
 
-      this.apiService.salvarEstadoMapa(this.currentMapId, estado).subscribe({
-        next: () => this.toastr.success('Estado do mapa salvo'),
-        error: (err) => this.toastr.error('Erro ao salvar estado do mapa')
-      });
-    }
+        this.toastr.success('Configurações do mapa salvas com sucesso');
+        this.drawHexGrid(this.phaserGame.scene.scenes[0]);
+      },
+      error: (err) => {
+        console.error('Erro ao salvar configurações:', err);
+        this.toastr.error('Erro ao salvar configurações');
+      }
+    });
   }
+
+  private saveMapState(mapaId: number): void {
+    // Verificar se temos um mapa atual válido
+    if (!this.currentMap || this.currentMap.mapaId !== mapaId) {
+        return;
+    }
+
+    // Verificar se as configurações estão abertas
+    if (this.configuracoesAbertas) {
+        return;
+    }
+
+    try {
+        if (!this.phaserGame) {
+            throw new Error('Jogo Phaser não está disponível');
+        }
+
+        const scene = this.phaserGame.scene.scenes[0];
+        if (!scene) {
+            throw new Error('Cena do Phaser não encontrada');
+        }
+
+        // Coleta todos os tokens da cena atual
+        const tokens: TokenDto[] = [];
+        scene.children.each(child => {
+            if (child instanceof Phaser.GameObjects.Sprite && child.getData('tokenData')) {
+                const tokenData = child.getData('tokenData');
+                // Verifica se o token pertence ao mapa atual
+                if (tokenData.mapaId === mapaId) {
+                    tokens.push(tokenData);
+                }
+            }
+        });
+
+        // Obtém ou cria o estado para o mapa especificado
+        const estadoAtual = this.estadosMapa[mapaId] || {
+            tokens: [],
+            configuracoes: {
+                tipoGrid: 'hexagonal',
+                tamanhoCelula: 40,
+                corGrid: '#cccccc',
+                snapToGrid: true
+            }
+        };
+
+        // Atualiza apenas os tokens
+        estadoAtual.tokens = tokens;
+
+        // Atualiza o estado local
+        this.estadosMapa[mapaId] = estadoAtual;
+        this.currentMap.estadoJson = JSON.stringify(estadoAtual);
+
+        // Salva no servidor
+        this.apiService.salvarEstadoMapa(mapaId, estadoAtual).subscribe({
+            next: () => {
+                console.log(`Estado do mapa ${mapaId} salvo com sucesso`);
+            },
+            error: (err) => {
+                console.error(`Erro ao salvar estado do mapa ${mapaId}:`, err);
+                this.toastr.error('Erro ao salvar estado do mapa');
+            }
+        });
+    } catch (error) {
+        console.error('Erro ao salvar estado do mapa:', error);
+        this.toastr.error('Erro ao salvar estado do mapa');
+    }
+}
 
   criarNovoMapa(): void {
-    if (this.isCriador) {
-      const novoMapa: MapaDto = {
-        mapaId: 0,
-        mesaId: this.mesaId,
-        nome: `Novo Mapa ${this.allMaps.length + 1}`,
-        largura: 30,
-        altura: 30,
-        tamanhoHex: 40,
-        estadoJson: '{}',
-        ultimaAtualizacao: new Date(),
-        visivel: false
-      };
-
-      this.apiService.criarMapa(this.mesaId, novoMapa).subscribe({
-        next: (mapa) => {
-          if (mapa.mapaId) { // Verifica se mapaId existe
-            this.allMaps.push(mapa);
-            this.mudarMapaAtual(mapa.mapaId);
-          } else {
-            this.toastr.error('O mapa criado não possui um ID válido');
-          }
-        },
-        error: (err) => this.toastr.error('Erro ao criar mapa')
-      });
+    if (!this.isCriador) {
+      this.toastr.warning('Apenas o criador da mesa pode adicionar novos mapas');
+      return;
     }
+
+    const novoMapa: MapaDto = {
+      mapaId: 0,
+      mesaId: this.mesaId,
+      nome: `Novo Mapa ${this.allMaps.length + 1}`,
+      largura: 30,
+      altura: 30,
+      tamanhoHex: 40,
+      estadoJson: '{}',
+      ultimaAtualizacao: new Date(),
+      visivel: false
+    };
+
+    this.apiService.criarMapa(this.mesaId, novoMapa).subscribe({
+      next: (mapa) => {
+        if (mapa.mapaId) {
+          this.allMaps.push(mapa);
+          this.mudarMapaAtual(mapa.mapaId);
+          this.toastr.success('Novo mapa criado com sucesso!');
+        } else {
+          this.toastr.error('O mapa criado não possui um ID válido');
+        }
+      },
+      error: (err) => {
+        console.error('Erro ao criar mapa:', err);
+        this.toastr.error('Erro ao criar novo mapa');
+      }
+    });
   }
 
   mudarMapaAtual(mapaId: number): void {
-    if (this.isCriador) {
-      this.apiService.atualizarVisibilidadeMapa(this.mesaId, mapaId, true).subscribe({
-        next: () => {
-          this.currentMapId = mapaId;
-          this.carregarMapa(mapaId);
-          this.toastr.success('Mapa alterado com sucesso');
-        },
-        error: (err) => this.toastr.error('Erro ao alterar mapa')
-      });
+    if (!this.isCriador) {
+      this.toastr.warning('Apenas o criador da mesa pode alterar mapas');
+      return;
     }
+
+    // 1. Salva o estado do mapa atual ANTES de mudar
+    if (this.currentMapId && this.currentMapId !== mapaId) {
+      this.saveMapState(this.currentMapId); // Passa explicitamente o ID do mapa atual
+    }
+
+    // 2. Reseta o zoom e carrega o novo mapa
+    this.resetZoom();
+    this.carregarMapa(mapaId);
+  }
+
+  // Método para alternar o mapa atual via checkbox
+  toggleCurrentMap(): void {
+    if (!this.isCriador || !this.currentMap) return;
+
+    // Inverte o estado de visibilidade
+    this.currentMap.visivel = !this.currentMap.visivel;
+
+    // Chama o método de salvar para persistir as alterações
+    this.saveMapConfig();
+  }
+
+  isCurrentMapVisible(): boolean {
+    return this.currentMap?.visivel ?? false;
   }
 
   dragImage(event: DragEvent, img: ImagemDto) {
     // Cria um objeto com todos os dados necessários
     const tokenData = {
       nome: img.nome,
-      imagemDados: img.imageUrl,
+      // Usa imageUrl diretamente, com fallback para base64 se necessário
+      imagemDados: img.imageUrl || `data:image/${img.extensao};base64,${img.dados}`,
       extensao: img.extensao,
-      usuarioId: this.usuarioId // Adiciona o ID do usuário
+      usuarioId: this.usuarioId,
+      // Adiciona metadados adicionais se necessário
+      metadata: {
+        origem: 'biblioteca_imagens',
+        dataAdicao: new Date().toISOString()
+      }
     };
+
+    // Define uma imagem de preview para o drag
+    if (img.imageUrl || img.dados) {
+      const imgElement = new Image();
+      imgElement.src = tokenData.imagemDados;
+      imgElement.width = 100;
+      event.dataTransfer?.setDragImage(imgElement, 50, 50);
+    }
 
     // Converte para JSON e armazena no dataTransfer
     event.dataTransfer?.setData('application/json', JSON.stringify(tokenData));
+    event.dataTransfer?.setData('text/plain', img.nome); // Para compatibilidade
   }
 
   allowDrop(event: DragEvent) {
-    event.preventDefault(); // Permite que o elemento seja um destino de drop
+    if (this.configuracoesAbertas) {
+      event.preventDefault();
+      return;
+    }
+    event.preventDefault();
+    // Adiciona feedback visual durante o drag-over
+    const gameContainer = this.gameContainer.nativeElement;
+    gameContainer.classList.add('drag-over');
   }
 
   onDrop(event: DragEvent) {
+    if (this.configuracoesAbertas) {
+      event.preventDefault();
+      return;
+    }
     event.preventDefault();
+    const gameContainer = this.gameContainer.nativeElement;
+    gameContainer.classList.remove('drag-over');
 
     if (!event.dataTransfer) {
       console.error("dataTransfer is null");
@@ -1018,22 +1862,29 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
         return;
       }
 
-      const pointer = this.phaserGame.scene.scenes[0].input.activePointer;
+      // Obtém a posição do drop no mundo do jogo
+      const scene = this.phaserGame.scene.scenes[0];
+      const pointer = scene.input.activePointer;
+      const worldPoint = scene.cameras.main.getWorldPoint(pointer.x, pointer.y);
+      const hexRadius = this.maps[this.currentMapIndex].hexRadius;
 
-      const worldPoint = this.phaserGame.scene.scenes[0].cameras.main.getWorldPoint(pointer.x, pointer.y);
+      // Converte para coordenadas de grid e volta para obter o centro exato do hexágono
+      const gridPos = this.screenToHexGrid(worldPoint.x, worldPoint.y, hexRadius);
+      const snappedPos = this.hexGridToScreen(gridPos.col, gridPos.row, hexRadius);
 
       // Cria o token com todos os dados
       const newToken: TokenDto = {
-        id: `token-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // ID mais único
+        id: `token-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
         nome: tokenData.nome,
-        x: worldPoint.x,
-        y: worldPoint.y,
-        z: 1, // Valor padrão para ordem de empilhamento
-        // Mude isso para usar a URL da imagem
-        imagemDados: tokenData.imagemDados, // Aqui fica a URL em vez do base64
+        x: snappedPos.x,
+        y: snappedPos.y,
+        z: 1,
+        imagemDados: tokenData.imagemDados,
         donoId: tokenData.usuarioId,
         visivelParaTodos: true,
-        bloqueado: false
+        bloqueado: false,
+        mapaId: this.currentMapId,
+        metadados: tokenData.metadata || {}
       };
 
       this.adicionarTokenAoMapa(newToken);
@@ -1044,31 +1895,46 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   adicionarTokenAoMapa(token: TokenDto) {
-    if (!this.currentMap) {
+    if (!this.currentMap || !this.currentMapId) {
       console.error('Mapa atual é nulo');
       return;
     }
 
-    // Obtém tokens existentes ou cria lista vazia
-    const currentTokens: TokenDto[] = this.currentMap.estadoJson
-      ? JSON.parse(this.currentMap.estadoJson).Tokens || []
-      : [];
-
-    // Adiciona o novo token
-    const mapState: MapaEstadoDto = {
-      Tokens: [...currentTokens, token],
-      // Mantém outras propriedades se existirem
-      ...(this.currentMap.estadoJson ? JSON.parse(this.currentMap.estadoJson) : {})
+    // Obtém o estado atual do mapa ou cria um novo
+    const currentState = this.estadosMapa[this.currentMapId] || {
+      tokens: [],
+      configuracoes: {
+        tipoGrid: 'hexagonal',
+        tamanhoCelula: 40,
+        corGrid: '#cccccc',
+        snapToGrid: true
+      }
     };
 
-    // Salva o estado
-    this.apiService.salvarEstadoMapa(this.currentMapId, mapState).subscribe({
+    // Adiciona o novo token
+    currentState.tokens = [...(currentState.tokens || []), token];
+
+    // Atualiza o estado local
+    this.estadosMapa[this.currentMapId] = currentState;
+
+    // Atualiza o estado no servidor
+    this.apiService.salvarEstadoMapa(this.currentMapId, currentState).subscribe({
       next: () => {
+        // Notifica outros jogadores
         this.sessaoService.sendMapUpdate(
           this.mesaId.toString(),
           this.currentMapId,
-          JSON.stringify(mapState)
+          JSON.stringify({
+            tokens: currentState.tokens.map(t => ({
+              id: t.id,
+              x: t.x,
+              y: t.y,
+              z: t.z
+            }))
+          })
         );
+
+        // Adiciona visualmente ao mapa
         this.addTokenToMapVisual(token);
       },
       error: (err) => {
@@ -1085,56 +1951,147 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     const scene = this.phaserGame.scene.scenes[0];
+    const textureKey = `token-${token.id}`;
 
-    try {
-      const key = `token-${token.id}`;
+    // Verifica se a textura já existe
+    if (scene.textures.exists(textureKey)) {
+      this.updateExistingToken(scene, textureKey, token);
+      return;
+    }
 
-      // Usa a imagem a partir da URL. 
-      // Verifica se a URL está válida
-      if (!token.imagemDados) {
-        console.error('Dados da imagem inválidos');
-        return;
-      }
+    // Carrega a imagem da URL ou dados base64
+    if (token.imagemDados.startsWith('http') || token.imagemDados.startsWith('data:')) {
+      scene.load.image(textureKey, token.imagemDados);
+    } else {
+      // Fallback para imagens antigas (deve ser removido eventualmente)
+      console.warn('Token usando formato antigo de imagem');
+      scene.textures.addBase64(textureKey, token.imagemDados);
+    }
 
-      // Adiciona a textura a partir do URL
-      scene.load.image(key, token.imagemDados); // Agora carrega via URL
-      scene.load.start(); // Certifique-se de carregar a imagem antes de adicionar ao cenário
+    scene.load.once(`filecomplete-image-${textureKey}`, () => {
+      this.createTokenSprite(scene, textureKey, token);
+    });
 
-      // Cria o sprite do token
-      const sprite = scene.add.sprite(token.x, token.y, key);
-      sprite.setInteractive();
-      sprite.setData('tokenData', token);
+    scene.load.start();
+  }
 
-      // Configura arraste apenas para criador ou dono do token
-      if (this.isCriador || token.donoId === this.usuarioId) {
-        scene.input.setDraggable(sprite);
+  private setupTokenDrag(scene: Phaser.Scene, sprite: Phaser.GameObjects.Sprite, token: TokenDto): void {
+    let originalPosition = { x: token.x, y: token.y };
+    const hexRadius = this.maps[this.currentMapIndex].hexRadius;
 
-        sprite.on('drag', (pointer: Phaser.Input.Pointer, dragX: number, dragY: number) => {
+    sprite.on('drag', (pointer: Phaser.Input.Pointer, dragX: number, dragY: number) => {
+      try {
+        const snapEnabled = this.getConfiguracoesMapaAtual().snapToGrid;
+
+        if (snapEnabled) {
+          const gridPos = this.screenToHexGrid(dragX, dragY, hexRadius);
+          const snappedPos = this.hexGridToScreen(gridPos.col, gridPos.row, hexRadius);
+          sprite.x = snappedPos.x;
+          sprite.y = snappedPos.y;
+        } else {
           sprite.x = dragX;
           sprite.y = dragY;
+        }
 
-          // Atualiza o estado local com verificação de nulidade
-          if (!this.currentMap?.estadoJson) {
-            return;
-          }
-
-          try {
-            const estado = JSON.parse(this.currentMap.estadoJson) || { Tokens: [] };
-            const tokenIndex = estado.Tokens.findIndex((t: TokenDto) => t.id === token.id);
-
-            if (tokenIndex !== -1) {
-              estado.Tokens[tokenIndex].x = dragX;
-              estado.Tokens[tokenIndex].y = dragY;
-              this.onLocalMapChange(estado);
-            }
-          } catch (e) {
-            console.error('Erro ao parsear estadoJson:', e);
-          }
-        });
+        if (this.selectedToken === sprite) {
+          this.updateHandlePositions();
+        }
+      } catch (error) {
+        console.error('Erro durante drag:', error);
       }
-    } catch (error) {
-      console.error('Erro ao adicionar token visual:', error);
-      this.toastr.error('Erro ao exibir token no mapa');
+    });
+
+    sprite.on('dragend', () => {
+      // Sempre aplica snap ao final do arraste
+      const gridPos = this.screenToHexGrid(sprite.x, sprite.y, hexRadius);
+      const snappedPos = this.hexGridToScreen(gridPos.col, gridPos.row, hexRadius);
+      sprite.x = snappedPos.x;
+      sprite.y = snappedPos.y;
+
+      // Atualiza a posição no tokenData
+      const tokenData = sprite.getData('tokenData') as TokenDto;
+      tokenData.x = sprite.x;
+      tokenData.y = sprite.y;
+
+      // Atualiza a seleção após o arraste
+      if (this.selectedToken === sprite) {
+        this.updateHandlePositions();
+      }
+
+      // Atualiza o estado do mapa
+      const estadoAtual = this.estadosMapa[this.currentMapId] || {
+        tokens: [],
+        configuracoes: {
+          tipoGrid: 'hexagonal',
+          tamanhoCelula: 40,
+          corGrid: '#cccccc',
+          snapToGrid: true
+        }
+      };
+
+      const tokenIndex = estadoAtual.tokens.findIndex(t => t.id === token.id);
+      if (tokenIndex !== -1) {
+        estadoAtual.tokens[tokenIndex] = tokenData;
+      } else {
+        estadoAtual.tokens.push(tokenData);
+      }
+
+      this.estadosMapa[this.currentMapId] = estadoAtual;
+      this.onLocalMapChange(estadoAtual);
+    });
+  }
+
+  private updateExistingToken(scene: Phaser.Scene, textureKey: string, token: TokenDto) {
+    const existingSprite = scene.children.getByName(token.id) as Phaser.GameObjects.Sprite;
+    if (existingSprite) {
+      existingSprite.setPosition(token.x, token.y);
+      existingSprite.setDepth(token.z);
+    } else {
+      this.createTokenSprite(scene, textureKey, token);
     }
+  }
+
+  private cleanupTextures(): void {
+    if (!this.phaserGame || !this.phaserGame.scene) return;
+
+    const scene = this.phaserGame.scene.scenes[0];
+    if (!scene) return;
+
+    // Destrói todos os sprites primeiro
+    scene.children.each(child => {
+      if (child instanceof Phaser.GameObjects.Sprite) {
+        child.destroy();
+      }
+    });
+
+    // Limpa as texturas de forma segura
+    Object.keys(scene.textures.list).forEach(key => {
+      if (key.startsWith('token-')) {
+        try {
+          const texture = scene.textures.get(key);
+          if (texture && !texture.destroy) {
+            texture.destroy();
+          }
+        } catch (e) {
+          console.warn(`Erro ao destruir textura ${key}:`, e);
+        }
+      }
+    });
+
+    this.debugSceneObjects(scene);
+  }
+
+  private debugSceneObjects(scene: Phaser.Scene): void {
+    let graphicsCount = 0;
+    let textCount = 0;
+    let spriteCount = 0;
+
+    scene.children.each(child => {
+      if (child instanceof Phaser.GameObjects.Graphics) graphicsCount++;
+      if (child instanceof Phaser.GameObjects.Text) textCount++;
+      if (child instanceof Phaser.GameObjects.Sprite) spriteCount++;
+    });
+
+    console.log(`Objetos na cena: Graphics=${graphicsCount}, Texts=${textCount}, Sprites=${spriteCount}`);
   }
 }

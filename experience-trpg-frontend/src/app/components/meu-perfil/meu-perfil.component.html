@@ -1,34 +1,82 @@
-<div class="container mt-5">
-    <h2>Meu Perfil</h2>
-    <form (ngSubmit)="salvarPerfil()">
-      <!-- Nome do usuário -->
-      <div class="form-group mb-3">
-        <label>Nome</label>
-        <input type="text" class="form-control" [(ngModel)]="usuario.nome" name="nome" required />
+<div class="container-fluid dark-theme py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-6 col-xl-5">
+      <div class="card dark-card">
+        <div class="card-body p-4">
+          <div class="text-center mb-4">
+            <h2 class="profile-title">
+              <i class="fas fa-user-circle me-2"></i>Meu Perfil
+            </h2>
+            <p class="text-muted">Gerencie suas informações pessoais</p>
+          </div>
+
+          <form (ngSubmit)="salvarPerfil()" #profileForm="ngForm">
+            <!-- Nome do usuário -->
+            <div class="mb-3">
+              <label class="form-label">
+                <i class="fas fa-user me-2"></i>Nome
+              </label>
+              <input type="text" class="form-control dark-input" 
+                     [(ngModel)]="usuario.nome" name="nome" required>
+            </div>
+
+            <!-- Email do usuário (apenas leitura) -->
+            <div class="mb-3">
+              <label class="form-label">
+                <i class="fas fa-envelope me-2"></i>Email
+              </label>
+              <input type="email" class="form-control dark-input" 
+                     [(ngModel)]="usuario.email" name="email" readonly>
+            </div>
+
+            <!-- Nova senha -->
+            <div class="mb-3">
+              <label class="form-label">
+                <i class="fas fa-lock me-2"></i>Nova Senha
+              </label>
+              <input type="password" class="form-control dark-input" 
+                     [(ngModel)]="novaSenha" name="novaSenha" 
+                     placeholder="Deixe em branco para manter a senha atual">
+            </div>
+
+            <!-- Confirmar nova senha -->
+            <div class="mb-4">
+              <label class="form-label">
+                <i class="fas fa-lock me-2"></i>Confirmar Nova Senha
+              </label>
+              <input type="password" class="form-control dark-input" 
+                     [(ngModel)]="confirmarNovaSenha" name="confirmarNovaSenha" 
+                     placeholder="Confirme a nova senha">
+            </div>
+
+            <!-- Mensagem de feedback -->
+            <div *ngIf="mensagem" class="alert alert-info mb-3">
+              <i class="fas fa-info-circle me-2"></i>{{ mensagem }}
+            </div>
+
+            <!-- Botão para salvar alterações -->
+            <div class="d-grid">
+              <button type="submit" class="btn btn-primary" [disabled]="!profileForm.form.valid">
+                <i class="fas fa-save me-2"></i>Salvar Alterações
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-  
-      <!-- Email do usuário (apenas leitura) -->
-      <div class="form-group mb-3">
-        <label>Email</label>
-        <input type="email" class="form-control" [(ngModel)]="usuario.email" name="email" readonly />
+
+      <!-- Seção adicional para estatísticas (opcional) -->
+      <div class="card dark-card mt-4">
+        <div class="card-body">
+          <h5 class="card-title">
+            <i class="fas fa-chart-line me-2"></i>Minhas Estatísticas
+          </h5>
+          <ul class="list-group list-group-flush stats-list">
+            <li class="list-group-item dark-list-item">
+              <i class="fas fa-clock me-2"></i>Membro desde: {{ usuario.dataCadastro | date:'dd/MM/yyyy' }}
+            </li>
+          </ul>
+        </div>
       </div>
-  
-      <!-- Nova senha -->
-      <div class="form-group mb-3">
-        <label>Nova Senha</label>
-        <input type="password" class="form-control" [(ngModel)]="novaSenha" name="novaSenha" placeholder="Deixe em branco para manter a senha atual" />
-      </div>
-  
-      <!-- Confirmar nova senha -->
-      <div class="form-group mb-3">
-        <label>Confirmar Nova Senha</label>
-        <input type="password" class="form-control" [(ngModel)]="confirmarNovaSenha" name="confirmarNovaSenha" placeholder="Confirme a nova senha" />
-      </div>
-  
-      <!-- Mensagem de feedback -->
-      <div *ngIf="mensagem" class="alert alert-info mb-3">{{ mensagem }}</div>
-  
-      <!-- Botão para salvar alterações -->
-      <button type="submit" class="btn btn-primary">Salvar Alterações</button>
-    </form>
+    </div>
   </div>
+</div>

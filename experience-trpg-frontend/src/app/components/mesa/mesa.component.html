@@ -21,57 +21,72 @@
       <!-- Painel de configurações do grid -->
       <div class="grid-config-panel" *ngIf="gridControlsVisible && isCriador">
         <h4>Configurações do Mapa</h4>
-        <div class="grid-config-form">
+
+        <!-- Seletor de Mapas -->
+        <div class="form-group">
+          <label for="mapList">Mapas:</label>
+          <div class="map-selector-container">
+            <select id="mapList" [(ngModel)]="currentMapId" (change)="currentMapId && mudarMapaAtual(currentMapId)">
+              <option *ngFor="let map of allMaps" [value]="map.mapaId">
+                {{ map.nome }} {{ map.visivel ? '(Ativo)' : '' }}
+              </option>
+            </select>
+            <button class="btn-add-map" (click)="criarNovoMapa()" title="Adicionar novo mapa">
+              <span class="plus-icon">+</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Mostra o formulário apenas se currentMap existir -->
+        <ng-container *ngIf="currentMap">
+          <!-- Nome do Mapa -->
           <div class="form-group">
-            <label for="mapWidth">Largura:</label>
-            <input type="number" id="mapWidth" [(ngModel)]="maps[currentMapIndex].gridSize.cols"
-              (change)="updateGridSize('cols', maps[currentMapIndex].gridSize.cols)" min="5" max="100">
+            <label for="mapName">Nome:</label>
+            <input type="text" id="mapName" [(ngModel)]="currentMap.nome">
           </div>
 
-          <div class="form-group">
-            <label for="mapHeight">Altura:</label>
-            <input type="number" id="mapHeight" [(ngModel)]="maps[currentMapIndex].gridSize.rows"
-              (change)="updateGridSize('rows', maps[currentMapIndex].gridSize.rows)" min="5" max="100">
+          <!-- Dimensões do Mapa -->
+          <div class="form-group dimensions-group">
+            <div>
+              <label for="mapWidth">Largura:</label>
+              <input type="number" id="mapWidth" [(ngModel)]="currentMap.largura" min="5" max="100">
+            </div>
+            <div>
+              <label for="mapHeight">Altura:</label>
+              <input type="number" id="mapHeight" [(ngModel)]="currentMap.altura" min="5" max="100">
+            </div>
           </div>
 
+          <!-- Tamanho do Hexágono -->
           <div class="form-group">
             <label for="hexSize">Tamanho Hex:</label>
-            <input type="number" id="hexSize" [(ngModel)]="maps[currentMapIndex].hexRadius"
-              (change)="updateHexSize(maps[currentMapIndex].hexRadius)" min="10" max="100">
+            <input type="number" id="hexSize" [(ngModel)]="currentMap.tamanhoHex" min="10" max="100">
           </div>
 
-          <button class="save-config-btn" (click)="saveMapConfig()">
-            <i class="fas fa-save"></i> Salvar Configuração
-          </button>
-        </div>
-      </div>
+          <!-- Mapa Atual (Checkbox) -->
+          <div class="form-group checkbox-group">
+            <label for="currentMap">Mapa Atual:</label>
+            <input type="checkbox" id="currentMap" [checked]="currentMap.visivel" (change)="toggleCurrentMap()">
+          </div>
+        </ng-container>
 
-      <!-- Seletor de mapas (visível apenas para criador) -->
-      <div *ngIf="isCriador" class="map-selector">
-        <select [(ngModel)]="currentMapId" (change)="mudarMapaAtual(currentMapId)">
-          <option *ngFor="let map of allMaps" [value]="map.mapaId">
-            {{ map.nome }}
-          </option>
-        </select>
-
-        <button class="add-map-btn" (click)="criarNovoMapa()" title="Adicionar Mapa">
-          <i class="fas fa-plus"></i>
-        </button>
-
-        <button *ngIf="maps.length > 1" class="remove-map-btn" (click)="removeCurrentMap()" title="Remover Mapa">
-          <i class="fas fa-trash"></i>
+        <!-- Botão de Salvar -->
+        <button class="save-config-btn" (click)="saveMapConfig()" [disabled]="!currentMap">
+          <i class="fas fa-save"></i> Salvar Configurações
         </button>
       </div>
     </div>
 
     <!-- Controles de zoom no canto inferior direito -->
     <div class="zoom-controls">
-      <button (click)="zoomIn()" title="Zoom In (+10%)" class="zoom-button zoom-in">
+      <button (click)="zoomIn()" title="Zoom In (+10%)" class="zoom-button zoom-in"
+        [disabled]="isZooming || zoomPercentual >= ZOOM_MAXIMO">
       </button>
       <div class="zoom-display">
         {{ zoomPercentual }}%
       </div>
-      <button (click)="zoomOut()" title="Zoom Out (-10%)" class="zoom-button zoom-out">
+      <button (click)="zoomOut()" title="Zoom Out (-10%)" class="zoom-button zoom-out"
+        [disabled]="isZooming || zoomPercentual <= ZOOM_MINIMO">
       </button>
     </div>
   </div>

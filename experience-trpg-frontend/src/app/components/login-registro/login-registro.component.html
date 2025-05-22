@@ -1,45 +1,90 @@
-<div class="container mt-5">
-    <div class="row g-3">
-        <div class="col-md-6"> <!-- Coluna para Login -->
-            <h2 class="text-center">Login</h2>
-            <form (ngSubmit)="onLogin()" #loginForm="ngForm"> <!-- Usando ngSubmit -->
+<div class="container-fluid dark-theme py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="row g-4">
+        <!-- Coluna para Login -->
+        <div class="col-md-6">
+          <div class="card dark-card h-100">
+            <div class="card-body p-4">
+              <h2 class="text-center mb-4">Login</h2>
+              <form (ngSubmit)="onLogin()" #loginForm="ngForm">
                 <div class="mb-3">
-                    <label for="loginEmail" class="form-label">Email</label>
-                    <input type="email" class="form-control" id="loginEmail" [(ngModel)]="loginEmail" placeholder="Digite seu email" name="loginEmail" required email>
-                <div *ngIf="loginForm.controls['loginEmail'].invalid && loginForm.controls['loginEmail'].touched">
-                    <small class="text-danger">Email inválido.</small>
-                </div>
+                  <label for="loginEmail" class="form-label">Email</label>
+                  <input type="email" class="form-control dark-input" id="loginEmail" 
+                         [(ngModel)]="loginEmail" placeholder="Digite seu email" 
+                         name="loginEmail" required email>
+                  <div *ngIf="loginForm.controls['loginEmail'].invalid && loginForm.controls['loginEmail'].touched" 
+                       class="text-warning mt-1">
+                    <small>Email inválido.</small>
+                  </div>
                 </div>
                 <div class="mb-3">
-                    <label for="loginPassword" class="form-label">Senha</label>
-                    <input type="password" class="form-control" id="loginPassword" [(ngModel)]="loginSenha" placeholder="Digite sua senha" name="loginSenha" required>
+                  <label for="loginPassword" class="form-label">Senha</label>
+                  <input type="password" class="form-control dark-input" id="loginPassword" 
+                         [(ngModel)]="loginSenha" placeholder="Digite sua senha" 
+                         name="loginSenha" required>
                 </div>
-                <button type="submit" class="btn btn-primary" [disabled]="!loginForm.form.valid">Logar</button>
-            </form>
+                <div class="d-grid">
+                  <button type="submit" class="btn btn-primary" 
+                          [disabled]="!loginForm.form.valid">
+                    Entrar
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         </div>
 
-        <div class="col-md-6"> <!-- Coluna para Registro -->
-            <h2 class="text-center">Registro</h2>
-            <form (ngSubmit)="onRegister()" #registerForm="ngForm"> <!-- Usando ngSubmit -->
+        <!-- Coluna para Registro -->
+        <div class="col-md-6">
+          <div class="card dark-card h-100">
+            <div class="card-body p-4">
+              <h2 class="text-center mb-4">Criar Conta</h2>
+              <form (ngSubmit)="onRegister()" #registerForm="ngForm">
                 <div class="mb-3">
-                    <label for="username" class="form-label">Nome de Usuário</label>
-                    <input type="text" class="form-control" id="username" [(ngModel)]="nomeUsuario" placeholder="Escolha um nome de usuário" name="nomeUsuario" required>
+                  <label for="username" class="form-label">Nome de Usuário</label>
+                  <input type="text" class="form-control dark-input" id="username" 
+                         [(ngModel)]="nomeUsuario" placeholder="Escolha um nome de usuário" 
+                         name="nomeUsuario" required>
                 </div>
                 <div class="mb-3">
-                    <label for="registerEmail" class="form-label">Email</label>
-                    <input type="email" class="form-control" id="registerEmail" [(ngModel)]="email" placeholder="Digite seu email" name="registerEmail" required>
+                  <label for="registerEmail" class="form-label">Email</label>
+                  <input type="email" class="form-control dark-input" id="registerEmail" 
+                         [(ngModel)]="email" placeholder="Digite seu email" 
+                         name="registerEmail" required>
                 </div>
                 <div class="mb-3">
-                    <label for="registerPassword" class="form-label">Senha</label>
-                    <input type="password" class="form-control" id="registerPassword" [(ngModel)]="senha" placeholder="Crie sua senha" name="registerPassword" required>
+                  <label for="registerPassword" class="form-label">Senha</label>
+                  <input type="password" class="form-control dark-input" id="registerPassword" 
+                         [(ngModel)]="senha" placeholder="Crie sua senha" 
+                         name="registerPassword" required>
                 </div>
                 <div class="mb-3">
-                    <label for="confirmPassword" class="form-label">Confirmação de Senha</label>
-                    <input type="password" class="form-control" id="confirmPassword" [(ngModel)]="confirmacaoSenha" placeholder="Confirme sua senha" name="confirmPassword" required>
+                  <label for="confirmPassword" class="form-label">Confirme sua Senha</label>
+                  <input type="password" class="form-control dark-input" id="confirmPassword" 
+                         [(ngModel)]="confirmacaoSenha" placeholder="Digite novamente sua senha" 
+                         name="confirmPassword" required>
                 </div>
-                <button type="submit" class="btn btn-success" [disabled]="!registerForm.form.valid">Registrar-se</button>
-            </form>
+                <div class="d-grid">
+                  <button type="submit" class="btn btn-success" 
+                          [disabled]="!registerForm.form.valid">
+                    Registrar-se
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         </div>
+      </div>
+
+      <!-- Mensagem de erro/verificação -->
+      <div *ngIf="mensagem" class="alert alert-warning mt-4 text-center">
+        {{ mensagem }}
+      </div>
+
+      <div class="text-center mt-4">
+        <p class="text-muted">Ao se registrar, você concorda com nossos <a href="#" class="text-primary">Termos de Serviço</a> e <a href="#" class="text-primary">Política de Privacidade</a>.</p>
+      </div>
     </div>
-    <div *ngIf="mensagem" class="alert alert-danger mt-3">{{ mensagem }}</div> <!-- Mensagem de erro ou verificacao -->
+  </div>
 </div>

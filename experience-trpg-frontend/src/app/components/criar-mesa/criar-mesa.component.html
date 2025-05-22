@@ -1,25 +1,58 @@
-<div class="container mt-5">
-  <h2>Criar Mesa</h2>
-  <form (ngSubmit)="onSubmit(mesaForm)" #mesaForm="ngForm">
-      <div class="mb-3">
-          <label for="nome" class="form-label">Nome da Mesa</label>
-          <input type="text" class="form-control" id="nome" name="nome" [(ngModel)]="Nome" required>
-      </div>
+<div class="container-fluid dark-theme py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-8 col-xl-6">
+      <div class="card dark-card">
+        <div class="card-body p-4">
+          <div class="text-center mb-4">
+            <h2 class="mesa-title">
+              <i class="fas fa-dice-d20 me-2"></i>Criar Nova Mesa
+            </h2>
+            <p class="text-muted">Preencha os detalhes para iniciar sua aventura</p>
+          </div>
 
-      <div class="mb-3">
-          <label for="descricao" class="form-label">Descrição</label>
-          <textarea class="form-control" id="descricao" name="descricao" [(ngModel)]="Descricao"></textarea>
-      </div>
+          <form (ngSubmit)="onSubmit(mesaForm)" #mesaForm="ngForm">
+            <!-- Nome da Mesa -->
+            <div class="mb-4">
+              <label for="nome" class="form-label">
+                <i class="fas fa-heading me-2"></i>Nome da Mesa
+              </label>
+              <input type="text" class="form-control dark-input" id="nome" name="nome" 
+                     [(ngModel)]="Nome" required placeholder="Dê um nome épico para sua mesa">
+            </div>
 
-      <div class="mb-3">
-          <label for="sistema" class="form-label">Sistema</label>
-          <select class="form-select" id="sistema" name="sistema" [(ngModel)]="selectedSistemaId" required>
-            <option *ngFor="let sistema of sistemas" [value]="sistema.sistemaId">
-                {{ sistema.nome }}
-            </option>
-          </select>
-      </div>
+            <!-- Descrição -->
+            <div class="mb-4">
+              <label for="descricao" class="form-label">
+                <i class="fas fa-align-left me-2"></i>Descrição
+              </label>
+              <textarea class="form-control dark-input" id="descricao" name="descricao" 
+                        [(ngModel)]="Descricao" rows="4"
+                        placeholder="Descreva sua campanha, estilo de jogo, regras da casa..."></textarea>
+            </div>
 
-      <button type="submit" class="btn btn-primary">Criar Mesa</button>
-  </form>
+            <!-- Sistema -->
+            <div class="mb-4">
+              <label for="sistema" class="form-label">
+                <i class="fas fa-book me-2"></i>Sistema
+              </label>
+              <select class="form-select dark-input" id="sistema" name="sistema" 
+                      [(ngModel)]="selectedSistemaId" required>
+                <option value="" disabled selected>Selecione um sistema</option>
+                <option *ngFor="let sistema of sistemas" [value]="sistema.sistemaId">
+                  {{ sistema.nome }}
+                </option>
+              </select>
+            </div>
+
+            <!-- Botão de Criação -->
+            <div class="d-grid">
+              <button type="submit" class="btn btn-primary" [disabled]="!mesaForm.form.valid">
+                <i class="fas fa-plus-circle me-2"></i>Criar Mesa
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>

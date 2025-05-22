@@ -2,7 +2,7 @@ INSERT INTO StatusUsuarios (Nome, Descricao) VALUES ('Online', 'Usuário está o
 INSERT INTO StatusUsuarios (Nome, Descricao) VALUES ('Offline', 'Usuário está offline');
 
 INSERT INTO Sistemas (Nome, Descricao) VALUES ('Dungeons and Dragons 5E', '"Dungeons & Dragons 5ª edição: um RPG de fantasia que combina narrativa, aventura e jogo em equipe."');
-INSERT INTO Sistemas (Nome, Descricao) VALUES ('Tormenta20', '"Tormenta20: um RPG de fantasia que combina narrativa, aventura e jogo em equipe."');
+INSERT INTO Sistemas (Nome, Descricao) VALUES ('OrigensRPG', '"OrigensRPG é um sistema próprio criado por Ricardo o mesmo criador do ExperienceTRPG."');
 INSERT INTO Fichas (Nome, Descricao, SistemaId) VALUES ('Ficha do Jogador', 'Ficha do famoso sistema Dungeons and Dragons em sua 5ª edição.', 1);
 
 INSERT INTO Atributos (Nome, Valor, FichaId)

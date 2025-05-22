@@ -298,6 +298,7 @@ export class FichaDnd5eComponent implements OnInit {
         this.apiService.getFichaPorId(fichaId).subscribe({
             next: (ficha: FichaDto) => {
                 this.ficha = ficha;
+                this.inicializaFicha();
 
                 // Se a ficha tem imagem vinculada, carrega os detalhes
                 if (ficha.imagemId) {
@@ -381,6 +382,7 @@ export class FichaDnd5eComponent implements OnInit {
     }
 
     inicializaFicha(): void {
+        this.nome = this.ficha.nome;
         // Atributos
         this.nvClasse1 = this.ficha.atributos.find(attr => attr.nome === 'NvClasse1')?.valor || 1;
         this.nvClasse2 = this.ficha.atributos.find(attr => attr.nome === 'NvClasse2')?.valor || 0;

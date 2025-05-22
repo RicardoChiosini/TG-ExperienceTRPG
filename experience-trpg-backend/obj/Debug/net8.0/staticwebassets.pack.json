@@ -1,8 +1,24 @@
 {
   "Files": [
     {
-      "Id": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\images\\a415da42-4ad8-4559-b141-449c469191ec.jpg",
-      "PackagePath": "staticwebassets\\images\\a415da42-4ad8-4559-b141-449c469191ec.jpg"
+      "Id": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\images\\00faec5b-d140-44dd-861b-d433d33b549e.jpg",
+      "PackagePath": "staticwebassets\\images\\00faec5b-d140-44dd-861b-d433d33b549e.jpg"
+    },
+    {
+      "Id": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\images\\2bd5b909-437e-469a-a9d1-8822603014f9.jpg",
+      "PackagePath": "staticwebassets\\images\\2bd5b909-437e-469a-a9d1-8822603014f9.jpg"
+    },
+    {
+      "Id": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\images\\c92d0842-b32c-4b62-904d-5f8f56dbbca3.jpg",
+      "PackagePath": "staticwebassets\\images\\c92d0842-b32c-4b62-904d-5f8f56dbbca3.jpg"
+    },
+    {
+      "Id": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\images\\d387ec72-bee3-427a-81c5-c105d558d45f.jpg",
+      "PackagePath": "staticwebassets\\images\\d387ec72-bee3-427a-81c5-c105d558d45f.jpg"
+    },
+    {
+      "Id": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\images\\e49d6a46-fead-4ca9-a2a7-711829c713e3.jpg",
+      "PackagePath": "staticwebassets\\images\\e49d6a46-fead-4ca9-a2a7-711829c713e3.jpg"
     },
     {
       "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.build.experience-trpg-backend.props",

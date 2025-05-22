@@ -361,17 +361,22 @@ namespace experience_trpg_backend.Controllers
                         .ExecuteDeleteAsync();
                 }
 
-                // 9. Remove todas as imagens da mesa
+                // 9. Remove todos os mapas da mesa
+                await _context.Mapas
+                    .Where(m => m.MesaId == id)
+                    .ExecuteDeleteAsync();
+
+                // 10. Remove todas as imagens da mesa
                 await _context.Imagens
                     .Where(i => i.MesaId == id)
                     .ExecuteDeleteAsync();
 
-                // 10. Remove todas as mensagens da mesa
+                // 11. Remove todas as mensagens da mesa
                 await _context.Mensagens
                     .Where(m => m.MesaId == id)
                     .ExecuteDeleteAsync();
 
-                // 11. Finalmente, remove a mesa
+                // 12. Finalmente, remove a mesa
                 await _context.Mesas
                     .Where(m => m.MesaId == id)
                     .ExecuteDeleteAsync();

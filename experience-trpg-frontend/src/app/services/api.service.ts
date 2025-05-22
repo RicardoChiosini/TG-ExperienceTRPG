@@ -1,10 +1,11 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpEvent, HttpEventType } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { catchError, Observable, of } from 'rxjs';
 import { MesaDto } from '../dtos/mesa.dto';
 import { ImagemDto } from '../dtos/imagem.dto';
 import { FichaDto, AtributoDto, HabilidadeDto, ProficienciaDto } from '../dtos/ficha.dto';
 import { MapaDto } from '../dtos/mapa.dto';
+import { MapaEstadoDto } from '../dtos/mapaEstado.dto';
 import { HttpHeaders } from '@angular/common/http';
 
 @Injectable({
@@ -185,16 +186,49 @@ export class ApiService {
     return this.http.get<MapaDto>(`${this.baseUrl}/map/${mesaId}/mapa/recente`);
   }
 
-  salvarEstadoMapa(mapaId: number, estado: any): Observable<any> {
-    return this.http.put(`${this.baseUrl}/map/${mapaId}/mapa/estado`, estado);
+  getTokensDoMapa(mesaId: number): Observable<MapaEstadoDto> {
+    return this.http.get<MapaEstadoDto>(`${this.baseUrl}/map/${mesaId}/mapa/tokens`).pipe(
+      catchError(error => {
+        console.error('Erro ao buscar tokens:', error);
+        return of({
+          tokens: [],
+          camadas: [],
+          objetos: [],
+          configuracoes: {
+            tipoGrid: 'hexagonal',
+            tamanhoCelula: 40,
+            corGrid: '#cccccc',
+            snapToGrid: true
+          }
+        });
+      })
+    );
   }
 
-  salvarConfigMapa(mapaId: number, config: any): Observable<any> {
-    return this.http.put(`${this.baseUrl}/map/mapa/${mapaId}/config`, config);
+  salvarEstadoMapa(mapaId: number, estado: MapaEstadoDto): Observable<MapaEstadoDto> {
+    return this.http.put<MapaEstadoDto>(
+      `${this.baseUrl}/map/${mapaId}/estado`, // Rota atualizada
+      estado
+    ).pipe(
+      catchError(error => {
+        console.error('Erro ao salvar estado:', error);
+        return of({
+          tokens: [],
+          camadas: [],
+          objetos: [],
+          configuracoes: {
+            tipoGrid: 'hexagonal',
+            tamanhoCelula: 40,
+            corGrid: '#cccccc',
+            snapToGrid: true
+          }
+        });
+      })
+    );
   }
 
-  getTokensDoMapa(mesaId: number): Observable<any> {
-    return this.http.get(`${this.baseUrl}/map/${mesaId}/mapa/tokens`);
+  salvarConfigMapa(mapaId: number, config: any): Observable<MapaDto> {
+    return this.http.put<MapaDto>(`${this.baseUrl}/map/mapa/${mapaId}/config`, config);
   }
 
   getTodosMapasPorMesa(mesaId: number): Observable<MapaDto[]> {

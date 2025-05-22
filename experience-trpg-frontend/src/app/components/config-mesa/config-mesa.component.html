@@ -1,39 +1,84 @@
-<div class="container mt-5" *ngIf="mesa">
-  <h3>Configurações da Mesa: {{ mesa.nome }}</h3>
-  <form>
-      <!-- Nome da mesa -->
-      <div class="form-group">
-          <label>Nome da Mesa</label>
-          <input class="form-control" [(ngModel)]="mesa.nome" name="nomeMesa" placeholder="Nome da mesa" />
-      </div>
-
-      <!-- Descrição da mesa -->
-      <div class="form-group mt-3">
-          <label>Descrição</label>
-          <textarea class="form-control" [(ngModel)]="mesa.descricao" name="descricaoMesa" placeholder="Descrição da mesa"></textarea>
-      </div>
-
-      <!-- Seleção do Sistema -->
-      <div class="form-group mt-3">
-        <label>Sistema</label>
-        <select class="form-control" [(ngModel)]="selectedSistema" name="sistemaMesa">
-          <option *ngFor="let sistema of sistemas" [value]="sistema.sistemaId">
-            {{ sistema.nome }}
-          </option>
-        </select>
-      </div>
-
-      <!-- Participantes -->
-      <div class="mt-4">
-          <h5>Participantes</h5>
-          <div *ngFor="let participante of mesa.participantes" class="d-flex justify-content-between align-items-center p-2 border rounded mb-2">
-              <span>{{ participante.nome }}</span> <!-- Usando participante.nome -->
-              <button *ngIf="participante.usuarioId !== mesa.criadorId" class="btn btn-danger" (click)="expulsarParticipante(participante)">
-                  Expulsar
-              </button>
+<div class="container-fluid dark-theme py-5" *ngIf="mesa">
+  <div class="row justify-content-center">
+    <div class="col-lg-8 col-xl-6">
+      <div class="card dark-card">
+        <div class="card-body p-4">
+          <div class="text-center mb-4">
+            <h3 class="mesa-config-title">
+              <i class="fas fa-cog me-2"></i>Configurações da Mesa: {{ mesa.nome }}
+            </h3>
+            <p class="text-muted">Gerencie as configurações e participantes da sua mesa</p>
           </div>
-      </div>
 
-      <button type="button" class="btn btn-primary mt-3" (click)="salvarMesa()">Salvar Alterações</button>
-  </form>
+          <form>
+            <!-- Nome da mesa -->
+            <div class="mb-4">
+              <label class="form-label">
+                <i class="fas fa-heading me-2"></i>Nome da Mesa
+              </label>
+              <input class="form-control dark-input" [(ngModel)]="mesa.nome" 
+                     name="nomeMesa" placeholder="Dê um nome épico para sua mesa">
+            </div>
+
+            <!-- Descrição da mesa -->
+            <div class="mb-4">
+              <label class="form-label">
+                <i class="fas fa-align-left me-2"></i>Descrição
+              </label>
+              <textarea class="form-control dark-input" [(ngModel)]="mesa.descricao" 
+                        name="descricaoMesa" rows="4"
+                        placeholder="Descreva sua campanha, estilo de jogo, regras da casa..."></textarea>
+            </div>
+
+            <!-- Seleção do Sistema -->
+            <div class="mb-4">
+              <label class="form-label">
+                <i class="fas fa-book me-2"></i>Sistema
+              </label>
+              <select class="form-select dark-input" [(ngModel)]="selectedSistema" 
+                      name="sistemaMesa">
+                <option *ngFor="let sistema of sistemas" [value]="sistema.sistemaId">
+                  {{ sistema.nome }}
+                </option>
+              </select>
+            </div>
+
+            <!-- Lista de Participantes -->
+            <div class="mb-4">
+              <h5 class="participantes-title">
+                <i class="fas fa-users me-2"></i>Participantes
+              </h5>
+              
+              <div class="participantes-list">
+                <div *ngFor="let participante of mesa.participantes" 
+                     class="participante-item">
+                  <div class="d-flex align-items-center">
+                    <div>
+                      <div class="participante-nome">{{ participante.nome }}</div>
+                      <small class="text-muted">
+                        {{ participante.usuarioId === mesa.criadorId ? 'Mestre' : 'Jogador' }}
+                      </small>
+                    </div>
+                  </div>
+                  
+                  <button *ngIf="participante.usuarioId !== mesa.criadorId" 
+                          class="btn btn-outline-danger btn-sm"
+                          (click)="expulsarParticipante(participante)">
+                    <i class="fas fa-user-times me-1"></i> Expulsar
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Botão de Salvar -->
+            <div class="d-grid">
+              <button type="button" class="btn btn-primary" (click)="salvarMesa()">
+                <i class="fas fa-save me-2"></i>Salvar Alterações
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>

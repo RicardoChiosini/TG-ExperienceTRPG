@@ -424,6 +424,17 @@ app-chat {
   text-align: center;
 }
 
+.zoom-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #555;
+}
+
+.zoom-button:disabled:hover {
+  transform: none;
+  background-color: #555;
+}
+
 /* Estilo para os botões do mapa (azuis como o botão de enviar) */
 .map-control-button, .zoom-button {
   background: #0052aa; /* Azul similar ao botão de enviar */
@@ -492,12 +503,59 @@ app-chat {
   margin: 0;
 }
 
-/* Estilo para o seletor de mapas */
-.map-selector {
+/* Estilo para o container do seletor de mapas */
+.map-selector-container {
   display: flex;
-  gap: 5px;
-  margin-bottom: 10px;
   align-items: center;
+  gap: 8px;
+}
+
+/* Estilo para o select de mapas */
+.map-select {
+  flex: 1;
+  padding: 8px 12px;
+  background-color: #333;
+  color: white;
+  border: 1px solid #555;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.map-select:focus {
+  outline: none;
+  border-color: #0052aa;
+}
+
+/* Estilo para o botão de adicionar mapa */
+.btn-add-map {
+  background-color: #0052aa;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-add-map:hover {
+  background-color: #0066cc;
+  transform: scale(1.05);
+}
+
+.btn-add-map:active {
+  transform: scale(0.95);
+}
+
+/* Estilo para o ícone de + */
+.plus-icon {
+  font-size: 18px;
+  font-weight: bold;
+  line-height: 1;
 }
 
 .map-selector select {
@@ -523,13 +581,13 @@ app-chat {
   background: #0066cc;
 }
 
-/* Estilo para o painel de configurações */
+/* Estilos para o painel de configurações */
 .grid-config-panel {
   background: rgba(0, 0, 0, 0.9);
   padding: 15px;
   border-radius: 5px;
   color: white;
-  width: 280px;
+  width: 300px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
@@ -541,7 +599,7 @@ app-chat {
 }
 
 .form-group {
-  margin-bottom: 10px;
+  margin-bottom: 15px;
 }
 
 .form-group label {
@@ -550,7 +608,9 @@ app-chat {
   font-weight: bold;
 }
 
-.form-group input {
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group select {
   width: 100%;
   padding: 8px;
   background: #333;
@@ -559,9 +619,35 @@ app-chat {
   border-radius: 4px;
 }
 
+/* Grupo de dimensões lado a lado */
+.dimensions-group {
+  display: flex;
+  gap: 10px;
+}
+
+.dimensions-group > div {
+  flex: 1;
+}
+
+/* Grupo de checkbox */
+.checkbox-group {
+  display: flex;
+  align-items: center;
+}
+
+.checkbox-group label {
+  margin-right: 10px;
+  margin-bottom: 0;
+}
+
+.checkbox-group input {
+  width: auto;
+}
+
+/* Botão de salvar */
 .save-config-btn {
   width: 100%;
-  padding: 8px;
+  padding: 10px;
   background: #0052aa;
   color: white;
   border: none;
@@ -573,4 +659,41 @@ app-chat {
 
 .save-config-btn:hover {
   background: #0066cc;
+}
+
+.save-config-btn i {
+  margin-right: 8px;
+}
+
+.token {
+  transition: transform 0.2s, opacity 0.3s;
+  cursor: grab;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+.token:hover {
+  transform: scale(1.05);
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
+}
+
+.token:active {
+  cursor: grabbing;
+  opacity: 0.9;
+}
+
+.token-loading {
+  opacity: 0.5;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.5; }
+  50% { opacity: 0.8; }
+  100% { opacity: 0.5; }
+}
+
+.map-disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  pointer-events: none;
 }
