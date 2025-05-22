@@ -996,22 +996,14 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.clearSelection();
     this.cleanupTextures();
 
-    // 2. Marca como não carregado (mas mantém o mapaId)
-    this.currentMap = null;
-    this.mapaCarregado = false;
-
     this.apiService.getMapaById(this.mesaId, mapaId).subscribe({
       next: (mapa) => {
-        // 3. Limpeza adicional para garantir
-        this.clearSelection();
-        this.cleanupTextures();
-
-        // 4. Atualiza o estado com o novo mapa
+        // 2. Atualiza o estado com o novo mapa
         this.currentMap = mapa;
         this.currentMapId = mapa.mapaId;
         this.mapaCarregado = true;
 
-        // 5. Inicializa um estado vazio se não existir
+        // 3. Inicializa um estado vazio se não existir
         if (!this.estadosMapa[mapaId]) {
           this.estadosMapa[mapaId] = {
             tokens: [],
@@ -1024,7 +1016,7 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
           };
         }
 
-        // 6. Carrega o estado do mapa se existir
+        // 4. Carrega o estado do mapa se existir
         if (mapa.estadoJson) {
           try {
             const estado = JSON.parse(mapa.estadoJson) as MapaEstadoDto;
@@ -1034,33 +1026,48 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
           }
         }
 
-        // 7. Aplica o estado do mapa atual
-        this.applyMapChanges(this.estadosMapa[mapaId]);
+        // 5. Redesenha o grid hexagonal
+        if (this.phaserGame) {
+          const scene = this.phaserGame.scene.scenes[0];
+          this.drawHexGrid(scene);
 
-        // 8. Redesenha o grid hexagonal
-        this.drawHexGrid(this.phaserGame.scene.scenes[0]);
+          // 6. Aplica o estado do mapa atual (incluindo tokens)
+          this.applyMapChanges(this.estadosMapa[mapaId]);
+        }
 
-        // 9. Carrega tokens do servidor
+        // 7. Carrega tokens adicionais do servidor se necessário
         this.carregarTokensDoServidor();
       },
       error: (err) => {
         console.error('Erro ao carregar mapa:', err);
         this.toastr.error('Erro ao carregar o mapa');
-        // Restaura o mapa anterior em caso de erro
-        if (this.currentMap) {
-          this.carregarMapa(this.currentMap.mapaId);
-        }
       }
     });
   }
 
   private carregarTokensDoServidor(): void {
-    this.apiService.getTokensDoMapa(this.mesaId).subscribe({
+    if (!this.currentMapId) return;
+
+    this.apiService.getTokensDoMapa(this.mesaId, this.currentMapId).subscribe({
       next: (estado: MapaEstadoDto) => {
-        if (estado.tokens && estado.tokens.length > 0 && this.currentMapId) {
-          // Atualiza o estado local
-          this.estadosMapa[this.currentMapId] = estado;
-          this.applyMapChanges(estado);
+        if (estado.tokens && estado.tokens.length > 0) {
+          // Atualiza o estado local apenas com os tokens do mapa atual
+          const estadoAtual = this.estadosMapa[this.currentMapId] || {
+            tokens: [],
+            configuracoes: {
+              tipoGrid: 'hexagonal',
+              tamanhoCelula: 40,
+              corGrid: '#cccccc',
+              snapToGrid: true
+            }
+          };
+
+          // Mantém configurações existentes, apenas atualiza tokens
+          estadoAtual.tokens = estado.tokens;
+          this.estadosMapa[this.currentMapId] = estadoAtual;
+
+          // Aplica as mudanças
+          this.applyMapChanges(estadoAtual);
         }
       },
       error: (err) => console.error('Erro ao carregar tokens:', err)
@@ -1115,7 +1122,7 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
     const scene = this.phaserGame.scene.scenes[0];
     if (!scene) return;
 
-    // Limpa apenas tokens que pertencem ao mapa atual
+    // 1. Limpa todos os tokens existentes do mapa atual
     scene.children.each(child => {
       if (child instanceof Phaser.GameObjects.Sprite && child.getData('tokenData')) {
         const tokenData = child.getData('tokenData');
@@ -1125,12 +1132,19 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
       }
     });
 
-    // Carrega novos tokens apenas se pertencerem ao mapa atual
+    // 2. Carrega os tokens do novo mapa
     (mapState.tokens || []).forEach((token: TokenDto) => {
       try {
         if (token.mapaId === this.currentMapId) {
           const key = `token-${token.id}`;
-          this.createTokenSprite(scene, key, token);
+
+          // Verifica se a textura já está carregada
+          if (scene.textures.exists(key)) {
+            this.instantiateToken(scene, key, token);
+          } else {
+            // Carrega a textura primeiro
+            this.createTokenSprite(scene, key, token);
+          }
         }
       } catch (e) {
         console.error('Erro ao aplicar mudanças no token:', e);
@@ -1666,69 +1680,69 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
   private saveMapState(mapaId: number): void {
     // Verificar se temos um mapa atual válido
     if (!this.currentMap || this.currentMap.mapaId !== mapaId) {
-        return;
+      return;
     }
 
     // Verificar se as configurações estão abertas
     if (this.configuracoesAbertas) {
-        return;
+      return;
     }
 
     try {
-        if (!this.phaserGame) {
-            throw new Error('Jogo Phaser não está disponível');
+      if (!this.phaserGame) {
+        throw new Error('Jogo Phaser não está disponível');
+      }
+
+      const scene = this.phaserGame.scene.scenes[0];
+      if (!scene) {
+        throw new Error('Cena do Phaser não encontrada');
+      }
+
+      // Coleta todos os tokens da cena atual
+      const tokens: TokenDto[] = [];
+      scene.children.each(child => {
+        if (child instanceof Phaser.GameObjects.Sprite && child.getData('tokenData')) {
+          const tokenData = child.getData('tokenData');
+          // Verifica se o token pertence ao mapa atual
+          if (tokenData.mapaId === mapaId) {
+            tokens.push(tokenData);
+          }
         }
+      });
 
-        const scene = this.phaserGame.scene.scenes[0];
-        if (!scene) {
-            throw new Error('Cena do Phaser não encontrada');
+      // Obtém ou cria o estado para o mapa especificado
+      const estadoAtual = this.estadosMapa[mapaId] || {
+        tokens: [],
+        configuracoes: {
+          tipoGrid: 'hexagonal',
+          tamanhoCelula: 40,
+          corGrid: '#cccccc',
+          snapToGrid: true
         }
+      };
 
-        // Coleta todos os tokens da cena atual
-        const tokens: TokenDto[] = [];
-        scene.children.each(child => {
-            if (child instanceof Phaser.GameObjects.Sprite && child.getData('tokenData')) {
-                const tokenData = child.getData('tokenData');
-                // Verifica se o token pertence ao mapa atual
-                if (tokenData.mapaId === mapaId) {
-                    tokens.push(tokenData);
-                }
-            }
-        });
+      // Atualiza apenas os tokens
+      estadoAtual.tokens = tokens;
 
-        // Obtém ou cria o estado para o mapa especificado
-        const estadoAtual = this.estadosMapa[mapaId] || {
-            tokens: [],
-            configuracoes: {
-                tipoGrid: 'hexagonal',
-                tamanhoCelula: 40,
-                corGrid: '#cccccc',
-                snapToGrid: true
-            }
-        };
+      // Atualiza o estado local
+      this.estadosMapa[mapaId] = estadoAtual;
+      this.currentMap.estadoJson = JSON.stringify(estadoAtual);
 
-        // Atualiza apenas os tokens
-        estadoAtual.tokens = tokens;
-
-        // Atualiza o estado local
-        this.estadosMapa[mapaId] = estadoAtual;
-        this.currentMap.estadoJson = JSON.stringify(estadoAtual);
-
-        // Salva no servidor
-        this.apiService.salvarEstadoMapa(mapaId, estadoAtual).subscribe({
-            next: () => {
-                console.log(`Estado do mapa ${mapaId} salvo com sucesso`);
-            },
-            error: (err) => {
-                console.error(`Erro ao salvar estado do mapa ${mapaId}:`, err);
-                this.toastr.error('Erro ao salvar estado do mapa');
-            }
-        });
+      // Salva no servidor
+      this.apiService.salvarEstadoMapa(mapaId, estadoAtual).subscribe({
+        next: () => {
+          console.log(`Estado do mapa ${mapaId} salvo com sucesso`);
+        },
+        error: (err) => {
+          console.error(`Erro ao salvar estado do mapa ${mapaId}:`, err);
+          this.toastr.error('Erro ao salvar estado do mapa');
+        }
+      });
     } catch (error) {
-        console.error('Erro ao salvar estado do mapa:', error);
-        this.toastr.error('Erro ao salvar estado do mapa');
+      console.error('Erro ao salvar estado do mapa:', error);
+      this.toastr.error('Erro ao salvar estado do mapa');
     }
-}
+  }
 
   criarNovoMapa(): void {
     if (!this.isCriador) {
@@ -1771,13 +1785,16 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    // 1. Salva o estado do mapa atual ANTES de mudar
-    if (this.currentMapId && this.currentMapId !== mapaId) {
-      this.saveMapState(this.currentMapId); // Passa explicitamente o ID do mapa atual
-    }
+    // 1. Limpa seleção e texturas
+    this.clearSelection();
+    this.cleanupTextures();
 
-    // 2. Reseta o zoom e carrega o novo mapa
-    this.resetZoom();
+    // 2. Reseta o estado do mapa atual
+    this.currentMap = null;
+    this.mapaCarregado = false;
+    this.currentMapId = mapaId;
+
+    // 3. Carrega o novo mapa
     this.carregarMapa(mapaId);
   }
 

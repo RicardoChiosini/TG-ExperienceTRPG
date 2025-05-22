@@ -126,36 +126,32 @@ namespace experience_trpg_backend.Controllers
         public async Task<IActionResult> PutUsuario(int id, [FromBody] Usuario usuario)
         {
             if (id != usuario.UsuarioId)
-            {
                 return BadRequest();
-            }
 
-            // Verifica se uma nova senha foi fornecida
+            // Verifica se foi fornecida uma nova senha
             if (!string.IsNullOrEmpty(usuario.Senha))
             {
                 usuario.SenhaHash = BCrypt.Net.BCrypt.HashPassword(usuario.Senha);
+                usuario.Senha = string.Empty;
+            }
+            else
+            {
+                // Mantém a senhaHash antiga, se necessário, ou carrega a do banco
+                var usuarioExistente = await _context.Usuarios.FindAsync(id);
+                if (usuarioExistente == null)
+                    return NotFound();
+
+                usuario.SenhaHash = usuarioExistente.SenhaHash;
+                // e opcionalmente, evita alterar outras propriedades
             }
 
             _context.Entry(usuario).State = EntityState.Modified;
 
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!UsuarioExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
+            await _context.SaveChangesAsync();
 
             return NoContent();
         }
+
 
         // DELETE: api/usuarios/5
         [HttpDelete("{id}")]

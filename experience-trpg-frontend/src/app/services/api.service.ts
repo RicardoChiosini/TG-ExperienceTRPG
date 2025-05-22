@@ -186,8 +186,8 @@ export class ApiService {
     return this.http.get<MapaDto>(`${this.baseUrl}/map/${mesaId}/mapa/recente`);
   }
 
-  getTokensDoMapa(mesaId: number): Observable<MapaEstadoDto> {
-    return this.http.get<MapaEstadoDto>(`${this.baseUrl}/map/${mesaId}/mapa/tokens`).pipe(
+  getTokensDoMapa(mesaId: number, mapaId: number): Observable<MapaEstadoDto> {
+    return this.http.get<MapaEstadoDto>(`${this.baseUrl}/map/${mesaId}/mapa/${mapaId}/tokens`).pipe(
       catchError(error => {
         console.error('Erro ao buscar tokens:', error);
         return of({
@@ -237,10 +237,6 @@ export class ApiService {
 
   getMapaById(mesaId: number, mapaId: number): Observable<MapaDto> {
     return this.http.get<MapaDto>(`${this.baseUrl}/map/${mesaId}/mapa/${mapaId}`);
-  }
-
-  getMapaAtual(mesaId: number): Observable<MapaDto> {
-    return this.http.get<MapaDto>(`${this.baseUrl}/map/${mesaId}/mapa/atual`);
   }
 
   atualizarVisibilidadeMapa(mesaId: number, mapaId: number, visivel: boolean): Observable<any> {

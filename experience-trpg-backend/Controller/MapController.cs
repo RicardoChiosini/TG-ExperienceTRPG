@@ -181,17 +181,21 @@ namespace experience_trpg_backend.Controllers
             }
         }
 
-        [HttpGet("{mesaId}/mapa/tokens")]
-        public async Task<ActionResult<MapaEstadoDto>> GetTokensDoMapa(int mesaId)
+        [HttpGet("{mesaId}/mapa/{mapaId}/tokens")]
+        public async Task<ActionResult<MapaEstadoDto>> GetTokensDoMapa(int mesaId, int mapaId)
         {
             try
             {
                 var mapa = await _context.Mapas
-                    .Where(m => m.MesaId == mesaId)
-                    .OrderByDescending(m => m.UltimaAtualizacao)
-                    .FirstOrDefaultAsync();
+                    .FirstOrDefaultAsync(m => m.MesaId == mesaId && m.MapaId == mapaId);
 
-                if (mapa == null || string.IsNullOrEmpty(mapa.EstadoJson))
+                if (mapa == null)
+                {
+                    return NotFound("Mapa não encontrado");
+                }
+
+                // Se não houver estado, retorna um estado vazio
+                if (string.IsNullOrEmpty(mapa.EstadoJson))
                 {
                     return Ok(new MapaEstadoDto
                     {

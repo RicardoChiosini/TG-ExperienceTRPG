@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "pqHAA4m0AUT8EiwIxXZLRuk3ABQYMAzEtTmR7sww4Cs=",
+  "Hash": "NxiQHGntCdRUctnVyN/QJy9C5/HGa/CgkwdT4OWb29k=",
   "Source": "experience-trpg-backend",
   "BasePath": "_content/experience-trpg-backend",
   "Mode": "Default",
@@ -17,12 +17,12 @@
   ],
   "Assets": [
     {
-      "Identity": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\images\\00faec5b-d140-44dd-861b-d433d33b549e.jpg",
+      "Identity": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\images\\1a24751c-fa32-49a2-a4bb-ef3c03ca7eaf.jpg",
       "SourceId": "experience-trpg-backend",
       "SourceType": "Discovered",
       "ContentRoot": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\",
       "BasePath": "_content/experience-trpg-backend",
-      "RelativePath": "images/00faec5b-d140-44dd-861b-d433d33b549e.jpg",
+      "RelativePath": "images/1a24751c-fa32-49a2-a4bb-ef3c03ca7eaf.jpg",
       "AssetKind": "All",
       "AssetMode": "All",
       "AssetRole": "Primary",
@@ -33,15 +33,15 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\images\\00faec5b-d140-44dd-861b-d433d33b549e.jpg"
+      "OriginalItemSpec": "wwwroot\\images\\1a24751c-fa32-49a2-a4bb-ef3c03ca7eaf.jpg"
     },
     {
-      "Identity": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\images\\2bd5b909-437e-469a-a9d1-8822603014f9.jpg",
+      "Identity": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\images\\c6bcf1c6-4fa7-4da7-b472-4a2a9d193acd.jpg",
       "SourceId": "experience-trpg-backend",
       "SourceType": "Discovered",
       "ContentRoot": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\",
       "BasePath": "_content/experience-trpg-backend",
-      "RelativePath": "images/2bd5b909-437e-469a-a9d1-8822603014f9.jpg",
+      "RelativePath": "images/c6bcf1c6-4fa7-4da7-b472-4a2a9d193acd.jpg",
       "AssetKind": "All",
       "AssetMode": "All",
       "AssetRole": "Primary",
@@ -52,64 +52,7 @@
       "AssetTraitValue": "",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\images\\2bd5b909-437e-469a-a9d1-8822603014f9.jpg"
-    },
-    {
-      "Identity": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\images\\c92d0842-b32c-4b62-904d-5f8f56dbbca3.jpg",
-      "SourceId": "experience-trpg-backend",
-      "SourceType": "Discovered",
-      "ContentRoot": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\",
-      "BasePath": "_content/experience-trpg-backend",
-      "RelativePath": "images/c92d0842-b32c-4b62-904d-5f8f56dbbca3.jpg",
-      "AssetKind": "All",
-      "AssetMode": "All",
-      "AssetRole": "Primary",
-      "AssetMergeBehavior": "PreferTarget",
-      "AssetMergeSource": "",
-      "RelatedAsset": "",
-      "AssetTraitName": "",
-      "AssetTraitValue": "",
-      "CopyToOutputDirectory": "Never",
-      "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\images\\c92d0842-b32c-4b62-904d-5f8f56dbbca3.jpg"
-    },
-    {
-      "Identity": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\images\\d387ec72-bee3-427a-81c5-c105d558d45f.jpg",
-      "SourceId": "experience-trpg-backend",
-      "SourceType": "Discovered",
-      "ContentRoot": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\",
-      "BasePath": "_content/experience-trpg-backend",
-      "RelativePath": "images/d387ec72-bee3-427a-81c5-c105d558d45f.jpg",
-      "AssetKind": "All",
-      "AssetMode": "All",
-      "AssetRole": "Primary",
-      "AssetMergeBehavior": "PreferTarget",
-      "AssetMergeSource": "",
-      "RelatedAsset": "",
-      "AssetTraitName": "",
-      "AssetTraitValue": "",
-      "CopyToOutputDirectory": "Never",
-      "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\images\\d387ec72-bee3-427a-81c5-c105d558d45f.jpg"
-    },
-    {
-      "Identity": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\images\\e49d6a46-fead-4ca9-a2a7-711829c713e3.jpg",
-      "SourceId": "experience-trpg-backend",
-      "SourceType": "Discovered",
-      "ContentRoot": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\",
-      "BasePath": "_content/experience-trpg-backend",
-      "RelativePath": "images/e49d6a46-fead-4ca9-a2a7-711829c713e3.jpg",
-      "AssetKind": "All",
-      "AssetMode": "All",
-      "AssetRole": "Primary",
-      "AssetMergeBehavior": "PreferTarget",
-      "AssetMergeSource": "",
-      "RelatedAsset": "",
-      "AssetTraitName": "",
-      "AssetTraitValue": "",
-      "CopyToOutputDirectory": "Never",
-      "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot\\images\\e49d6a46-fead-4ca9-a2a7-711829c713e3.jpg"
+      "OriginalItemSpec": "wwwroot\\images\\c6bcf1c6-4fa7-4da7-b472-4a2a9d193acd.jpg"
     }
   ]
 }

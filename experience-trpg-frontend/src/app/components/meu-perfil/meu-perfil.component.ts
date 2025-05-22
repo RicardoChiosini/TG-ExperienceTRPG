@@ -19,7 +19,7 @@ export class MeuPerfilComponent implements OnInit {
     private authService: AuthService,
     private apiService: ApiService,
     private router: Router
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     this.carregarDadosUsuario(); // Carrega os dados do usuário ao inicializar o componente
@@ -53,7 +53,8 @@ export class MeuPerfilComponent implements OnInit {
 
     // Atualiza a senha apenas se os campos de senha estiverem preenchidos
     if (this.novaSenha) {
-      this.usuario.senhaHash = this.novaSenha; // Atualiza a senhaHash (backend deve fazer o hash)
+      // Enviar a senha para o backend via campo 'Senha'
+      this.usuario.Senha = this.novaSenha; // Campo que será enviado ao backend
     }
 
     // Envia os dados atualizados para o backend
