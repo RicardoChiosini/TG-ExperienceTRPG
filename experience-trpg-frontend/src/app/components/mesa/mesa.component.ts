@@ -3,11 +3,12 @@ import { HttpEventType } from '@angular/common/http';
 import { ToastrService } from 'ngx-toastr';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActivatedRoute } from '@angular/router';
-import { SessaoService } from '../../services/sessao.service';
+import { ChatService } from '../../services/chat.service';
+import { MapaService } from '../../services/mapa.service';
 import { AuthService } from '../../services/auth.service';
 import { ApiService } from '../../services/api.service';
-import { Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { of, Subject, Subscription, throwError } from 'rxjs';
+import { catchError, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { ModalService } from '../../services/modal.service';
 import { FichaDto } from '../../dtos/ficha.dto';
 import { ImagemDto } from '../../dtos/imagem.dto';
@@ -45,8 +46,12 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
   mapaCarregado = false;
   allMaps: MapaDto[] = [];
   currentMapId: number = 0;
+  backgroundImageUrl: string = '';
+  showImageSelector: boolean = false;
+  mesaImages: ImagemDto[] = [];
 
   estadosMapa: { [mapaId: number]: MapaEstadoDto } = {};
+  private subscriptions = new Subscription();
 
   isZooming: boolean = false;
   selectedToken: Phaser.GameObjects.Sprite | null = null;
@@ -92,7 +97,8 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   constructor(
     private route: ActivatedRoute,
-    private sessaoService: SessaoService,
+    private chatService: ChatService,
+    private mapaService: MapaService,
     private authService: AuthService,
     private apiService: ApiService,
     private componentFactoryResolver: ComponentFactoryResolver,
@@ -147,38 +153,100 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
     // 4. Verifica se é criador
     this.verificarCriador();
 
-    // 5. Carrega os sistemas disponíveis
-    this.sessaoService.joinMesaGroup(this.mesaId).then(() => {
+    // 5. Conecta ao SignalR e configura listeners
+    this.chatService.joinMesaGroup(this.mesaId).then(() => {
       this.recursosCarregados.chat = true;
       this.verificarCarregamentoCompleto();
 
-      // Inscreva-se para atualizações do mapa
-      this.sessaoService.getMapUpdateObservable().subscribe(({ mapId, mapState }) => {
-        // Aplica apenas se for o mapa atual
-        if (this.currentMapId === mapId) {
-          const parsedState = typeof mapState === 'string' ? JSON.parse(mapState) : mapState;
-          this.applyMapChanges(parsedState);
-        }
-      });
-    }).catch(error => {
-      console.error('Erro ao conectar ao hub de sessão:', error);
+      // Configura os listeners para atualizações em tempo real
+      this.configurarListenersSignalR();
+    }).catch((error) => {
+      console.error('Erro ao conectar ao hub de Chat:', error);
       this.recursosCarregados.chat = true;
       this.verificarCarregamentoCompleto();
     });
+
+    // 6. Conecta ao SignalR para atualizações de mapa
+    this.setupMapListeners();
+
+  }
+
+  private configurarListenersSignalR(): void {
+    // Listener para atualizações de estado do mapa
+    this.subscriptions.add(
+      this.mapaService.getEstadoObservable().subscribe(estado => {
+        if (this.currentMapId && this.currentMap) {
+          try {
+            this.applyMapChanges(estado);
+          } catch (e) {
+            console.error('Erro ao aplicar mudanças no mapa:', e);
+          }
+        }
+      })
+    );
+
+    // Listener para atualizações gerais do mapa
+    this.subscriptions.add(
+      this.mapaService.getMapaObservable().subscribe(mapa => {
+        if (mapa.mapaId === this.currentMapId) {
+          this.currentMap = mapa;
+          // Atualiza imagem de fundo se necessário
+          if (mapa.imagemFundo !== this.currentMap.imagemFundo) {
+            this.atualizarImagemFundo(mapa.imagemFundo || null);
+          }
+        }
+      })
+    );
+  }
+
+  private setupMapListeners(): void {
+    // Conecta ao grupo da mesa
+    this.subscriptions.add(
+      this.route.params.pipe(
+        switchMap(params => {
+          this.mesaId = +params['id'];
+          return this.mapaService.joinMesaGroup(this.mesaId);
+        })
+      ).subscribe()
+    );
+
+    // Listener para troca de mapa atual
+    this.subscriptions.add(
+      this.mapaService.getMapaObservable().subscribe(mapa => {
+        if (mapa.visivel && mapa.mesaId === this.mesaId && mapa.mapaId !== this.currentMapId) {
+          this.mudarMapaAtual(mapa.mapaId);
+        }
+      })
+    );
+
+    // Listener para tokens individuais
+    this.subscriptions.add(
+      this.mapaService.getTokenObservable().subscribe(token => {
+        if (token.mapaId === this.currentMapId) {
+          this.atualizarTokenIndividual(token);
+        }
+      })
+    );
   }
 
   ngOnDestroy(): void {
+    // Limpa todas as subscriptions
+    this.subscriptions.unsubscribe();
+
+    // Limpeza existente
     this.destroy$.next();
     this.destroy$.complete();
-
     this.cleanupTextures();
 
-    // Destrói o jogo Phaser quando o componente é destruído
+    // Destrói o jogo Phaser
     if (this.phaserGame) {
       this.phaserGame.destroy(true);
     }
 
-    this.sessaoService.leaveMesaGroup(this.mesaId.toString());
+    // Sai do grupo do SignalR
+    this.chatService.leaveMesaGroup(this.mesaId.toString()).catch(err => {
+      console.error('Erro ao sair do grupo do SignalR:', err);
+    });
   }
 
   setActiveTab(tab: string): void {
@@ -199,31 +267,44 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
   private carregarTodosMapas(): void {
     this.apiService.getTodosMapasPorMesa(this.mesaId).subscribe({
       next: (mapas) => {
-        // Garante que apenas um mapa está marcado como visível
-        let mapaVisivelEncontrado = false;
-        this.allMaps = mapas.map(mapa => {
-          if (mapa.visivel) {
-            if (mapaVisivelEncontrado) {
-              // Se já encontramos um mapa visível, marca este como não visível
-              mapa.visivel = false;
-            } else {
-              mapaVisivelEncontrado = true;
-            }
-          }
-          return mapa;
-        });
-
-        const mapaAtual = mapas.find(m => m.visivel) || mapas[0];
-        this.currentMapId = mapaAtual?.mapaId ?? 0;
-
-        if (this.currentMapId !== 0) {
-          this.carregarMapa(this.currentMapId);
-        } else {
-          this.toastr.error('Nenhum mapa válido encontrado');
+        if (!mapas || mapas.length === 0) {
+          this.toastr.error('Nenhum mapa encontrado para esta mesa');
+          return;
         }
+
+        // Verifica e corrige múltiplos mapas visíveis
+        this.allMaps = this.corrigirMultiplosMapasVisiveis(mapas);
+
+        // Seleciona o mapa visível ou o primeiro da lista
+        const mapaAtual = this.allMaps.find(m => m.visivel) || this.allMaps[0];
+        this.currentMapId = mapaAtual.mapaId;
+
+        this.carregarMapa(this.currentMapId);
       },
-      error: (err) => console.error('Erro ao carregar mapas:', err)
+      error: (err) => {
+        console.error('Erro ao carregar mapas:', err);
+        this.toastr.error('Erro ao carregar mapas da mesa');
+      }
     });
+  }
+
+  private corrigirMultiplosMapasVisiveis(mapas: MapaDto[]): MapaDto[] {
+    const mapasVisiveis = mapas.filter(m => m.visivel);
+
+    // Se houver mais de um mapa visível, corrige
+    if (mapasVisiveis.length > 1) {
+      // Mantém apenas o primeiro mapa como visível (ou o mais recente)
+      const mapaPrincipal = mapasVisiveis[0]; // Ou ordene por data e pegue o mais recente
+
+      return mapas.map(mapa => {
+        return {
+          ...mapa,
+          visivel: mapa.mapaId === mapaPrincipal.mapaId
+        };
+      });
+    }
+
+    return [...mapas];
   }
 
   // Carrega as fichas da mesa
@@ -598,23 +679,82 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   }
 
+  private backgroundImage: Phaser.GameObjects.Image | null = null;
+  private gridContainer!: Phaser.GameObjects.Container;
+
   create() {
     const scene = this.phaserGame.scene.scenes[0];
 
-    // Configuração do grid hexagonal
-    this.drawHexGrid(scene);
+    // Inicializa o container do grid
+    this.gridContainer = scene.add.container(0, 0);
 
-    // Configura controles da câmera
+    // Restante do seu código existente...
+    this.drawHexGrid(scene);
     this.setupCameraControls(scene);
 
-    // Configura redimensionamento
     scene.scale.on('resize', () => {
       this.drawHexGrid(scene);
     });
   }
 
+  private carregarImagemFundoPhaser(scene: Phaser.Scene): void {
+    // Verificação em cadeia para todas as propriedades necessárias
+    if (!this.currentMap?.imaFundo || !this.gridContainer || !this.currentMap.mapaId) return;
+
+    const textureKey = `mapBackground_${this.currentMap.mapaId}`;
+
+    // Operador de navegação segura para texturas
+    if (scene.textures?.exists(textureKey)) {
+      scene.textures.remove(textureKey);
+    }
+
+    const imageUrl = this.currentMap.imaFundo.imageUrl ||
+      `data:image/${this.currentMap.imaFundo.extensao};base64,${this.currentMap.imaFundo.dados}`;
+
+    // Verificação adicional para load
+    if (scene.load) {
+      scene.load.image(textureKey, imageUrl);
+      scene.load.once('complete', () => {
+        if (this.gridContainer && this.currentMap) {
+          this.criarImagemFundo(scene, textureKey);
+        }
+      });
+      scene.load.start();
+    }
+  }
+
+  private criarImagemFundo(scene: Phaser.Scene, textureKey: string): void {
+    if (!this.currentMap || !this.gridContainer) return;
+
+    const gridConfig = this.getCurrentGridConfig();
+    const hexRadius = gridConfig.hexRadius;
+
+    // Calcula o deslocamento de 1 hexágono para cima e para a esquerda
+    const offsetX = -hexRadius * Math.sqrt(3) * 0.5; // 1 hexágono para esquerda
+    const offsetY = -hexRadius * 1.5 * 0.75; // 1 hexágono para cima
+
+    // Calcula as dimensões totais do grid (com espaço extra para o deslocamento)
+    const gridWidth = (gridConfig.cols + 0.5) * hexRadius * Math.sqrt(3);
+    const gridHeight = (gridConfig.rows + 0.5) * hexRadius * 1.5;
+
+    // Remove imagem anterior se existir
+    if (this.backgroundImage) {
+      this.backgroundImage.destroy();
+    }
+
+    // Cria a imagem de fundo com o deslocamento aplicado
+    this.backgroundImage = scene.add.image(offsetX, offsetY, textureKey)
+      .setOrigin(0, 0)
+      .setDisplaySize(gridWidth, gridHeight)
+      .setDepth(-1);
+
+    // Adiciona a imagem ao container do grid para manter o alinhamento
+    this.gridContainer.add(this.backgroundImage);
+    this.gridContainer.sendToBack(this.backgroundImage);
+  }
+
   public drawHexGrid(scene: Phaser.Scene) {
-    // Limpa qualquer elemento anterior do grid de forma mais abrangente
+    // Limpa elementos anteriores (mantendo sua lógica existente)
     scene.children.each(child => {
       if (child instanceof Phaser.GameObjects.Graphics ||
         child instanceof Phaser.GameObjects.Text ||
@@ -623,14 +763,22 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
       }
     });
 
+    // Cria container para o grid se não existir
+    if (!this.gridContainer) {
+      this.gridContainer = scene.add.container(0, 0);
+    } else {
+      this.gridContainer.removeAll(true);
+    }
+
     const graphics = scene.add.graphics().setData('gridElement', true);
+    this.gridContainer.add(graphics);
 
     const gridConfig = this.getCurrentGridConfig();
     const hexRadius = gridConfig.hexRadius;
     const cols = gridConfig.cols;
     const rows = gridConfig.rows;
 
-    // Desenha o grid sem os textos de coordenadas
+    // Desenha o grid (mantendo sua lógica existente)
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
         let xPos = x * hexRadius * Math.sqrt(3);
@@ -648,7 +796,10 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
       }
     }
 
-    // Atualiza os limites da câmera
+    // Carrega a imagem de fundo de forma segura
+    this.carregarImagemFundoPhaser(scene);
+
+    // Atualização segura dos limites da câmera
     const mapWidth = cols * hexRadius * Math.sqrt(3);
     const mapHeight = rows * hexRadius * 1.5;
     const padding = Math.min(mapWidth, mapHeight) * 0.5;
@@ -712,15 +863,20 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
  */
   private screenToHexGrid(x: number, y: number, hexRadius: number): { col: number, row: number } {
     const size = hexRadius;
+    // Ajuste para coordenadas do grid desenhado
     const q = (x * Math.sqrt(3) / 3 - y / 3) / size;
     const r = y * 2 / 3 / size;
 
-    // Convert to axial coordinates
-    const axial = this.cubeToAxial(this.roundCube(this.axialToCube(q, r)));
+    // Converter para coordenadas cúbicas e arredondar
+    const cube = this.axialToCube(q, r);
+    const rounded = this.roundCube(cube);
+
+    // Converter de volta para axial
+    const axial = this.cubeToAxial(rounded);
 
     return {
-      col: axial.q,
-      row: axial.r
+      col: Math.round(axial.q),
+      row: Math.round(axial.r)
     };
   }
 
@@ -775,39 +931,39 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   // Funções auxiliares para conversão entre sistemas de coordenadas hexagonais
-  private axialToCube(q: number, r: number): { q: number, r: number, s: number } {
+  private axialToCube(q: number, r: number): { x: number, y: number, z: number } {
     return {
-      q: q,
-      r: r,
-      s: -q - r
+      x: q,
+      z: r,
+      y: -q - r
     };
   }
 
-  private cubeToAxial(cube: { q: number, r: number, s: number }): { q: number, r: number } {
+  private cubeToAxial(cube: { x: number, y: number, z: number }): { q: number, r: number } {
     return {
-      q: cube.q,
-      r: cube.r
+      q: cube.x,
+      r: cube.z
     };
   }
 
-  private roundCube(cube: { q: number, r: number, s: number }): { q: number, r: number, s: number } {
-    let q = Math.round(cube.q);
-    let r = Math.round(cube.r);
-    let s = Math.round(cube.s);
+  private roundCube(cube: { x: number, y: number, z: number }): { x: number, y: number, z: number } {
+    let rx = Math.round(cube.x);
+    let ry = Math.round(cube.y);
+    let rz = Math.round(cube.z);
 
-    const qDiff = Math.abs(q - cube.q);
-    const rDiff = Math.abs(r - cube.r);
-    const sDiff = Math.abs(s - cube.s);
+    const xDiff = Math.abs(rx - cube.x);
+    const yDiff = Math.abs(ry - cube.y);
+    const zDiff = Math.abs(rz - cube.z);
 
-    if (qDiff > rDiff && qDiff > sDiff) {
-      q = -r - s;
-    } else if (rDiff > sDiff) {
-      r = -q - s;
+    if (xDiff > yDiff && xDiff > zDiff) {
+      rx = -ry - rz;
+    } else if (yDiff > zDiff) {
+      ry = -rx - rz;
     } else {
-      s = -q - r;
+      rz = -rx - ry;
     }
 
-    return { q, r, s };
+    return { x: rx, y: ry, z: rz };
   }
 
   update() {
@@ -991,58 +1147,293 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
     });
   }
 
+  // Método para carregar um mapa completo
   private carregarMapa(mapaId: number): void {
-    // 1. Limpeza completa do estado anterior
     this.clearSelection();
     this.cleanupTextures();
 
-    this.apiService.getMapaById(this.mesaId, mapaId).subscribe({
-      next: (mapa) => {
-        // 2. Atualiza o estado com o novo mapa
+    this.mapaService.getMapaById(this.mesaId, mapaId).pipe(
+      tap((mapa) => {
         this.currentMap = mapa;
         this.currentMapId = mapa.mapaId;
         this.mapaCarregado = true;
 
-        // 3. Inicializa um estado vazio se não existir
-        if (!this.estadosMapa[mapaId]) {
-          this.estadosMapa[mapaId] = {
-            tokens: [],
-            configuracoes: {
-              tipoGrid: 'hexagonal',
-              tamanhoCelula: 40,
-              corGrid: '#cccccc',
-              snapToGrid: true
-            }
-          };
+        if (mapa.imagemFundo) {
+          this.carregarImagemDeFundo(mapa.imagemFundo);
         }
 
-        // 4. Carrega o estado do mapa se existir
-        if (mapa.estadoJson) {
-          try {
-            const estado = JSON.parse(mapa.estadoJson) as MapaEstadoDto;
-            this.estadosMapa[mapaId] = estado;
-          } catch (e) {
-            console.error('Erro ao parsear estado do mapa:', e);
-          }
-        }
+        // Inscreve para atualizações em tempo real deste mapa
+        this.mapaService.getEstadoObservable().subscribe(estado => {
+          this.onMapUpdate(estado);
+        });
 
-        // 5. Redesenha o grid hexagonal
-        if (this.phaserGame) {
-          const scene = this.phaserGame.scene.scenes[0];
-          this.drawHexGrid(scene);
+        // Carrega estado inicial
+        const estadoInicial = mapa.estadoJson
+          ? JSON.parse(mapa.estadoJson)
+          : this.getEmptyMapState();
 
-          // 6. Aplica o estado do mapa atual (incluindo tokens)
-          this.applyMapChanges(this.estadosMapa[mapaId]);
-        }
-
-        // 7. Carrega tokens adicionais do servidor se necessário
-        this.carregarTokensDoServidor();
-      },
+        this.estadosMapa[mapaId] = estadoInicial;
+        this.applyMapChanges(estadoInicial);
+      }),
+      switchMap(() => this.mapaService.joinMesaGroup(this.mesaId.toString()))
+    ).subscribe({
       error: (err) => {
         console.error('Erro ao carregar mapa:', err);
         this.toastr.error('Erro ao carregar o mapa');
       }
     });
+  }
+
+  private getEmptyMapState(): MapaEstadoDto {
+    return {
+      tokens: [],
+      camadas: [],
+      objetos: [],
+      configuracoes: {
+        tipoGrid: 'hexagonal',
+        tamanhoCelula: 40,
+        corGrid: '#cccccc',
+        snapToGrid: true
+      }
+    };
+  }
+
+  carregarDetalhesImagemFundo(imagemId: number): void {
+    this.apiService.getImagemPorId(imagemId).subscribe({
+      next: (imagem) => {
+        if (this.currentMap) {
+          // Atualiza o mapa com os detalhes completos da imagem
+          this.currentMap = {
+            ...this.currentMap,
+            imaFundo: imagem
+          };
+        }
+      },
+      error: (err) => console.error('Erro ao carregar imagem:', err)
+    });
+  }
+
+  temImagemDeFundo(): boolean {
+    return !!this.currentMap?.imaFundo || !!this.currentMap?.imagemFundo;
+  }
+
+  getImagemFundoUrl(): string {
+    if (this.currentMap?.imaFundo) {
+      return this.currentMap.imaFundo.imageUrl ||
+        `data:image/${this.currentMap.imaFundo.extensao};base64,${this.currentMap.imaFundo.dados}`;
+    }
+    return 'assets/default-bg.jpg';
+  }
+
+  abrirSeletorImagens(): void {
+    this.showImageSelector = true;
+    this.carregarImagensDaMesa();
+  }
+
+  // Método para carregar a imagem de fundo
+  carregarImagemFundo(mesaId: number, mapaId: number): void {
+    this.apiService.getMapaById(mesaId, mapaId).subscribe({
+      next: (mapa) => {
+        // Prioridade para fundoUrl se existir
+        if (mapa.fundoUrl) {
+          this.backgroundImageUrl = mapa.fundoUrl;
+          return;
+        }
+
+        // Se não, cria a URL a partir dos dados da imagem
+        if (mapa.imaFundo) {
+          this.backgroundImageUrl = this.createImageUrl(mapa.imaFundo);
+        } else {
+          this.backgroundImageUrl = 'assets/default-bg.jpg';
+        }
+      },
+      error: (err) => console.error('Erro ao carregar mapa:', err)
+    });
+  }
+
+  // Método para vincular nova imagem de fundo
+  vincularNovaImagem(mapaId: number, imagemId: number): void {
+    this.mapaService.updateBackgroundImage(this.mesaId, mapaId, imagemId).pipe(
+      switchMap(() => {
+        // Carrega a imagem localmente para melhor UX
+        return this.mapaService.getMapaById(this.mesaId, mapaId).pipe(
+          tap((mapaAtualizado) => {
+            this.currentMap = mapaAtualizado;
+            if (mapaAtualizado.imagemFundo) {
+              this.carregarImagemDeFundo(mapaAtualizado.imagemFundo);
+            }
+          })
+        );
+      })
+    ).subscribe({
+      error: (err) => console.error('Erro ao vincular imagem:', err)
+    });
+  }
+
+  // Método para carregar mapa com imagem
+  carregarMapaComImagem(mesaId: number, mapaId: number): void {
+    this.mapaService.getMapaById(mesaId, mapaId).subscribe({
+      next: (mapa: MapaDto) => {
+        this.currentMap = mapa;
+        if (mapa.imagemFundo) {
+          this.carregarImagemDeFundo(mapa.imagemFundo);
+        }
+      },
+      error: (err) => console.error('Erro ao carregar mapa:', err)
+    });
+  }
+
+  // Método para carregar imagem de fundo
+  carregarImagemDeFundo(imagemId: number): void {
+    this.mapaService.getImagemPorId(imagemId).subscribe({
+      next: (imagem: ImagemDto) => {
+        if (this.currentMap) {
+          this.currentMap.imaFundo = imagem;
+        }
+      },
+      error: (err) => console.error('Erro ao carregar imagem de fundo:', err)
+    });
+  }
+
+  // Método para selecionar imagem de fundo
+  selecionarImagemFundo(imagem: ImagemDto): void {
+    if (!this.currentMap) return;
+
+    // Garante que temos um objeto válido com todas propriedades obrigatórias
+    const mapaAtualizado: MapaDto = {
+      // Copia todas propriedades do currentMap
+      ...this.currentMap,
+      // Atualiza as propriedades da imagem
+      imaFundo: imagem,
+      imagemFundo: imagem.imagemId,
+      // Garante valores para propriedades obrigatórias
+      mapaId: this.currentMap.mapaId,
+      mesaId: this.currentMap.mesaId,
+      nome: this.currentMap.nome || 'Novo Mapa',
+      largura: this.currentMap.largura || 30,
+      altura: this.currentMap.altura || 30,
+      tamanhoHex: this.currentMap.tamanhoHex || 40,
+      estadoJson: this.currentMap.estadoJson || '{}',
+      ultimaAtualizacao: this.currentMap.ultimaAtualizacao || new Date(),
+      visivel: this.currentMap.visivel || false
+    };
+
+    this.mapaService.updateBackgroundImage(
+      this.mesaId,
+      this.currentMap.mapaId,
+      imagem.imagemId
+    ).pipe(
+      tap(() => {
+        this.currentMap = mapaAtualizado;
+        this.showImageSelector = false;
+
+        if (this.phaserGame) {
+          this.carregarImagemFundoPhaser(this.phaserGame.scene.scenes[0]);
+        }
+      })
+    ).subscribe({
+      error: (err) => console.error('Erro ao vincular imagem:', err)
+    });
+  }
+
+  // Método para remover imagem de fundo
+  removerImagemFundo(): void {
+    if (!this.currentMap) return;
+
+    // Garante que temos valores padrão para propriedades obrigatórias
+    const mapaAtualizado: MapaDto = {
+      ...this.currentMap,
+      imaFundo: undefined,
+      imagemFundo: undefined,
+      // Garante que todas as propriedades obrigatórias existam
+      mapaId: this.currentMap.mapaId,
+      mesaId: this.currentMap.mesaId,
+      nome: this.currentMap.nome,
+      largura: this.currentMap.largura,
+      altura: this.currentMap.altura,
+      tamanhoHex: this.currentMap.tamanhoHex,
+      estadoJson: this.currentMap.estadoJson || '{}',
+      ultimaAtualizacao: this.currentMap.ultimaAtualizacao || new Date(),
+      visivel: this.currentMap.visivel
+    };
+
+    this.mapaService.updateBackgroundImage(
+      this.mesaId,
+      this.currentMap.mapaId,
+      null
+    ).pipe(
+      tap(() => {
+        this.currentMap = mapaAtualizado;
+        if (this.phaserGame) {
+          this.removerImagemFundoPhaser(this.phaserGame.scene.scenes[0]);
+        }
+      })
+    ).subscribe({
+      error: (err) => console.error('Erro ao remover imagem:', err)
+    });
+  }
+
+  private removerImagemFundoPhaser(scene: Phaser.Scene): void {
+    // Implementação para remover a imagem de fundo no Phaser
+    scene.children.each(child => {
+      if (child.getData('isBackgroundImage')) {
+        child.destroy();
+      }
+    });
+  }
+
+  // Método para carregar imagens da mesa (reutilizado)
+  carregarImagensDaMesa(): void {
+    if (!this.currentMap?.mesaId) return;
+
+    this.apiService.getImagensPorMesa(this.currentMap.mesaId).subscribe({
+      next: (imagens: ImagemDto[]) => {
+        this.mesaImages = imagens;
+      },
+      error: (error) => console.error('Erro ao carregar imagens:', error)
+    });
+  }
+
+  getImageUrl(imagem: ImagemDto): string {
+    if (!imagem) {
+      return 'assets/default-bg.jpg';
+    }
+
+    if (imagem.imageUrl) {
+      return imagem.imageUrl;
+    }
+
+    if (imagem.extensao && imagem.dados) {
+      return `data:image/${imagem.extensao};base64,${imagem.dados}`;
+    }
+
+    return 'assets/default-bg.jpg';
+  }
+
+  private atualizarImagemFundo(imageId: number | null): void {
+    if (imageId) {
+      this.mapaService.getImagemPorId(imageId).subscribe(imagem => {
+        if (this.currentMap) {
+          this.currentMap.imaFundo = imagem;
+          this.carregarImagemFundoPhaser(this.phaserGame.scene.scenes[0]);
+        }
+      });
+    } else {
+      this.removerImagemFundoPhaser(this.phaserGame.scene.scenes[0]);
+    }
+  }
+
+  private atualizarTokenIndividual(token: TokenDto): void {
+    // Implementação para atualizar um token específico no Phaser
+    const scene = this.phaserGame.scene.scenes[0];
+    const existingToken = scene.children.getByName(token.id) as Phaser.GameObjects.Sprite;
+
+    if (existingToken) {
+      existingToken.setPosition(token.x, token.y);
+      existingToken.setData('tokenData', token);
+    } else {
+      this.adicionarTokenAoMapa(token);
+    }
   }
 
   private carregarTokensDoServidor(): void {
@@ -1534,90 +1925,98 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
     );
   }
 
+  // Método para salvar estado do token
   private saveTokenState(): void {
-    if (this.configuracoesAbertas) return;
     if (!this.selectedToken || !this.currentMapId) return;
 
-    try {
-      const tokenData = this.selectedToken.getData('tokenData') as TokenDto;
+    const tokenData = this.selectedToken.getData('tokenData') as TokenDto;
 
-      const metadados: { [key: string]: string } = {
-        rotation: this.selectedToken.angle.toString(),
-        width: this.selectedToken.displayWidth.toString(),
-        height: this.selectedToken.displayHeight.toString()
-      };
+    // Converte os valores string para number
+    const metadados = {
+      ...tokenData.metadados,
+      rotation: Number(this.selectedToken.angle),
+      width: Number(this.selectedToken.displayWidth),
+      height: Number(this.selectedToken.displayHeight)
+    };
 
-      const tokenAtualizado: TokenDto = {
-        id: tokenData.id,
-        nome: tokenData.nome,
-        x: this.selectedToken.x,
-        y: this.selectedToken.y,
-        z: tokenData.z || 1,
-        imagemDados: tokenData.imagemDados,
-        donoId: tokenData.donoId,
-        visivelParaTodos: tokenData.visivelParaTodos !== false,
-        bloqueado: tokenData.bloqueado || false,
-        mapaId: this.currentMapId, // Usa o currentMapId atual
-        metadados: metadados
-      };
+    const tokenAtualizado: TokenDto = {
+      ...tokenData,
+      x: this.selectedToken.x,
+      y: this.selectedToken.y,
+      metadados: metadados
+    };
 
-      // Obtém o estado atual do mapa correto
-      const estadoAtual = this.estadosMapa[this.currentMapId] || {
-        tokens: [],
-        configuracoes: {
-          tipoGrid: 'hexagonal',
-          tamanhoCelula: 40,
-          corGrid: '#cccccc',
-          snapToGrid: true
-        }
-      };
-
-      // Atualiza ou adiciona o token
-      const tokenIndex = estadoAtual.tokens.findIndex(t => t.id === tokenAtualizado.id);
-      if (tokenIndex !== -1) {
-        estadoAtual.tokens[tokenIndex] = tokenAtualizado;
-      } else {
-        estadoAtual.tokens.push(tokenAtualizado);
+    this.mapaService.updateToken(this.mesaId, this.currentMapId, tokenAtualizado).subscribe({
+      error: (err) => {
+        console.error('Erro ao salvar token:', err);
+        this.toastr.error('Erro ao salvar alterações');
       }
+    });
+  }
 
-      // Salva no servidor
-      this.apiService.salvarEstadoMapa(this.currentMapId, estadoAtual).subscribe({
-        next: () => {
-          // Atualiza o estado local
-          this.estadosMapa[this.currentMapId] = estadoAtual;
-          if (this.currentMap) {
-            this.currentMap.estadoJson = JSON.stringify(estadoAtual);
-          }
-        },
-        error: (err) => {
-          console.error('Erro ao salvar estado:', err);
-          this.toastr.error('Erro ao salvar alterações');
-        }
-      });
-    } catch (e) {
-      console.error('Erro ao preparar estado:', e);
+  // Método para lidar com mudanças no mapa recebidas de outros clientes
+  public onMapUpdate(mapState: MapaEstadoDto): void {
+    if (!this.currentMapId || !this.currentMap || !this.mesaId) {
+      console.warn('Dados incompletos para atualização do mapa');
+      return;
     }
+
+    // Filtra tokens relevantes para este mapa
+    const tokensRelevantes = (mapState.tokens || [])
+      .filter(token => token?.mapaId === this.currentMapId);
+
+    // Cria configurações padrão se não existirem
+    const defaultConfig = this.getDefaultConfig();
+
+    // Atualiza estado local
+    this.estadosMapa[this.currentMapId] = {
+      tokens: tokensRelevantes,
+      camadas: mapState.camadas || [],
+      objetos: mapState.objetos || [],
+      configuracoes: {
+        ...defaultConfig,
+        ...(mapState.configuracoes || {}) // Sobrescreve com configurações recebidas
+      }
+    };
+
+    // Aplica mudanças visuais
+    this.applyMapChanges(this.estadosMapa[this.currentMapId]);
+  }
+
+  private getDefaultConfig(): ConfiguracaoMapaDto {
+    return {
+      tipoGrid: 'hexagonal',
+      tamanhoCelula: 40,
+      corGrid: '#cccccc',
+      snapToGrid: true
+    };
   }
 
   public onLocalMapChange(mapState: MapaEstadoDto): void {
-    if (!this.currentMapId || !this.currentMap) {
+    // Verificação mais robusta de null
+    if (!this.currentMapId || !this.currentMap || !this.mesaId) {
+      console.warn('Dados incompletos para atualização do mapa');
       return;
     }
 
-    // Verifica se o estado recebido pertence ao mapa atual
-    const tokensDoMapaAtual = (mapState.tokens || []).filter(token => token.mapaId === this.currentMapId);
+    const currentMapId = this.currentMapId; // Armazenar em variável local para consistência
+    const mesaId = this.mesaId;
 
-    if (tokensDoMapaAtual.length === 0 && (mapState.tokens || []).length > 0) {
-      // Ignora atualizações que não são para o mapa atual
+    // Filtrar tokens com verificação de null segura
+    const tokensDoMapaAtual = (mapState.tokens || [])
+      .filter(token => token?.mapaId === currentMapId);
+
+    // Se não há tokens relevantes e o estado tem tokens, ignorar
+    if (tokensDoMapaAtual.length === 0 && (mapState.tokens?.length ?? 0) > 0) {
       return;
     }
 
-    // Garante que o estado tenha a estrutura correta
+    // Criar estado completo com valores padrão
     const estadoCompleto: MapaEstadoDto = {
       tokens: tokensDoMapaAtual,
-      camadas: mapState.camadas || [],
-      objetos: mapState.objetos || [],
-      configuracoes: mapState.configuracoes || {
+      camadas: mapState.camadas ?? [],
+      objetos: mapState.objetos ?? [],
+      configuracoes: mapState.configuracoes ?? {
         tipoGrid: 'hexagonal',
         tamanhoCelula: 40,
         corGrid: '#cccccc',
@@ -1625,66 +2024,139 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
       }
     };
 
-    // Atualiza o estado local apenas para o mapa atual
-    this.estadosMapa[this.currentMapId] = estadoCompleto;
+    // Atualizar estado local
+    this.estadosMapa[currentMapId] = estadoCompleto;
     this.currentMap.estadoJson = JSON.stringify(estadoCompleto);
 
-    // Envia atualização para outros jogadores apenas se for o criador
-    if (this.isCriador) {
-      this.sessaoService.sendMapUpdate(
-        this.mesaId.toString(),
-        this.currentMapId,
-        this.currentMap.estadoJson
-      );
-    }
-
-    // Salva no servidor
-    this.apiService.salvarEstadoMapa(this.currentMapId, estadoCompleto).subscribe({
-      error: (err) => console.error('Erro ao salvar estado do mapa:', err)
-    });
-  }
-
-  // Método para salvar as configurações
-  saveMapConfig(): void {
-    if (!this.currentMap || !this.isCriador) return;
-
-    const config = {
-      nome: this.currentMap.nome,
-      largura: this.currentMap.largura,
-      altura: this.currentMap.altura,
-      tamanhoHex: this.currentMap.tamanhoHex,
-      visivel: this.currentMap.visivel  // Adicionando a propriedade visivel
-    };
-
-    this.apiService.salvarConfigMapa(this.currentMap.mapaId, config).subscribe({
-      next: (mapaAtualizado) => {
-        // Atualiza a lista local de mapas
-        const index = this.allMaps.findIndex(m => m.mapaId === mapaAtualizado.mapaId);
-        if (index !== -1) {
-          this.allMaps[index] = mapaAtualizado;
+    // Enviar para o servidor e notificar outros jogadores
+    this.apiService.salvarEstadoMapa(currentMapId, estadoCompleto).pipe(
+      switchMap(() => {
+        if (!this.currentMap?.estadoJson) {
+          throw new Error('Estado do mapa inválido após atualização');
         }
-
-        // Atualiza o mapa atual
-        this.currentMap = { ...mapaAtualizado };
-
-        this.toastr.success('Configurações do mapa salvas com sucesso');
-        this.drawHexGrid(this.phaserGame.scene.scenes[0]);
-      },
+        return this.mapaService.sendMapUpdate(
+          mesaId,
+          currentMapId,
+          this.currentMap.estadoJson
+        );
+      }),
+      catchError(err => {
+        console.error('Erro na sincronização do mapa:', err);
+        // Opcional: Reverter mudanças locais em caso de erro
+        return of(null);
+      })
+    ).subscribe({
       error: (err) => {
-        console.error('Erro ao salvar configurações:', err);
-        this.toastr.error('Erro ao salvar configurações');
+        console.error('Erro ao salvar estado do mapa:', err);
+        this.toastr.error('Erro ao sincronizar alterações do mapa');
       }
     });
   }
 
-  private saveMapState(mapaId: number): void {
-    // Verificar se temos um mapa atual válido
-    if (!this.currentMap || this.currentMap.mapaId !== mapaId) {
+  private aplicarConfiguracaoMapa(config: any): void {
+    if (!this.currentMap || !this.phaserGame) {
+      console.warn('Mapa ou Phaser não disponível para aplicar configurações');
       return;
     }
 
-    // Verificar se as configurações estão abertas
-    if (this.configuracoesAbertas) {
+    try {
+      // 1. Atualiza o modelo local
+      this.currentMap = {
+        ...this.currentMap,
+        nome: config.nome || this.currentMap.nome,
+        largura: config.largura ?? this.currentMap.largura,
+        altura: config.altura ?? this.currentMap.altura,
+        tamanhoHex: config.tamanhoHex ?? this.currentMap.tamanhoHex,
+        visivel: config.visivel ?? this.currentMap.visivel
+      };
+
+      // 2. Atualiza o estado JSON se existir
+      if (this.currentMap.estadoJson) {
+        const estado = JSON.parse(this.currentMap.estadoJson);
+        estado.configuracoes = {
+          ...estado.configuracoes,
+          ...config // Mescla as novas configurações
+        };
+        this.currentMap.estadoJson = JSON.stringify(estado);
+      }
+
+      // 3. Redesenha o grid usando seu método existente
+      const scene = this.phaserGame.scene.scenes[0];
+      if (scene) {
+        this.drawHexGrid(scene); // Chama seu método de desenho existente
+
+        // Atualiza visibilidade se necessário
+        if (config.visivel !== undefined) {
+          scene.children.each(child => {
+            if (child.getData('isMapElement')) {
+              // Verificação de tipo segura para GameObject
+              if ('setVisible' in child && typeof child.setVisible === 'function') {
+                child.setVisible(config.visivel);
+              }
+            }
+          });
+        }
+      }
+
+      console.log('Configurações do mapa aplicadas com sucesso');
+    } catch (error) {
+      console.error('Erro ao aplicar configurações do mapa:', error);
+      this.toastr.error('Erro ao aplicar configurações recebidas');
+    }
+  }
+
+  // Método para salvar configurações
+  saveMapConfig(): void {
+    if (!this.currentMap || !this.isCriador) return;
+
+    this.isLoading = true;
+    const config: ConfiguracaoMapaDto = {
+      tipoGrid: 'hexagonal', // ou pegue do estado atual
+      tamanhoCelula: this.currentMap.tamanhoHex,
+      corGrid: '#cccccc', // ou pegue do estado atual
+      snapToGrid: true
+    }
+
+    this.mapaService.updateMapConfig(this.mesaId, this.currentMap.mapaId, config).subscribe({
+      next: () => {
+        this.aplicarConfiguracaoMapa(config);
+        this.toastr.success('Configurações salvas e sincronizadas');
+      },
+      error: (err) => {
+        console.error('Erro ao salvar:', err);
+        this.toastr.error('Erro ao salvar configurações');
+      },
+      complete: () => this.isLoading = false
+    });
+  }
+
+  private atualizarListaMapasAposSalvar(mapaAtualizado: MapaDto): void {
+    if (!this.allMaps) return;
+
+    // Se estamos marcando este mapa como visível, desmarca todos os outros
+    if (mapaAtualizado.visivel) {
+      this.allMaps = this.allMaps.map(m => ({
+        ...m,
+        visivel: m.mapaId === mapaAtualizado.mapaId
+      }));
+    } else {
+      // Atualiza apenas o mapa modificado
+      this.allMaps = this.allMaps.map(m =>
+        m.mapaId === mapaAtualizado.mapaId ? mapaAtualizado : m
+      );
+    }
+
+    // Atualiza o currentMap
+    this.currentMap = {
+      ...mapaAtualizado,
+      imaFundo: this.currentMap?.imaFundo,
+      imagemFundo: this.currentMap?.imagemFundo
+    };
+  }
+
+  private saveMapState(mapaId: number): void {
+    // Verificação mais segura de null
+    if (!this.currentMap || this.currentMap?.mapaId !== mapaId || this.configuracoesAbertas) {
       return;
     }
 
@@ -1698,20 +2170,20 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
         throw new Error('Cena do Phaser não encontrada');
       }
 
-      // Coleta todos os tokens da cena atual
+      // Coleta tokens da cena com verificação de tipo mais segura
       const tokens: TokenDto[] = [];
       scene.children.each(child => {
-        if (child instanceof Phaser.GameObjects.Sprite && child.getData('tokenData')) {
-          const tokenData = child.getData('tokenData');
-          // Verifica se o token pertence ao mapa atual
-          if (tokenData.mapaId === mapaId) {
+        const sprite = child as Phaser.GameObjects.Sprite;
+        if (sprite && sprite.getData) {
+          const tokenData = sprite.getData('tokenData');
+          if (tokenData?.mapaId === mapaId) {
             tokens.push(tokenData);
           }
         }
       });
 
-      // Obtém ou cria o estado para o mapa especificado
-      const estadoAtual = this.estadosMapa[mapaId] || {
+      // Atualiza estado com operador nullish coalescing
+      const estadoAtual = this.estadosMapa[mapaId] ?? {
         tokens: [],
         configuracoes: {
           tipoGrid: 'hexagonal',
@@ -1720,17 +2192,26 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
           snapToGrid: true
         }
       };
-
-      // Atualiza apenas os tokens
       estadoAtual.tokens = tokens;
 
-      // Atualiza o estado local
-      this.estadosMapa[mapaId] = estadoAtual;
-      this.currentMap.estadoJson = JSON.stringify(estadoAtual);
-
-      // Salva no servidor
-      this.apiService.salvarEstadoMapa(mapaId, estadoAtual).subscribe({
+      // Salva e notifica com verificação adicional
+      this.apiService.salvarEstadoMapa(mapaId, estadoAtual).pipe(
+        switchMap(() => {
+          if (!this.currentMap) {
+            return throwError(() => new Error('CurrentMap é nulo'));
+          }
+          return this.mapaService.sendMapUpdate(
+            this.mesaId,
+            mapaId,
+            JSON.stringify(estadoAtual)
+          );
+        })
+      ).subscribe({
         next: () => {
+          this.estadosMapa[mapaId] = estadoAtual;
+          if (this.currentMap) {
+            this.currentMap.estadoJson = JSON.stringify(estadoAtual);
+          }
           console.log(`Estado do mapa ${mapaId} salvo com sucesso`);
         },
         error: (err) => {
@@ -1759,7 +2240,8 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
       tamanhoHex: 40,
       estadoJson: '{}',
       ultimaAtualizacao: new Date(),
-      visivel: false
+      visivel: false,
+      fundoUrl: ''
     };
 
     this.apiService.criarMapa(this.mesaId, novoMapa).subscribe({
@@ -1775,6 +2257,59 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
       error: (err) => {
         console.error('Erro ao criar mapa:', err);
         this.toastr.error('Erro ao criar novo mapa');
+      }
+    });
+  }
+
+  confirmarExclusaoMapa(): void {
+    if (!this.currentMapId || this.isCurrentMapVisible()) {
+      return;
+    }
+
+    const confirmacao = window.confirm(
+      'Tem certeza que deseja excluir este mapa permanentemente?\n\n' +
+      'Esta ação não pode ser desfeita.'
+    );
+
+    if (confirmacao) {
+      this.excluirMapa();
+    }
+  }
+
+  private excluirMapa(): void {
+    if (!this.currentMapId || !this.mesaId) return;
+
+    this.isLoading = true;
+    this.apiService.excluirMapa(this.mesaId, this.currentMapId).subscribe({
+      next: () => {
+        this.toastr.success('Mapa excluído com sucesso');
+        this.atualizarListaMapas();
+      },
+      error: (err) => {
+        this.toastr.error(err.message || 'Erro ao excluir mapa');
+        this.isLoading = false;
+      }
+    });
+  }
+
+  private atualizarListaMapas(): void {
+    this.apiService.getTodosMapasPorMesa(this.mesaId).subscribe({
+      next: (mapas) => {
+        this.allMaps = mapas;
+
+        // Encontra o mapa atual (visível) ou o primeiro disponível
+        const novoMapa = this.allMaps.find(m => m.visivel) || this.allMaps[0];
+
+        if (novoMapa) {
+          this.currentMapId = novoMapa.mapaId;
+          this.mudarMapaAtual(this.currentMapId);
+        }
+
+        this.isLoading = false;
+      },
+      error: (err) => {
+        this.toastr.error('Erro ao carregar mapas após exclusão');
+        this.isLoading = false;
       }
     });
   }
@@ -1810,7 +2345,9 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   isCurrentMapVisible(): boolean {
-    return this.currentMap?.visivel ?? false;
+    if (!this.currentMapId || !this.allMaps) return false;
+    const currentMap = this.allMaps.find(m => m.mapaId === this.currentMapId);
+    return currentMap ? currentMap.visivel : false;
   }
 
   dragImage(event: DragEvent, img: ImagemDto) {
@@ -1879,15 +2416,34 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
         return;
       }
 
-      // Obtém a posição do drop no mundo do jogo
+      // Obtém a posição do drop relativa ao canvas
       const scene = this.phaserGame.scene.scenes[0];
-      const pointer = scene.input.activePointer;
-      const worldPoint = scene.cameras.main.getWorldPoint(pointer.x, pointer.y);
+      const canvas = this.phaserGame.canvas;
+      const rect = canvas.getBoundingClientRect();
+
+      // Calcula as coordenadas corretas considerando o scroll e offset
+      const clientX = event.clientX - rect.left;
+      const clientY = event.clientY - rect.top;
+
+      // Converte para coordenadas do mundo do jogo
+      const worldPoint = scene.cameras.main.getWorldPoint(clientX, clientY);
       const hexRadius = this.maps[this.currentMapIndex].hexRadius;
 
-      // Converte para coordenadas de grid e volta para obter o centro exato do hexágono
+      // Converte para coordenadas de grid
       const gridPos = this.screenToHexGrid(worldPoint.x, worldPoint.y, hexRadius);
+
+      // Converte de volta para coordenadas de tela (centralizado no hexágono)
       const snappedPos = this.hexGridToScreen(gridPos.col, gridPos.row, hexRadius);
+
+      // Debug: mostra as coordenadas
+      console.log('Drop position:', {
+        client: { x: event.clientX, y: event.clientY },
+        canvas: { left: rect.left, top: rect.top },
+        relative: { x: clientX, y: clientY },
+        world: worldPoint,
+        grid: gridPos,
+        snapped: snappedPos
+      });
 
       // Cria o token com todos os dados
       const newToken: TokenDto = {
@@ -1911,51 +2467,14 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
+  // Método para adicionar token
   adicionarTokenAoMapa(token: TokenDto) {
-    if (!this.currentMap || !this.currentMapId) {
-      console.error('Mapa atual é nulo');
-      return;
-    }
+    if (!this.currentMapId) return;
 
-    // Obtém o estado atual do mapa ou cria um novo
-    const currentState = this.estadosMapa[this.currentMapId] || {
-      tokens: [],
-      configuracoes: {
-        tipoGrid: 'hexagonal',
-        tamanhoCelula: 40,
-        corGrid: '#cccccc',
-        snapToGrid: true
-      }
-    };
-
-    // Adiciona o novo token
-    currentState.tokens = [...(currentState.tokens || []), token];
-
-    // Atualiza o estado local
-    this.estadosMapa[this.currentMapId] = currentState;
-
-    // Atualiza o estado no servidor
-    this.apiService.salvarEstadoMapa(this.currentMapId, currentState).subscribe({
-      next: () => {
-        // Notifica outros jogadores
-        this.sessaoService.sendMapUpdate(
-          this.mesaId.toString(),
-          this.currentMapId,
-          JSON.stringify({
-            tokens: currentState.tokens.map(t => ({
-              id: t.id,
-              x: t.x,
-              y: t.y,
-              z: t.z
-            }))
-          })
-        );
-
-        // Adiciona visualmente ao mapa
-        this.addTokenToMapVisual(token);
-      },
+    this.addTokenToMapVisual(token);
+    this.mapaService.addToken(this.mesaId, this.currentMapId, token).subscribe({
       error: (err) => {
-        console.error('Erro ao salvar estado do mapa:', err);
+        console.error('Erro ao adicionar token:', err);
         this.toastr.error('Erro ao adicionar token ao mapa');
       }
     });

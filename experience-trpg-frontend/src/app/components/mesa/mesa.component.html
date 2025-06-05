@@ -34,40 +34,95 @@
             <button class="btn-add-map" (click)="criarNovoMapa()" title="Adicionar novo mapa">
               <span class="plus-icon">+</span>
             </button>
+            <button class="btn-delete-map" (click)="confirmarExclusaoMapa()"
+              [disabled]="!currentMapId || isCurrentMapVisible()" title="Excluir mapa">
+              <span class="delete-icon">×</span>
+            </button>
           </div>
         </div>
 
-        <!-- Mostra o formulário apenas se currentMap existir -->
         <ng-container *ngIf="currentMap">
           <!-- Nome do Mapa -->
           <div class="form-group">
             <label for="mapName">Nome:</label>
-            <input type="text" id="mapName" [(ngModel)]="currentMap.nome">
+            <input type="text" id="mapName" [(ngModel)]="currentMap.nome" class="form-control">
           </div>
 
           <!-- Dimensões do Mapa -->
           <div class="form-group dimensions-group">
             <div>
               <label for="mapWidth">Largura:</label>
-              <input type="number" id="mapWidth" [(ngModel)]="currentMap.largura" min="5" max="100">
+              <input type="number" id="mapWidth" [(ngModel)]="currentMap.largura" min="5" max="100"
+                class="form-control">
             </div>
             <div>
               <label for="mapHeight">Altura:</label>
-              <input type="number" id="mapHeight" [(ngModel)]="currentMap.altura" min="5" max="100">
+              <input type="number" id="mapHeight" [(ngModel)]="currentMap.altura" min="5" max="100"
+                class="form-control">
             </div>
           </div>
 
           <!-- Tamanho do Hexágono -->
           <div class="form-group">
             <label for="hexSize">Tamanho Hex:</label>
-            <input type="number" id="hexSize" [(ngModel)]="currentMap.tamanhoHex" min="10" max="100">
+            <input type="number" id="hexSize" [(ngModel)]="currentMap.tamanhoHex" min="10" max="100"
+              class="form-control">
+          </div>
+
+          <!-- Imagem de Fundo (Nova seção) -->
+          <div class="form-group">
+            <label>Imagem de Fundo:</label>
+            <div class="image-upload-container">
+              @if (temImagemDeFundo()) {
+              <div class="position-relative">
+                <img [src]="getImagemFundoUrl()" alt="Imagem de Fundo" class="img-fluid rounded map-background-preview">
+                <button class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1" (click)="removerImagemFundo()">
+                  <i class="bi bi-x"></i>
+                </button>
+              </div>
+              } @else {
+              <button class="btn btn-outline-primary w-100 py-2" (click)="abrirSeletorImagens()">
+                <i class="bi bi-plus-circle me-2"></i> Selecionar Imagem
+              </button>
+              }
+            </div>
           </div>
 
           <!-- Mapa Atual (Checkbox) -->
-          <div class="form-group checkbox-group">
-            <label for="currentMap">Mapa Atual:</label>
-            <input type="checkbox" id="currentMap" [checked]="currentMap.visivel" (change)="toggleCurrentMap()">
+          <div class="form-group form-check">
+            <input type="checkbox" id="currentMap" [(ngModel)]="currentMap.visivel" class="form-check-input">
+            <label for="currentMap" class="form-check-label">Mapa Atual</label>
           </div>
+
+          <!-- Seletor de Imagens (modal) -->
+          @if (showImageSelector) {
+          <div class="modal-backdrop show" (click)="showImageSelector = false"></div>
+          <div class="modal show d-block" tabindex="-1" (click)="showImageSelector = false">
+            <div class="modal-dialog modal-lg" (click)="$event.stopPropagation()">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title">Selecione uma Imagem de Fundo</h5>
+                  <button type="button" class="btn-close" (click)="showImageSelector = false"></button>
+                </div>
+                <div class="modal-body">
+                  <div class="row">
+                    @for (image of mesaImages; track image.imagemId) {
+                    <div class="col-md-3 mb-3">
+                      <div class="card image-selector-card" (click)="selecionarImagemFundo(image)">
+                        <img [src]="image.imageUrl || ('data:image/' + image.extensao + ';base64,' + image.dados)"
+                          class="card-img-top" [alt]="image.nome">
+                        <div class="card-body p-2">
+                          <h6 class="card-title">{{ image.nome }}</h6>
+                        </div>
+                      </div>
+                    </div>
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          }
         </ng-container>
 
         <!-- Botão de Salvar -->
@@ -76,7 +131,7 @@
         </button>
       </div>
     </div>
-    
+
     <!-- Controles de zoom no canto inferior direito -->
     <div class="zoom-controls">
       <button (click)="zoomIn()" title="Zoom In (+10%)" class="zoom-button zoom-in"

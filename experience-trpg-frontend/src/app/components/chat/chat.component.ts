@@ -1,5 +1,5 @@
 import { Component, Input, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewChecked, ViewChildren, QueryList } from '@angular/core';
-import { SessaoService } from '../../services/sessao.service';
+import { ChatService } from '../../services/chat.service';
 import { AuthService } from '../../services/auth.service';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
@@ -36,7 +36,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   private shouldScroll = false;
 
   constructor(
-    private sessaoService: SessaoService,
+    private chatService: ChatService,
     private authService: AuthService
   ) { }
 
@@ -50,7 +50,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
 
     // Primeiro conecta ao grupo, depois carrega mensagens
-    this.sessaoService.joinMesaGroup(this.mesaId).then(() => {
+    this.chatService.joinMesaGroup(this.mesaId).then(() => {
       this.carregarMensagens();
       this.iniciarEscutaMensagens();
     }).catch(err => {
@@ -61,7 +61,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
-    this.sessaoService.leaveMesaGroup(this.mesaId);
+    this.chatService.leaveMesaGroup(this.mesaId);
   }
 
   ngAfterViewInit(): void {
@@ -78,7 +78,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   private carregarMensagens(): void {
-    this.sessaoService.getMensagensPorMesa(this.mesaId)
+    this.chatService.getMensagensPorMesa(this.mesaId)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (mensagens: ChatMessage[]) => {
@@ -117,7 +117,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   private iniciarEscutaMensagens(): void {
-    this.sessaoService.getMessageObservable()
+    this.chatService.getMessageObservable()
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (msg: ChatMessage) => this.processarNovaMensagem(msg),
@@ -165,7 +165,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
       dataHora: new Date().toISOString()
     };
 
-    this.sessaoService.sendMessage(mensagemParaEnviar)
+    this.chatService.sendMessage(mensagemParaEnviar)
       .then(() => this.novaMensagem = '')
       .catch(err => this.tratarErroEnvio(err));
   }
@@ -365,7 +365,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
       dataHora: new Date().toISOString()
     };
 
-    this.sessaoService.sendMessage(mensagemParaEnviar)
+    this.chatService.sendMessage(mensagemParaEnviar)
       .then(() => {
         this.novaMensagem = '';
       })

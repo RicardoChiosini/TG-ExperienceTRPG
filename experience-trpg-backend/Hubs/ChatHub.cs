@@ -1,20 +1,18 @@
 using Microsoft.AspNetCore.SignalR;
 using experience_trpg_backend.Models;
-using experience_trpg_backend.DTOs;
-using System.Text.Json;
+using System;
 
 namespace experience_trpg_backend.Hubs
 {
-    public class SessaoHub : Hub
+    public class ChatHub : Hub
     {
         private readonly AppDbContext _context;
 
-        public SessaoHub(AppDbContext context)
+        public ChatHub(AppDbContext context)
         {
             _context = context;
         }
 
-        // ========== Métodos do Chat ==========
         public async Task SendMessage(string user, string message, int mesaId, int usuarioId,
                             string? tipoMensagem = null, string? dadosFormatados = null)
         {
@@ -33,7 +31,6 @@ namespace experience_trpg_backend.Hubs
             _context.Mensagens.Add(novaMensagem);
             await _context.SaveChangesAsync();
 
-            Console.WriteLine($"Enviando mensagem para grupo {mesaId}");
             await Clients.Group(mesaId.ToString()).SendAsync("ReceiveMessage", new
             {
                 user,
@@ -46,24 +43,6 @@ namespace experience_trpg_backend.Hubs
             });
         }
 
-        // ========== Métodos do Mapa ==========
-        public async Task SendMapUpdate(string mesaId, int mapId, string mapState)
-        {
-            // Envia a atualização somente para o grupo correspondente à mesa
-            await Clients.Group(mesaId).SendAsync("ReceiveMapUpdate", mapId, mapState);
-        }
-
-        public async Task UpdateMapVisibility(string mesaId, int mapId, bool isVisible)
-        {
-            await Clients.Group(mesaId).SendAsync("ReceiveMapVisibility", mapId, isVisible);
-        }
-
-        public async Task UpdateCurrentMap(string mesaId, int mapId)
-        {
-            await Clients.Group(mesaId).SendAsync("ReceiveCurrentMap", mapId);
-        }
-
-        // ========== Métodos Compartilhados ==========
         public async Task JoinMesaGroup(string mesaId)
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, mesaId);

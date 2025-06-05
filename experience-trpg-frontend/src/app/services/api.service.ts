@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpEvent, HttpEventType } from '@angular/common/http';
-import { catchError, Observable, of } from 'rxjs';
+import { catchError, map, Observable, of } from 'rxjs';
 import { MesaDto } from '../dtos/mesa.dto';
 import { ImagemDto } from '../dtos/imagem.dto';
 import { FichaDto, AtributoDto, HabilidadeDto, ProficienciaDto } from '../dtos/ficha.dto';
@@ -170,6 +170,45 @@ export class ApiService {
     return this.http.get<ImagemDto>(`${this.baseUrl}/imagens/${imagemId}`);
   }
 
+  getMapaBackgroundImage(mapaId: number): Observable<ImagemDto | null> {
+    return this.http.get<ImagemDto>(`${this.baseUrl}/mapa/${mapaId}/background-image`);
+  }
+
+  setMapaBackgroundImage(mapaId: number, imagemId: number): Observable<MapaDto> {
+    return this.http.post<MapaDto>(
+      `${this.baseUrl}/mapa/${mapaId}/background-image/${imagemId}`,
+      {}
+    );
+  }
+
+  removeMapaBackgroundImage(mapaId: number): Observable<MapaDto> {
+    return this.http.delete<MapaDto>(
+      `${this.baseUrl}/mapa/${mapaId}/background-image`
+    );
+  }
+
+  getMapaById(mesaId: number, mapaId: number): Observable<MapaDto> {
+    return this.http.get<MapaDto>(`${this.baseUrl}/mapa/${mesaId}/mapa/${mapaId}`);
+  }
+
+  excluirMapa(mesaId: number, mapaId: number): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(
+      `${this.baseUrl}/mapa/${mesaId}/mapa/${mapaId}`
+    ).pipe(
+      catchError(error => {
+        // Tratamento específico para o erro "último mapa"
+        if (error.status === 400 && error.error?.message?.includes("último mapa")) {
+          throw new Error('Não é possível excluir o último mapa da mesa');
+        }
+        // Tratamento para outros erros
+        if (error.status === 404) {
+          throw new Error('Mapa não encontrado');
+        }
+        throw new Error('Erro ao excluir mapa');
+      })
+    );
+  }
+
   vincularImagemAFicha(fichaId: number, imagemId: number): Observable<FichaDto> {
     return this.http.post<FichaDto>(`${this.baseUrl}/fichas/${fichaId}/vincular/${imagemId}`, {});
   }
@@ -183,11 +222,11 @@ export class ApiService {
   }
 
   getMapaMaisRecentePorMesa(mesaId: number): Observable<MapaDto> {
-    return this.http.get<MapaDto>(`${this.baseUrl}/map/${mesaId}/mapa/recente`);
+    return this.http.get<MapaDto>(`${this.baseUrl}/mapa/${mesaId}/mapa/recente`);
   }
 
   getTokensDoMapa(mesaId: number, mapaId: number): Observable<MapaEstadoDto> {
-    return this.http.get<MapaEstadoDto>(`${this.baseUrl}/map/${mesaId}/mapa/${mapaId}/tokens`).pipe(
+    return this.http.get<MapaEstadoDto>(`${this.baseUrl}/mapa/${mesaId}/mapa/${mapaId}/tokens`).pipe(
       catchError(error => {
         console.error('Erro ao buscar tokens:', error);
         return of({
@@ -207,7 +246,7 @@ export class ApiService {
 
   salvarEstadoMapa(mapaId: number, estado: MapaEstadoDto): Observable<MapaEstadoDto> {
     return this.http.put<MapaEstadoDto>(
-      `${this.baseUrl}/map/${mapaId}/estado`, // Rota atualizada
+      `${this.baseUrl}/mapa/${mapaId}/estado`, // Rota atualizada
       estado
     ).pipe(
       catchError(error => {
@@ -228,22 +267,18 @@ export class ApiService {
   }
 
   salvarConfigMapa(mapaId: number, config: any): Observable<MapaDto> {
-    return this.http.put<MapaDto>(`${this.baseUrl}/map/mapa/${mapaId}/config`, config);
+    return this.http.put<MapaDto>(`${this.baseUrl}/mapa/mapa/${mapaId}/config`, config);
   }
 
   getTodosMapasPorMesa(mesaId: number): Observable<MapaDto[]> {
-    return this.http.get<MapaDto[]>(`${this.baseUrl}/map/${mesaId}/mapas`);
-  }
-
-  getMapaById(mesaId: number, mapaId: number): Observable<MapaDto> {
-    return this.http.get<MapaDto>(`${this.baseUrl}/map/${mesaId}/mapa/${mapaId}`);
+    return this.http.get<MapaDto[]>(`${this.baseUrl}/mapa/${mesaId}/mapas`);
   }
 
   atualizarVisibilidadeMapa(mesaId: number, mapaId: number, visivel: boolean): Observable<any> {
-    return this.http.put(`${this.baseUrl}/map/${mesaId}/mapa/${mapaId}/visibilidade`, visivel);
+    return this.http.put(`${this.baseUrl}/mapa/${mesaId}/mapa/${mapaId}/visibilidade`, visivel);
   }
 
   criarMapa(mesaId: number, mapa: MapaDto): Observable<MapaDto> {
-    return this.http.post<MapaDto>(`${this.baseUrl}/map/${mesaId}/mapa`, mapa);
+    return this.http.post<MapaDto>(`${this.baseUrl}/mapa/${mesaId}/mapa`, mapa);
   }
 }

@@ -20,7 +20,7 @@ namespace experience_trpg_backend.Models
         public DbSet<Habilidade>? Habilidades { get; set; }
         public DbSet<Equipamento>? Equipamentos { get; set; }
         public DbSet<UsuarioFicha>? UsuarioFichas { get; set; }
-        public DbSet<UsuarioMesa>? UsuarioMesas { get; set; } // Para a relação muitos-para-muitos
+        public DbSet<UsuarioMesa>? UsuarioMesas { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -54,6 +54,18 @@ namespace experience_trpg_backend.Models
 
             modelBuilder.Entity<Mapa>()
                 .HasKey(m => m.MapaId);
+
+            modelBuilder.Entity<Mapa>()
+                .HasOne(m => m.MapMesa)
+                .WithMany(m => m.Mapas)
+                .HasForeignKey(m => m.MesaId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Mapa>()
+                .HasOne(m => m.ImaFundo)
+                .WithMany()
+                .HasForeignKey(m => m.ImagemFundo)
+                .OnDelete(DeleteBehavior.SetNull);
 
             // Relação muitos-para-muitos entre Usuario e Mesa através da tabela UsuarioMesa
             modelBuilder.Entity<UsuarioMesa>()
@@ -205,6 +217,13 @@ namespace experience_trpg_backend.Models
                 .WithOne(i => i.MapMesa)
                 .HasForeignKey(i => i.MesaId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // Configuração para Mapa -> Imagem
+            modelBuilder.Entity<Mapa>()
+                .HasOne(m => m.ImaFundo)
+                .WithMany()
+                .HasForeignKey(m => m.ImagemFundo)
+                .OnDelete(DeleteBehavior.SetNull); // Define o comportamento de exclusão
 
             // Configuração para Ficha -> Atributos
             modelBuilder.Entity<Ficha>()

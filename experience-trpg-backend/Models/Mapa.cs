@@ -15,7 +15,8 @@ namespace experience_trpg_backend.Models
     public string EstadoJson { get; set; } = string.Empty;
     public DateTime UltimaAtualizacao { get; set; }
     public bool Visivel { get; set; } = true;
-
+    public int? ImagemFundo { get; set; }
+    public Imagem? ImaFundo { get; set; }
     public Mesa? MapMesa { get; set; } 
 }
 }

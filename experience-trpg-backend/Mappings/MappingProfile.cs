@@ -37,9 +37,19 @@ public class MappingProfile : Profile
         CreateMap<Mapa, MapaDto>()
             .ForMember(dest => dest.Estado, opt => opt.ConvertUsing(new JsonToEstadoConverter(), src => src.EstadoJson));
 
-        CreateMap<MapaDto, Mapa>()
-            .ForMember(dest => dest.EstadoJson, opt => opt.ConvertUsing(new EstadoToJsonConverter(), src => src.Estado))
-            .ForMember(dest => dest.MapMesa, opt => opt.Ignore());
+        CreateMap<Mapa, MapaDto>()
+            .ForMember(dest => dest.Estado, opt => opt.ConvertUsing(new JsonToEstadoConverter(), src => src.EstadoJson))
+            .ForMember(dest => dest.ImaFundo, opt => opt.MapFrom(src => src.ImaFundo));
+
+            CreateMap<MapaDto, Mapa>()
+            .ForMember(dest => dest.ImagemFundo, opt => opt.MapFrom(src => src.ImagemFundo))
+            .ForMember(dest => dest.ImaFundo, opt => opt.Ignore()) // Ignoramos pois será tratado separadamente
+            .ForMember(dest => dest.MapMesa, opt => opt.Ignore()); // Ignoramos a navegação para Mesa
+
+        CreateMap<Mapa, MapaDto>()
+            .ForMember(dest => dest.ImagemFundo, opt => opt.MapFrom(src => src.ImagemFundo))
+            .ForMember(dest => dest.ImaFundo, opt => opt.MapFrom(src => src.ImaFundo))
+            .ForMember(dest => dest.FundoUrl, opt => opt.Ignore());
 
         // Mapeamento para MapaEstadoDto e TokenDto (se necessário)
         CreateMap<MapaEstadoDto, MapaEstadoDto>(); // Pode ser útil para cópias

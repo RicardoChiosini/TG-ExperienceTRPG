@@ -25,7 +25,8 @@ import { ChatComponent } from '../components/chat/chat.component';
 
 import { ApiService } from '../services/api.service';
 import { AuthService } from '../services/auth.service';
-import { SessaoService } from '../services/sessao.service';
+import { ChatService } from '../services/chat.service';
+import { MapaService } from '../services/mapa.service';
 import { CommonModule } from '@angular/common';
 
 @NgModule({
@@ -55,7 +56,7 @@ import { CommonModule } from '@angular/common';
     NgbModule,
     ToastrModule.forRoot()
   ],
-  providers: [ApiService, AuthService, SessaoService, provideAnimationsAsync()],
+  providers: [ApiService, AuthService, ChatService, MapaService, provideAnimationsAsync()],
   bootstrap: [AppComponent]
 })
 export class AppModule { }

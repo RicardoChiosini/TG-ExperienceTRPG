@@ -21,6 +21,9 @@
   left: 0;
   width: 100%;
   height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
   cursor: default;
 }
 
@@ -34,6 +37,8 @@ canvas {
   display: block;
   width: 100%;
   height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 .map-controls-top {
@@ -133,7 +138,7 @@ canvas {
 }
 
 .mesa-container.loading::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
@@ -144,8 +149,12 @@ canvas {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .blurred {
@@ -436,7 +445,8 @@ app-chat {
 }
 
 /* Estilo para os botões do mapa (azuis como o botão de enviar) */
-.map-control-button, .zoom-button {
+.map-control-button,
+.zoom-button {
   background: #0052aa; /* Azul similar ao botão de enviar */
   color: white;
   border: none;
@@ -453,7 +463,8 @@ app-chat {
   font-weight: bold; /* Para deixar os símbolos mais visíveis */
 }
 
-.map-control-button:hover, .zoom-button:hover {
+.map-control-button:hover,
+.zoom-button:hover {
   background: #0066cc; /* Tom mais claro de azul no hover */
   transform: scale(1.1);
 }
@@ -465,25 +476,26 @@ app-chat {
 }
 
 /* Remove os ícones do Font Awesome e usa texto simples */
-.map-control-button i, .zoom-button i {
+.map-control-button i,
+.zoom-button i {
   display: none;
 }
 
 /* Mostra os pseudo-elementos com os símbolos */
 .map-control-button::after {
-  content: 'M'; /* Símbolo para o botão de mapa */
+  content: "M"; /* Símbolo para o botão de mapa */
 }
 
 .zoom-button.zoom-in::after {
-  content: '+'; /* Símbolo para zoom in */
+  content: "+"; /* Símbolo para zoom in */
 }
 
 .zoom-button.zoom-out::after {
-  content: '-'; /* Símbolo para zoom out */
+  content: "-"; /* Símbolo para zoom out */
 }
 
 .zoom-button.reset-view::after {
-  content: 'R'; /* Símbolo para reset view */
+  content: "R"; /* Símbolo para reset view */
 }
 
 /* Estilo para o grupo de checkbox */
@@ -551,9 +563,70 @@ app-chat {
   transform: scale(0.95);
 }
 
-/* Estilo para o ícone de + */
-.plus-icon {
+.btn-delete-map {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-delete-map:hover:not(:disabled) {
+  background-color: #c82333;
+  transform: scale(1.05);
+}
+
+.btn-delete-map:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.plus-icon,
+.delete-icon {
   font-size: 18px;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.btn-delete-map {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-delete-map:hover:not(:disabled) {
+  background-color: #bb2d3b;
+  transform: scale(1.05);
+}
+
+.btn-delete-map:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.btn-delete-map:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+/* Estilo para o ícone de × */
+.delete-icon {
+  font-size: 20px;
   font-weight: bold;
   line-height: 1;
 }
@@ -668,12 +741,12 @@ app-chat {
 .token {
   transition: transform 0.2s, opacity 0.3s;
   cursor: grab;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
 .token:hover {
   transform: scale(1.05);
-  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
 }
 
 .token:active {
@@ -687,13 +760,135 @@ app-chat {
 }
 
 @keyframes pulse {
-  0% { opacity: 0.5; }
-  50% { opacity: 0.8; }
-  100% { opacity: 0.5; }
+  0% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0.5;
+  }
 }
 
 .map-disabled {
   cursor: not-allowed;
   opacity: 0.7;
   pointer-events: none;
+}
+
+/* Estilos do seletor de imagens (reutilizados) */
+.image-selector-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1050;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.image-selector-container {
+  background: white;
+  border-radius: 5px;
+  width: 80%;
+  max-width: 800px;
+  max-height: 80vh;
+  overflow: auto;
+  padding: 20px;
+}
+
+.image-selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.image-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.image-selector-item {
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.image-selector-item:hover {
+  transform: scale(1.05);
+}
+
+.image-selector-item img {
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+}
+
+.image-name {
+  font-size: 0.8rem;
+  text-align: center;
+  margin-top: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* mapa.component.css */
+.image-upload-container {
+  min-height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.map-background-preview {
+  max-height: 200px;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.image-selector-card {
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.image-selector-card:hover {
+  transform: scale(1.03);
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.modal-backdrop {
+  opacity: 0.5;
+}
+
+.dimensions-group {
+  display: flex;
+  gap: 1rem;
+}
+
+.dimensions-group > div {
+  flex: 1;
+}
+
+/* Estilo para o botão de seleção */
+.btn-outline-primary {
+  border: 1px solid #0d6efd;
+  color: #0d6efd;
+  transition: all 0.3s ease;
+}
+
+.btn-outline-primary:hover {
+  background-color: #0d6efd;
+  color: white;
+}
+
+/* Ajustes para o ícone */
+.bi-plus-circle {
+  font-size: 1.2rem;
+  vertical-align: middle;
 }

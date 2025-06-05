@@ -4,34 +4,27 @@ import { Observable, Subject, of } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
 
-
 interface ChatMessage {
   mensagemId?: number;
   user: string;
-  message: string;  
-  texto: string;    
-  tipoMensagem: 'normal' | 'dado'; 
+  message: string;
+  texto: string;
+  tipoMensagem: 'normal' | 'dado';
   dadosFormatados?: string;
   usuarioId: number;
   mesaId: number;
   dataHora: string;
 }
 
-interface MapUpdate {
-  mapId: number;
-  mapState: string;
-}
-
 @Injectable({
   providedIn: 'root'
 })
-export class SessaoService {
+export class ChatService {
   private hubConnection!: signalR.HubConnection;
   private messageSubject = new Subject<ChatMessage>();
-  private mapUpdateSubject = new Subject<MapUpdate>();
-  private currentMapSubject = new Subject<number>();
   private baseUrl = 'http://localhost:5056';
   private connectionStarted = false;
+  private currentMesaId: number | string | null = null;
 
   constructor(private http: HttpClient) {
     this.startConnection();
@@ -41,27 +34,31 @@ export class SessaoService {
     if (this.connectionStarted) return;
 
     this.hubConnection = new signalR.HubConnectionBuilder()
-      .withUrl(`${this.baseUrl}/sessaohub`, {
+      .withUrl(`${this.baseUrl}/chathub`, {
         skipNegotiation: true,
         transport: signalR.HttpTransportType.WebSockets
       })
       .withAutomaticReconnect()
       .build();
 
+    this.hubConnection.onreconnected(() => {
+      if (this.currentMesaId) {
+        this.joinMesaGroup(this.currentMesaId);
+      }
+    });
+
     this.hubConnection.start()
       .then(() => {
         this.connectionStarted = true;
-        console.log('Conexão SignalR estabelecida');
-        
-        // Configuração dos listeners
+        if (this.currentMesaId) {
+          this.joinMesaGroup(this.currentMesaId);
+        }
         this.setupMessageListener();
-        this.setupMapListeners();
       })
       .catch(err => console.error('Erro ao conectar ao SignalR:', err));
 
     this.hubConnection.onclose(() => {
       this.connectionStarted = false;
-      console.log('Conexão SignalR fechada. Tentando reconectar...');
       setTimeout(() => this.startConnection(), 5000);
     });
   }
@@ -82,23 +79,12 @@ export class SessaoService {
     });
   }
 
-  private setupMapListeners(): void {
-    this.hubConnection.on('ReceiveMapUpdate', (mapId: number, mapState: string) => {
-      this.mapUpdateSubject.next({ mapId, mapState });
-    });
-
-    this.hubConnection.on('ReceiveCurrentMap', (mapId: number) => {
-      this.currentMapSubject.next(mapId);
-    });
-  }
-
-  // Métodos para o Chat
   getMessageObservable(): Observable<ChatMessage> {
     return this.messageSubject.asObservable();
   }
 
   sendMessage(messageData: ChatMessage): Promise<void> {
-    return this.hubConnection.invoke('SendMessage', 
+    return this.hubConnection.invoke('SendMessage',
       messageData.user,
       messageData.message || messageData.texto || '',
       messageData.mesaId,
@@ -108,33 +94,18 @@ export class SessaoService {
     );
   }
 
-  // Métodos para o Mapa
-  getMapUpdateObservable(): Observable<MapUpdate> {
-    return this.mapUpdateSubject.asObservable();
-  }
-
-  getCurrentMapObservable(): Observable<number> {
-    return this.currentMapSubject.asObservable();
-  }
-
-  sendMapUpdate(mesaId: string, mapId: number, mapState: string): Promise<void> {
-    return this.hubConnection.invoke('SendMapUpdate', mesaId, mapId, mapState);
-  }
-
-  sendCurrentMap(mesaId: string, mapId: number): Promise<void> {
-    return this.hubConnection.invoke('UpdateCurrentMap', mesaId, mapId);
-  }
-
-  // Métodos compartilhados
   joinMesaGroup(mesaId: number | string): Promise<void> {
+    this.currentMesaId = mesaId;
     return this.hubConnection.invoke('JoinMesaGroup', mesaId.toString());
   }
 
   leaveMesaGroup(mesaId: number | string): Promise<void> {
+    if (this.currentMesaId === mesaId) {
+      this.currentMesaId = null;
+    }
     return this.hubConnection.invoke('LeaveMesaGroup', mesaId.toString());
   }
 
-  // Métodos HTTP (mantidos do serviço original)
   getMensagensPorMesa(mesaId: number): Observable<ChatMessage[]> {
     return this.http.get<ChatMessage[]>(`${this.baseUrl}/api/mensagens/mesa/${mesaId}`).pipe(
       map(response => this.mapearRespostaParaChatMessage(response)),
@@ -144,10 +115,9 @@ export class SessaoService {
       })
     );
   }
-  
+
   private mapearRespostaParaChatMessage(response: any): ChatMessage[] {
     if (!Array.isArray(response)) return [];
-    
     return response.map(msg => ({
       mensagemId: msg.mensagemId || 0,
       user: msg.usuarioNome || 'Anônimo',

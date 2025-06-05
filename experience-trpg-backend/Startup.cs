@@ -115,7 +115,8 @@ namespace experience_trpg_backend
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
-                endpoints.MapHub<SessaoHub>("/sessaohub");
+                endpoints.MapHub<ChatHub>("/chathub");
+                endpoints.MapHub<MapaHub>("/mapahub");
             });
         }
     }

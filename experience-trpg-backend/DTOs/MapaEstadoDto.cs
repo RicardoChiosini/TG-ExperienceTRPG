@@ -28,6 +28,29 @@ namespace experience_trpg_backend.DTOs
         public DateTime? DataAtualizacao { get; set; }
     }
 
+    public class TokenUpdateDto
+    {
+        public double? X { get; set; }
+        public double? Y { get; set; }
+        public int? Z { get; set; }
+        public bool? VisivelParaTodos { get; set; }
+        public bool? Bloqueado { get; set; }
+        public Dictionary<string, string>? Metadados { get; set; }
+    }
+
+    public class TokenCreateDto
+    {
+        public string Nome { get; set; }
+        public double X { get; set; }
+        public double Y { get; set; }
+        public int Z { get; set; } = 1;
+        public string ImagemDados { get; set; }
+        public int DonoId { get; set; }
+        public bool VisivelParaTodos { get; set; } = true;
+        public bool Bloqueado { get; set; }
+        public Dictionary<string, string>? Metadados { get; set; }
+    }
+
     public class CamadaDto
     {
         public string Id { get; set; }
@@ -54,5 +77,6 @@ namespace experience_trpg_backend.DTOs
         public int TamanhoCelula { get; set; } = 40;
         public string CorGrid { get; set; } = "#cccccc";
         public bool SnapToGrid { get; set; } = true;
+        public string? BackgroundImage { get; set; } // URL da imagem de fundo
     }
 }
