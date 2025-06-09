@@ -272,18 +272,6 @@ export class MapaService {
     );
   }
 
-  updateToken(mesaId: number, mapaId: number, token: TokenDto): Observable<any> {
-    return this.http.put(`${this.baseUrl}/api/mapa/${mapaId}/token/${token.id}`, token).pipe(
-      switchMap(() => {
-        return this.hubConnection.invoke('UpdateToken', mesaId, mapaId, token);
-      }),
-      catchError(error => {
-        console.error('Erro ao atualizar token:', error);
-        return throwError(error);
-      })
-    );
-  }
-
   updateMapConfig(mesaId: number, mapaId: number, config: MapaConfigDto, headers?: HttpHeaders): Observable<any> {
     return this.http.put(
       `${this.baseUrl}/api/mapa/${mesaId}/mapas/${mapaId}/config`,
@@ -294,6 +282,18 @@ export class MapaService {
         // Notificação via SignalR
         this.hubConnection.invoke('UpdateMapConfig', mesaId, mapaId, config)
           .catch(err => console.error('Erro ao notificar atualização de configuração:', err));
+      })
+    );
+  }
+
+  updateToken(mesaId: number, mapaId: number, token: TokenDto): Observable<any> {
+    return this.http.put(`${this.baseUrl}/api/mapa/${mapaId}/token/${token.id}`, token).pipe(
+      switchMap(() => {
+        return this.hubConnection.invoke('UpdateToken', mesaId, mapaId, token);
+      }),
+      catchError(error => {
+        console.error('Erro ao atualizar token:', error);
+        return throwError(error);
       })
     );
   }

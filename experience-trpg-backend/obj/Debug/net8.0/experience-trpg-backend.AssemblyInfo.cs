@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("experience-trpg-backend")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6b010ed704c30561927be9337204b03a585daade")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ad7595428f08e9610374dd00be17f856226e871a")]
 [assembly: System.Reflection.AssemblyProductAttribute("experience-trpg-backend")]
 [assembly: System.Reflection.AssemblyTitleAttribute("experience-trpg-backend")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

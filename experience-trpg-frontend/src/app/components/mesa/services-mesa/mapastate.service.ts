@@ -106,13 +106,6 @@ export class MapaStateService {
             })
         );
 
-        this.subscriptions.add(
-            this.mapaService.tokenUpdates$.subscribe(token => {
-                if (this.currentMapId === token.mapaId) {
-                    this.phaserGameService.updateExistingToken(`token-${token.id}`, token);
-                }
-            })
-        );
     }
 
     public async loadInitialMapState(mapaId: number): Promise<void> {
@@ -480,15 +473,6 @@ export class MapaStateService {
                 this.toastr.error('Erro ao salvar configurações');
             }
         });
-    }
-
-    public async atualizarConfiguracaoSignalR(config: MapaConfigDto): Promise<void> {
-        if (!this.currentMap) return;
-        this.currentMap = {
-            ...this.currentMap,
-            ...config
-        };
-        await this.aplicarConfiguracaoMapa(this.currentMap);
     }
 
     public aplicarConfiguracaoMapa(mapa: MapaDto): void {

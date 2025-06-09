@@ -179,16 +179,6 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
       })
     );
 
-    // Listener para atualizações de tokens
-    this.subscriptions.add(
-      this.mapaService.tokenUpdates$.pipe(
-        filter(token => token.mapaId === this.mapaStateService.currentMapId)
-      ).subscribe(token => {
-        console.log('Token recebido:', token);
-        this.phaserGameService.updateExistingToken(`token-${token.id}`, token);
-      })
-    );
-
     // Listener para atualizações de configuração
     this.subscriptions.add(
     this.mapaService.configUpdates$.pipe(
@@ -212,11 +202,6 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
         }
     })
 );
-  }
-
-  private async atualizarConfiguracaoLocal(mapaId: number, config: MapaConfigDto): Promise<void> {
-    await this.mapaStateService.atualizarConfiguracaoSignalR(config);
-    this.cdRef.detectChanges();
   }
 
   async ngAfterViewInit(): Promise<void> {

@@ -116,6 +116,205 @@ namespace experience_trpg_backend.Controllers
             }
         }
 
+        [HttpGet("{mesaId}/mapa/{mapaId}/tokens")]
+        public async Task<ActionResult<MapaEstadoDto>> GetTokensDoMapa(int mesaId, int mapaId)
+        {
+            try
+            {
+                var mapa = await _context.Mapas
+                    .FirstOrDefaultAsync(m => m.MesaId == mesaId && m.MapaId == mapaId);
+
+                if (mapa == null)
+                {
+                    return NotFound("Mapa não encontrado");
+                }
+
+                // Se não houver estado, retorna um estado vazio
+                if (string.IsNullOrEmpty(mapa.EstadoJson))
+                {
+                    return Ok(new MapaEstadoDto
+                    {
+                        Tokens = new List<TokenDto>(),
+                        Camadas = new List<CamadaDto>(),
+                        Objetos = new List<ObjetoDeMapaDto>(),
+                        Configuracoes = new ConfiguracaoMapaDto()
+                    });
+                }
+
+                var estado = JsonSerializer.Deserialize<MapaEstadoDto>(mapa.EstadoJson);
+
+                // Garante que as configurações não sejam nulas
+                estado.Configuracoes ??= new ConfiguracaoMapaDto();
+
+                // Filtra tokens e verifica URLs
+                if (estado.Tokens != null)
+                {
+                    estado.Tokens = estado.Tokens
+                        .Where(t => t.VisivelParaTodos &&
+                                   (t.ImagemDados.StartsWith("http") ||
+                                    t.ImagemDados.StartsWith("data:image")))
+                        .ToList();
+                }
+
+                return Ok(estado);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao buscar tokens do mapa");
+                return StatusCode(500, new { Message = "Erro interno ao buscar tokens" });
+            }
+        }
+
+        [HttpPut("{mapaId}/token/{tokenId}")]
+        public async Task<IActionResult> UpdateToken(
+        int mesaId,
+        int mapaId,
+        string tokenId,
+        [FromBody] TokenUpdateDto update)
+        {
+            try
+            {
+                var mapa = await _context.Mapas
+                    .FirstOrDefaultAsync(m => m.MapaId == mapaId && m.MesaId == mesaId);
+
+                if (mapa == null)
+                    return NotFound("Mapa não encontrado");
+
+                var estado = string.IsNullOrEmpty(mapa.EstadoJson)
+                    ? new MapaEstadoDto()
+                    : JsonSerializer.Deserialize<MapaEstadoDto>(mapa.EstadoJson);
+
+                var token = estado.Tokens.FirstOrDefault(t => t.Id == tokenId);
+                if (token == null)
+                    return NotFound("Token não encontrado");
+
+                // Atualiza as propriedades do token
+                if (update.X.HasValue) token.X = update.X.Value;
+                if (update.Y.HasValue) token.Y = update.Y.Value;
+                if (update.Z.HasValue) token.Z = update.Z.Value;
+                if (update.VisivelParaTodos.HasValue) token.VisivelParaTodos = update.VisivelParaTodos.Value;
+                if (update.Bloqueado.HasValue) token.Bloqueado = update.Bloqueado.Value;
+                if (update.Metadados != null) token.Metadados = update.Metadados;
+
+                token.DataAtualizacao = DateTime.UtcNow;
+
+                // Salva no banco
+                mapa.EstadoJson = JsonSerializer.Serialize(estado);
+                mapa.UltimaAtualizacao = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+                // Notifica via SignalR
+                await _hubContext.Clients.Group(mesaId.ToString())
+                    .SendAsync("ReceiveTokenUpdate", token);
+
+                return Ok(token);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao atualizar token");
+                return StatusCode(500, "Erro interno ao atualizar token");
+            }
+        }
+
+        [HttpPost("{mesaId}/mapa/{mapaId}/token")]
+        public async Task<ActionResult<TokenDto>> AddToken(
+    int mesaId,
+    int mapaId,
+    [FromBody] TokenCreateDto tokenDto)
+        {
+            try
+            {
+                var mapa = await _context.Mapas
+                    .FirstOrDefaultAsync(m => m.MapaId == mapaId && m.MesaId == mesaId);
+
+                if (mapa == null)
+                    return NotFound(new { Message = "Mapa não encontrado" });
+
+                // Desserializa o estado atual ou cria novo se vazio
+                var estado = string.IsNullOrEmpty(mapa.EstadoJson)
+                    ? new MapaEstadoDto()
+                    : JsonSerializer.Deserialize<MapaEstadoDto>(mapa.EstadoJson);
+
+                // Garante que a lista de tokens existe
+                estado.Tokens ??= new List<TokenDto>();
+
+                // Cria o novo token
+                var newToken = new TokenDto
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Nome = tokenDto.Nome,
+                    X = tokenDto.X,
+                    Y = tokenDto.Y,
+                    Z = tokenDto.Z,
+                    ImagemDados = tokenDto.ImagemDados,
+                    DonoId = tokenDto.DonoId,
+                    VisivelParaTodos = tokenDto.VisivelParaTodos,
+                    Bloqueado = tokenDto.Bloqueado,
+                    MapaId = mapaId,
+                    Metadados = tokenDto.Metadados ?? new Dictionary<string, string>(),
+                    DataCriacao = DateTime.UtcNow
+                };
+
+                // Adiciona o novo token mantendo os existentes
+                estado.Tokens.Add(newToken);
+
+                // Configurações de serialização
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    WriteIndented = false
+                };
+
+                // Atualiza e salva o estado
+                mapa.EstadoJson = JsonSerializer.Serialize(estado, options);
+                mapa.UltimaAtualizacao = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+                // Notifica outros clientes via SignalR
+                await _hubContext.Clients.Group(mesaId.ToString())
+                    .SendAsync("AddOrUpdateToken", newToken, mesaId);
+
+                return CreatedAtAction(
+                    nameof(GetToken),
+                    new { mesaId, mapaId, tokenId = newToken.Id },
+                    newToken
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao adicionar token");
+                return StatusCode(500, new { Message = "Erro interno ao adicionar token" });
+            }
+        }
+
+        [HttpGet("{mapaId}/token/{tokenId}")]
+        public async Task<ActionResult<TokenDto>> GetToken(int mesaId, int mapaId, string tokenId)
+        {
+            try
+            {
+                var mapa = await _context.Mapas
+                    .FirstOrDefaultAsync(m => m.MapaId == mapaId && m.MesaId == mesaId);
+
+                if (mapa == null)
+                    return NotFound("Mapa não encontrado");
+
+                var estado = string.IsNullOrEmpty(mapa.EstadoJson)
+                    ? new MapaEstadoDto()
+                    : JsonSerializer.Deserialize<MapaEstadoDto>(mapa.EstadoJson);
+
+                var token = estado.Tokens.FirstOrDefault(t => t.Id == tokenId);
+                if (token == null)
+                    return NotFound("Token não encontrado");
+
+                return Ok(token);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao buscar token");
+                return StatusCode(500, "Erro interno ao buscar token");
+            }
+        }
+
         [HttpGet("{mesaId}/mapas")]
         public async Task<ActionResult<List<MapaDto>>> GetTodosMapasPorMesa(int mesaId)
         {
@@ -260,362 +459,164 @@ namespace experience_trpg_backend.Controllers
         [HttpPut("{mesaId}/mapas/{mapaId}/config")]
         public async Task<IActionResult> SalvarConfigMapa(int mesaId, int mapaId, [FromBody] MapaConfigDto config,
     [FromHeader(Name = "X-SignalR-ConnectionId")] string? connectionId = null) // Tornar opcional
+        {
+            if (!ModelState.IsValid) // Adicione esta validação
             {
-                if (!ModelState.IsValid) // Adicione esta validação
-                {
-                    return BadRequest(ModelState);
-                }
-                var mapa = await _context.Mapas
-                .FirstOrDefaultAsync(m => m.MapaId == mapaId);
+                return BadRequest(ModelState);
+            }
+            var mapa = await _context.Mapas
+            .FirstOrDefaultAsync(m => m.MapaId == mapaId);
 
-                if (mapa == null)
-                    return NotFound($"Mapa com ID {mapaId} não encontrado");
+            if (mapa == null)
+                return NotFound($"Mapa com ID {mapaId} não encontrado");
 
-                // Valida se o mapa pertence à mesa
-                if (mapa.MesaId != mesaId)
-                {
-                    return BadRequest($"Mapa {mapaId} não pertence à mesa {mesaId}");
-                }
-
-                // Atualiza propriedades básicas
-                mapa.Nome = config.Nome;
-                mapa.Largura = config.Largura;   // Dimensões
-                mapa.Altura = config.Altura;     // Dimensões
-                mapa.TamanhoHex = config.TamanhoHex; // Tamanho do hexágono
-                mapa.UltimaAtualizacao = DateTime.UtcNow;
-
-                // Ajuste de visibilidade
-                if (config.Visivel)
-                {
-                    var outrosMapas = await _context.Mapas
-                        .Where(m => m.MapaId != mapaId && m.MesaId == mapa.MesaId)
-                        .ToListAsync();
-
-                    foreach (var outroMapa in outrosMapas)
-                    {
-                        outroMapa.Visivel = false;
-                    }
-                }
-                mapa.Visivel = config.Visivel;
-
-                try
-                {
-                    await _context.SaveChangesAsync();
-
-                    // Carregar imagem de fundo se necessário
-                    if (mapa.ImagemFundo.HasValue)
-                    {
-                        mapa.ImaFundo = await _context.Imagens
-                            .FirstOrDefaultAsync(i => i.ImagemId == mapa.ImagemFundo.Value);
-                    }
-
-                    var mapaDto = _mapper.Map<MapaDto>(mapa);
-
-                    // Envia para TODOS do grupo, EXCETO para o cliente que originou a ação
-                    await _hubContext.Clients.GroupExcept(mesaId.ToString(), new[] { connectionId })
-                        .SendAsync("ReceiveMapConfigUpdate", mapaId, mapaDto);
-
-                    return Ok(new { Message = "Configurações atualizadas" });
-                }
-                catch (DbUpdateException ex)
-                {
-                    return StatusCode(500, $"Erro ao salvar configurações: {ex.InnerException?.Message}");
-                }
+            // Valida se o mapa pertence à mesa
+            if (mapa.MesaId != mesaId)
+            {
+                return BadRequest($"Mapa {mapaId} não pertence à mesa {mesaId}");
             }
 
-            [HttpPut("{mesaId}/mapa/{mapaId}/visibilidade")]
-            public async Task<IActionResult> AtualizarVisibilidadeMapa(int mesaId, int mapaId, [FromBody] bool visivel)
+            // Atualiza propriedades básicas
+            mapa.Nome = config.Nome;
+            mapa.Largura = config.Largura;   // Dimensões
+            mapa.Altura = config.Altura;     // Dimensões
+            mapa.TamanhoHex = config.TamanhoHex; // Tamanho do hexágono
+            mapa.UltimaAtualizacao = DateTime.UtcNow;
+
+            // Ajuste de visibilidade
+            if (config.Visivel)
             {
-                // Primeiro desmarca todos os mapas como visíveis
-                if (visivel)
-                {
-                    var mapas = await _context.Mapas.Where(m => m.MesaId == mesaId).ToListAsync();
-                    foreach (var m in mapas)
-                    {
-                        m.Visivel = false;
-                    }
-                }
+                var outrosMapas = await _context.Mapas
+                    .Where(m => m.MapaId != mapaId && m.MesaId == mapa.MesaId)
+                    .ToListAsync();
 
-                var mapa = await _context.Mapas.FirstOrDefaultAsync(m => m.MapaId == mapaId && m.MesaId == mesaId);
-                if (mapa == null)
+                foreach (var outroMapa in outrosMapas)
                 {
-                    return NotFound();
+                    outroMapa.Visivel = false;
                 }
+            }
+            mapa.Visivel = config.Visivel;
 
-                mapa.Visivel = visivel;
+            try
+            {
                 await _context.SaveChangesAsync();
 
-                await _hubContext.Clients.Group(mesaId.ToString())
-                    .SendAsync("ReceiveCurrentMap", mapaId);
+                // Carregar imagem de fundo se necessário
+                if (mapa.ImagemFundo.HasValue)
+                {
+                    mapa.ImaFundo = await _context.Imagens
+                        .FirstOrDefaultAsync(i => i.ImagemId == mapa.ImagemFundo.Value);
+                }
 
-                return Ok();
+                var mapaDto = _mapper.Map<MapaDto>(mapa);
+
+                // Envia para TODOS do grupo, EXCETO para o cliente que originou a ação
+                await _hubContext.Clients.GroupExcept(mesaId.ToString(), new[] { connectionId })
+                    .SendAsync("ReceiveMapConfigUpdate", mapaId, mapaDto);
+
+                return Ok(new { Message = "Configurações atualizadas" });
             }
-
-            // GET: api/mapa/{mapaId}/background-image
-            [HttpGet("{mapaId}/background-image")]
-            public async Task<ActionResult<ImagemDto>> GetBackgroundImage(int mapaId)
+            catch (DbUpdateException ex)
             {
-                var mapa = await _context.Mapas
-                    .Include(m => m.ImaFundo)
-                    .FirstOrDefaultAsync(m => m.MapaId == mapaId);
-
-                if (mapa?.ImaFundo == null)
-                    return NotFound("Mapa não possui imagem de fundo vinculada");
-
-                return Ok(_mapper.Map<ImagemDto>(mapa.ImaFundo));
-            }
-
-            // POST: api/mapa/{mapaId}/background-image/{imagemId}
-            [HttpPost("{mapaId}/background-image/{imagemId}")]
-            public async Task<ActionResult<MapaDto>> SetBackgroundImage(int mapaId, int imagemId)
-            {
-                var mapa = await _context.Mapas
-                    .Include(m => m.ImaFundo)
-                    .FirstOrDefaultAsync(m => m.MapaId == mapaId);
-
-                if (mapa == null)
-                    return NotFound($"Mapa com ID {mapaId} não encontrado");
-
-                // Verifica se a imagem existe e pertence à mesma mesa do mapa
-                var imagem = await _context.Imagens
-                    .FirstOrDefaultAsync(i => i.ImagemId == imagemId && i.MesaId == mapa.MesaId);
-
-                if (imagem == null)
-                    return NotFound($"Imagem com ID {imagemId} não encontrada ou não pertence à mesa do mapa");
-
-                // Atualiza ambos os campos para manter consistência
-                mapa.ImagemFundo = imagemId;
-                mapa.ImaFundo = imagem;
-                mapa.UltimaAtualizacao = DateTime.UtcNow;
-
-                await _context.SaveChangesAsync();
-
-                var imagemDto = _mapper.Map<ImagemDto>(imagem);
-                await _hubContext.Clients.Group(mapa.MesaId.ToString())
-                    .SendAsync("ReceiveBackgroundImageUpdate", mapaId, imagemDto);
-                return Ok(_mapper.Map<MapaDto>(mapa));
-            }
-
-            // DELETE: api/mapa/{mapaId}/background-image
-            [HttpDelete("{mapaId}/background-image")]
-            public async Task<ActionResult<MapaDto>> RemoveBackgroundImage(int mapaId)
-            {
-                var mapa = await _context.Mapas
-                    .Include(m => m.ImaFundo)
-                    .FirstOrDefaultAsync(m => m.MapaId == mapaId);
-
-                if (mapa == null)
-                    return NotFound($"Mapa com ID {mapaId} não encontrado");
-
-                // Remove a referência tanto no ID quanto no objeto
-                mapa.ImagemFundo = null;
-                mapa.ImaFundo = null;
-                mapa.UltimaAtualizacao = DateTime.UtcNow;
-
-                await _context.SaveChangesAsync();
-
-                await _hubContext.Clients.Group(mapa.MesaId.ToString())
-                    .SendAsync("UpdateBackgroundImage", mapa.MesaId, mapaId, null);
-                return Ok(_mapper.Map<MapaDto>(mapa));
-            }
-
-            [HttpGet("{mesaId}/mapa/{mapaId}/tokens")]
-            public async Task<ActionResult<MapaEstadoDto>> GetTokensDoMapa(int mesaId, int mapaId)
-            {
-                try
-                {
-                    var mapa = await _context.Mapas
-                        .FirstOrDefaultAsync(m => m.MesaId == mesaId && m.MapaId == mapaId);
-
-                    if (mapa == null)
-                    {
-                        return NotFound("Mapa não encontrado");
-                    }
-
-                    // Se não houver estado, retorna um estado vazio
-                    if (string.IsNullOrEmpty(mapa.EstadoJson))
-                    {
-                        return Ok(new MapaEstadoDto
-                        {
-                            Tokens = new List<TokenDto>(),
-                            Camadas = new List<CamadaDto>(),
-                            Objetos = new List<ObjetoDeMapaDto>(),
-                            Configuracoes = new ConfiguracaoMapaDto()
-                        });
-                    }
-
-                    var estado = JsonSerializer.Deserialize<MapaEstadoDto>(mapa.EstadoJson);
-
-                    // Garante que as configurações não sejam nulas
-                    estado.Configuracoes ??= new ConfiguracaoMapaDto();
-
-                    // Filtra tokens e verifica URLs
-                    if (estado.Tokens != null)
-                    {
-                        estado.Tokens = estado.Tokens
-                            .Where(t => t.VisivelParaTodos &&
-                                       (t.ImagemDados.StartsWith("http") ||
-                                        t.ImagemDados.StartsWith("data:image")))
-                            .ToList();
-                    }
-
-                    return Ok(estado);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Erro ao buscar tokens do mapa");
-                    return StatusCode(500, new { Message = "Erro interno ao buscar tokens" });
-                }
-            }
-
-            [HttpPut("{mapaId}/token/{tokenId}")]
-            public async Task<IActionResult> UpdateToken(
-            int mesaId,
-            int mapaId,
-            string tokenId,
-            [FromBody] TokenUpdateDto update)
-            {
-                try
-                {
-                    var mapa = await _context.Mapas
-                        .FirstOrDefaultAsync(m => m.MapaId == mapaId && m.MesaId == mesaId);
-
-                    if (mapa == null)
-                        return NotFound("Mapa não encontrado");
-
-                    var estado = string.IsNullOrEmpty(mapa.EstadoJson)
-                        ? new MapaEstadoDto()
-                        : JsonSerializer.Deserialize<MapaEstadoDto>(mapa.EstadoJson);
-
-                    var token = estado.Tokens.FirstOrDefault(t => t.Id == tokenId);
-                    if (token == null)
-                        return NotFound("Token não encontrado");
-
-                    // Atualiza as propriedades do token
-                    if (update.X.HasValue) token.X = update.X.Value;
-                    if (update.Y.HasValue) token.Y = update.Y.Value;
-                    if (update.Z.HasValue) token.Z = update.Z.Value;
-                    if (update.VisivelParaTodos.HasValue) token.VisivelParaTodos = update.VisivelParaTodos.Value;
-                    if (update.Bloqueado.HasValue) token.Bloqueado = update.Bloqueado.Value;
-                    if (update.Metadados != null) token.Metadados = update.Metadados;
-
-                    token.DataAtualizacao = DateTime.UtcNow;
-
-                    // Salva no banco
-                    mapa.EstadoJson = JsonSerializer.Serialize(estado);
-                    mapa.UltimaAtualizacao = DateTime.UtcNow;
-                    await _context.SaveChangesAsync();
-
-                    // Notifica via SignalR
-                    await _hubContext.Clients.Group(mesaId.ToString())
-                        .SendAsync("ReceiveTokenUpdate", token);
-
-                    return Ok(token);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Erro ao atualizar token");
-                    return StatusCode(500, "Erro interno ao atualizar token");
-                }
-            }
-
-            [HttpPost("{mesaId}/mapa/{mapaId}/token")]
-            public async Task<ActionResult<TokenDto>> AddToken(
-        int mesaId,
-        int mapaId,
-        [FromBody] TokenCreateDto tokenDto)
-            {
-                try
-                {
-                    var mapa = await _context.Mapas
-                        .FirstOrDefaultAsync(m => m.MapaId == mapaId && m.MesaId == mesaId);
-
-                    if (mapa == null)
-                        return NotFound(new { Message = "Mapa não encontrado" });
-
-                    // Desserializa o estado atual ou cria novo se vazio
-                    var estado = string.IsNullOrEmpty(mapa.EstadoJson)
-                        ? new MapaEstadoDto()
-                        : JsonSerializer.Deserialize<MapaEstadoDto>(mapa.EstadoJson);
-
-                    // Garante que a lista de tokens existe
-                    estado.Tokens ??= new List<TokenDto>();
-
-                    // Cria o novo token
-                    var newToken = new TokenDto
-                    {
-                        Id = Guid.NewGuid().ToString(),
-                        Nome = tokenDto.Nome,
-                        X = tokenDto.X,
-                        Y = tokenDto.Y,
-                        Z = tokenDto.Z,
-                        ImagemDados = tokenDto.ImagemDados,
-                        DonoId = tokenDto.DonoId,
-                        VisivelParaTodos = tokenDto.VisivelParaTodos,
-                        Bloqueado = tokenDto.Bloqueado,
-                        MapaId = mapaId,
-                        Metadados = tokenDto.Metadados ?? new Dictionary<string, string>(),
-                        DataCriacao = DateTime.UtcNow
-                    };
-
-                    // Adiciona o novo token mantendo os existentes
-                    estado.Tokens.Add(newToken);
-
-                    // Configurações de serialização
-                    var options = new JsonSerializerOptions
-                    {
-                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                        WriteIndented = false
-                    };
-
-                    // Atualiza e salva o estado
-                    mapa.EstadoJson = JsonSerializer.Serialize(estado, options);
-                    mapa.UltimaAtualizacao = DateTime.UtcNow;
-                    await _context.SaveChangesAsync();
-
-                    // Notifica outros clientes via SignalR
-                    await _hubContext.Clients.Group(mesaId.ToString())
-                        .SendAsync("AddOrUpdateToken", newToken, mesaId);
-
-                    return CreatedAtAction(
-                        nameof(GetToken),
-                        new { mesaId, mapaId, tokenId = newToken.Id },
-                        newToken
-                    );
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Erro ao adicionar token");
-                    return StatusCode(500, new { Message = "Erro interno ao adicionar token" });
-                }
-            }
-
-            [HttpGet("{mapaId}/token/{tokenId}")]
-            public async Task<ActionResult<TokenDto>> GetToken(int mesaId, int mapaId, string tokenId)
-            {
-                try
-                {
-                    var mapa = await _context.Mapas
-                        .FirstOrDefaultAsync(m => m.MapaId == mapaId && m.MesaId == mesaId);
-
-                    if (mapa == null)
-                        return NotFound("Mapa não encontrado");
-
-                    var estado = string.IsNullOrEmpty(mapa.EstadoJson)
-                        ? new MapaEstadoDto()
-                        : JsonSerializer.Deserialize<MapaEstadoDto>(mapa.EstadoJson);
-
-                    var token = estado.Tokens.FirstOrDefault(t => t.Id == tokenId);
-                    if (token == null)
-                        return NotFound("Token não encontrado");
-
-                    return Ok(token);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Erro ao buscar token");
-                    return StatusCode(500, "Erro interno ao buscar token");
-                }
+                return StatusCode(500, $"Erro ao salvar configurações: {ex.InnerException?.Message}");
             }
         }
+
+        [HttpPut("{mesaId}/mapa/{mapaId}/visibilidade")]
+        public async Task<IActionResult> AtualizarVisibilidadeMapa(int mesaId, int mapaId, [FromBody] bool visivel)
+        {
+            // Primeiro desmarca todos os mapas como visíveis
+            if (visivel)
+            {
+                var mapas = await _context.Mapas.Where(m => m.MesaId == mesaId).ToListAsync();
+                foreach (var m in mapas)
+                {
+                    m.Visivel = false;
+                }
+            }
+
+            var mapa = await _context.Mapas.FirstOrDefaultAsync(m => m.MapaId == mapaId && m.MesaId == mesaId);
+            if (mapa == null)
+            {
+                return NotFound();
+            }
+
+            mapa.Visivel = visivel;
+            await _context.SaveChangesAsync();
+
+            await _hubContext.Clients.Group(mesaId.ToString())
+                .SendAsync("ReceiveCurrentMap", mapaId);
+
+            return Ok();
+        }
+
+        // GET: api/mapa/{mapaId}/background-image
+        [HttpGet("{mapaId}/background-image")]
+        public async Task<ActionResult<ImagemDto>> GetBackgroundImage(int mapaId)
+        {
+            var mapa = await _context.Mapas
+                .Include(m => m.ImaFundo)
+                .FirstOrDefaultAsync(m => m.MapaId == mapaId);
+
+            if (mapa?.ImaFundo == null)
+                return NotFound("Mapa não possui imagem de fundo vinculada");
+
+            return Ok(_mapper.Map<ImagemDto>(mapa.ImaFundo));
+        }
+
+        // POST: api/mapa/{mapaId}/background-image/{imagemId}
+        [HttpPost("{mapaId}/background-image/{imagemId}")]
+        public async Task<ActionResult<MapaDto>> SetBackgroundImage(int mapaId, int imagemId)
+        {
+            var mapa = await _context.Mapas
+                .Include(m => m.ImaFundo)
+                .FirstOrDefaultAsync(m => m.MapaId == mapaId);
+
+            if (mapa == null)
+                return NotFound($"Mapa com ID {mapaId} não encontrado");
+
+            // Verifica se a imagem existe e pertence à mesma mesa do mapa
+            var imagem = await _context.Imagens
+                .FirstOrDefaultAsync(i => i.ImagemId == imagemId && i.MesaId == mapa.MesaId);
+
+            if (imagem == null)
+                return NotFound($"Imagem com ID {imagemId} não encontrada ou não pertence à mesa do mapa");
+
+            // Atualiza ambos os campos para manter consistência
+            mapa.ImagemFundo = imagemId;
+            mapa.ImaFundo = imagem;
+            mapa.UltimaAtualizacao = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            var imagemDto = _mapper.Map<ImagemDto>(imagem);
+            await _hubContext.Clients.Group(mapa.MesaId.ToString())
+                .SendAsync("ReceiveBackgroundImageUpdate", mapaId, imagemDto);
+            return Ok(_mapper.Map<MapaDto>(mapa));
+        }
+
+        // DELETE: api/mapa/{mapaId}/background-image
+        [HttpDelete("{mapaId}/background-image")]
+        public async Task<ActionResult<MapaDto>> RemoveBackgroundImage(int mapaId)
+        {
+            var mapa = await _context.Mapas
+                .Include(m => m.ImaFundo)
+                .FirstOrDefaultAsync(m => m.MapaId == mapaId);
+
+            if (mapa == null)
+                return NotFound($"Mapa com ID {mapaId} não encontrado");
+
+            // Remove a referência tanto no ID quanto no objeto
+            mapa.ImagemFundo = null;
+            mapa.ImaFundo = null;
+            mapa.UltimaAtualizacao = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            await _hubContext.Clients.Group(mapa.MesaId.ToString())
+                .SendAsync("UpdateBackgroundImage", mapa.MesaId, mapaId, null);
+            return Ok(_mapper.Map<MapaDto>(mapa));
+        }
+
     }
+}
