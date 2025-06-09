@@ -5,6 +5,7 @@ namespace experience_trpg_backend.DTOs
 {
     public class MapaEstadoDto
     {
+        public int MapaId { get; set; }
         public List<TokenDto> Tokens { get; set; } = new List<TokenDto>();
         public List<CamadaDto> Camadas { get; set; } = new List<CamadaDto>();
         public List<ObjetoDeMapaDto> Objetos { get; set; } = new List<ObjetoDeMapaDto>();

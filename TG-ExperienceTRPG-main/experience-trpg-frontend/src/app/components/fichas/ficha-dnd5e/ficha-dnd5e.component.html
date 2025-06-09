@@ -1,0 +1,1631 @@
+<div class="container bg-dark text-light p-4">
+  <div class="row">
+    <div class="col-md-2 pe-3 position-relative">
+      @if (selectedImage) {
+      <div class="position-relative">
+        <!-- Usa imageUrl diretamente -->
+        <img [src]="selectedImage.imageUrl || ('data:image/' + selectedImage.extensao + ';base64,' + selectedImage.dados)"
+          alt="Imagem do Personagem" class="img-fluid rounded"
+          style="width: 100%; height: auto; max-height: 200px; object-fit: cover;" />
+        <button class="btn btn-sm btn-danger position-absolute top-0 start-0 m-1" (click)="removerImagem()"
+          title="Remover imagem">
+          <i class="bi bi-x"></i>
+        </button>
+      </div>
+      } @else {
+      <button class="btn btn-primary w-100 h-100 d-flex flex-column align-items-center justify-content-center"
+        (click)="showImageSelector = true; carregarImagensDaMesa()" style="min-height: 150px;">
+        <i class="bi bi-image fs-4"></i>
+        <span>Selecionar Imagem</span>
+      </button>
+      }
+
+      <!-- Seletor de Imagens -->
+      @if (showImageSelector) {
+      <div class="image-selector-overlay" (click)="showImageSelector = false">
+        <div class="image-selector-container" (click)="$event.stopPropagation()">
+          <div class="image-selector-header">
+            <h5>Selecione uma Imagem</h5>
+            <button class="btn-close" (click)="showImageSelector = false"></button>
+          </div>
+          <div class="image-selector-grid">
+            @for (image of mesaImages; track image.imagemId) {
+            <div class="image-selector-item" (click)="selecionarImagem(image)">
+              <!-- Usa imageUrl diretamente com fallback para base64 -->
+              <img [src]="image.imageUrl || ('data:image/' + image.extensao + ';base64,' + image.dados)" [alt]="image.nome"
+                class="img-thumbnail" />
+              <div class="image-name">{{ image.nome }}</div>
+            </div>
+            }
+          </div>
+        </div>
+      </div>
+      }
+    </div>
+
+    <!-- Coluna dos Campos -->
+    <div class="col-md-10">
+
+      <!-- Nome, Nível e Experiência -->
+      <div class="mb-3 row align-items-center">
+        <div class="col-md-6">
+          <label for="nome-personagem" class="form-label">Nome:</label>
+          <input type="text" id="nome-personagem" [(ngModel)]="nome" (blur)="updateFichaNome()"
+            (keydown.enter)="updateFichaNome()" class="form-control bg-dark text-light form-control-sm"
+            placeholder="Nome do Personagem" />
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Nível:</label>
+          <input type="text" id="nivel" class="form-control bg-dark text-light form-control-sm" [value]="totalNiveis()"
+            readonly />
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Experiência:</label>
+          <input type="text" id="experiencia" [(ngModel)]="experiencia" (blur)="atualizarExperiencia()"
+            class="form-control bg-dark text-light form-control-sm" placeholder="Experiência" />
+        </div>
+      </div>
+
+      <!-- Raça, Antecedente e Tendência -->
+      <div class="mb-3 row align-items-center">
+        <div class="col-md-3">
+          <label for="raca" class="form-label">Raça:</label>
+          <input type="text" id="raca" [(ngModel)]="raca" (blur)="atualizarRaca()" (keydown.enter)="atualizarRaca()"
+            class="form-control bg-dark text-light form-control-sm" placeholder="Raça" />
+        </div>
+
+        <div class="col-md-3">
+          <label for="antecedente" class="form-label">Antecedente:</label>
+          <input type="text" id="antecedente" [(ngModel)]="antecedente" (blur)="atualizarAntecedente()"
+            (keydown.enter)="atualizarAntecedente()" class="form-control bg-dark text-light form-control-sm"
+            placeholder="Antecedente" />
+        </div>
+
+        <div class="col-md-3">
+          <label for="tendencia" class="form-label">Tendência:</label>
+          <select id="tendencia" [(ngModel)]="tendencia" (blur)="atualizarTendencia()"
+            class="form-select bg-dark text-light form-control-sm">
+            <option value=""> </option>
+            <option *ngFor="let tendencia of todasTendencias" [value]="tendencia">
+              {{ tendencia }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Botão para Expandir/Colapsar Classes -->
+        <div class="col-md-3 d-flex align-items-stretch">
+          <button class="btn btn-outline-light mt-2 flex-grow-1" type="button" data-bs-toggle="collapse"
+            data-bs-target="#classesAccordion" aria-expanded="false" aria-controls="classesAccordion">
+            Classes
+          </button>
+        </div>
+      </div>
+
+      <!-- Classes -->
+      <div class="collapse" id="classesAccordion">
+        <div class="mb-3 row align-items-center">
+          <div class="col-md-4">
+            <label class="form-label">1ª Classe:</label>
+            <select [(ngModel)]="classe1" class="form-select bg-dark text-light form-control-sm"
+              (change)="onClassSelected()" (ngModelChange)="atualizarClasse1()">
+              <option value=""> </option>
+              <option *ngFor="let classe of todasClasses" [value]="classe" [disabled]="isClassDisabled(classe, 0)">
+                {{ classe }}
+              </option>
+            </select>
+            Nv:
+            <input type="number" [(ngModel)]="nvClasse1" (ngModelChange)="atualizarNvClasse1()"
+              class="form-control bg-dark text-light form-control-sm" min="0" />
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">2ª Classe:</label>
+            <select [(ngModel)]="classe2" class="form-select bg-dark text-light form-control-sm"
+              (change)="onClassSelected()" (ngModelChange)="atualizarClasse2()">
+              <option value=""> </option>
+              <option *ngFor="let classe of todasClasses" [value]="classe" [disabled]="isClassDisabled(classe, 1)">
+                {{ classe }}
+              </option>
+            </select>
+            Nv:
+            <input type="number" [(ngModel)]="nvClasse2" (ngModelChange)="atualizarNvClasse2()"
+              class="form-control bg-dark text-light form-control-sm" min="0" />
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">3ª Classe:</label>
+            <select [(ngModel)]="classe3" class="form-select bg-dark text-light form-control-sm"
+              (change)="onClassSelected()" (ngModelChange)="atualizarClasse3()">
+              <option value=""> </option>
+              <option *ngFor="let classe of todasClasses" [value]="classe" [disabled]="isClassDisabled(classe, 2)">
+                {{ classe }}
+              </option>
+            </select>
+            Nv:
+            <input type="number" [(ngModel)]="nvClasse3" (ngModelChange)="atualizarNvClasse3()"
+              class="form-control bg-dark text-light form-control-sm" min="0" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="container bg-dark text-light p-8">
+  <div class="row">
+    <!-- Abas de Navegação -->
+    <ul class="nav nav-tabs mb-4 d-flex">
+      <li class="nav-item flex-fill">
+        <button class="nav-link w-100" [class.active]="activeTab === 'ficha'"
+          (click)="setActiveTab('ficha')">Ficha</button>
+      </li>
+      <li class="nav-item flex-fill">
+        <button class="nav-link w-100" [class.active]="activeTab === 'inventario'"
+          (click)="setActiveTab('inventario')">Inventário</button>
+      </li>
+      <li class="nav-item flex-fill">
+        <button class="nav-link w-100" [class.active]="activeTab === 'magias'"
+          (click)="setActiveTab('magias')">Magias</button>
+      </li>
+      <li class="nav-item flex-fill">
+        <button class="nav-link w-100" [class.active]="activeTab === 'configuracoes'"
+          (click)="setActiveTab('configuracoes')">Configurações</button>
+      </li>
+    </ul>
+  </div>
+
+  <div class="tab-content">
+    <div class="tab-pane fade" [class.show]="activeTab === 'ficha'" [class.active]="activeTab === 'ficha'">
+      <div class="container">
+        <div class="row g-1">
+          <div class="col-md-9"> <!-- Atributos ocupando 9 colunas -->
+            <div class="card bg-dark text-light mb-1">
+              <div class="card-body d-flex flex-row justify-content-between">
+                <!-- Força -->
+                <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                  <h5>For</h5>
+                  <span class="badge bg-secondary atributo-badge" style="width: 40px;">{{ forModifier >= 0 ? '+' : ''
+                    }}{{ forModifier }}</span>
+                  <input type="number" (input)="setForValue($event)" [(ngModel)]="forValue" (blur)="atualizarForca()"
+                    (keydown.enter)="atualizarForca()"
+                    class="form-control bg-dark text-light text-center form-control-sm" placeholder="Total"
+                    style="appearance: none; -moz-appearance: textfield; width: 40px;" />
+                </div>
+                <!-- Destreza -->
+                <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                  <h5>Des</h5>
+                  <span class="badge bg-secondary atributo-badge" style="width: 40px;">{{ desModifier >= 0 ? '+' : ''
+                    }}{{ desModifier }}</span>
+                  <input type="number" (input)="setDesValue($event)" [(ngModel)]="desValue" (blur)="atualizarDestreza()"
+                    (keydown.enter)="atualizarDestreza()"
+                    class="form-control bg-dark text-light text-center form-control-sm" placeholder="Total"
+                    style="appearance: none; -moz-appearance: textfield; width: 40px;" />
+                </div>
+                <!-- Constituição -->
+                <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                  <h5>Con</h5>
+                  <span class="badge bg-secondary atributo-badge" style="width: 40px;">{{ conModifier >= 0 ? '+' : ''
+                    }}{{ conModifier }}</span>
+                  <input type="number" (input)="setConValue($event)" [(ngModel)]="conValue"
+                    (blur)="atualizarConstituicao()" (keydown.enter)="atualizarConstituicao()"
+                    class="form-control bg-dark text-light text-center form-control-sm" placeholder="Total"
+                    style="appearance: none; -moz-appearance: textfield; width: 40px;" />
+                </div>
+                <!-- Inteligência -->
+                <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                  <h5>Int</h5>
+                  <span class="badge bg-secondary atributo-badge" style="width: 40px;">{{ intModifier >= 0 ? '+' : ''
+                    }}{{ intModifier }}</span>
+                  <input type="number" (input)="setIntValue($event)" [(ngModel)]="intValue"
+                    (blur)="atualizarInteligencia()" (keydown.enter)="atualizarInteligencia()"
+                    class="form-control bg-dark text-light text-center form-control-sm" placeholder="Total"
+                    style="appearance: none; -moz-appearance: textfield; width: 40px;" />
+                </div>
+                <!-- Sabedoria -->
+                <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                  <h5>Sab</h5>
+                  <span class="badge bg-secondary atributo-badge" style="width: 40px;">{{ sabModifier >= 0 ? '+' : ''
+                    }}{{ sabModifier }}</span>
+                  <input type="number" (input)="setSabValue($event)" [(ngModel)]="sabValue"
+                    (blur)="atualizarSabedoria()" (keydown.enter)="atualizarSabedoria()"
+                    class="form-control bg-dark text-light text-center form-control-sm" placeholder="Total"
+                    style="appearance: none; -moz-appearance: textfield; width: 40px;" />
+                </div>
+                <!-- Carisma -->
+                <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                  <h5>Car</h5>
+                  <span class="badge bg-secondary atributo-badge" style="width: 40px;">{{ carModifier >= 0 ? '+' : ''
+                    }}{{ carModifier }}</span>
+                  <input type="number" (input)="setCarValue($event)" [(ngModel)]="carValue" (blur)="atualizarCarisma()"
+                    (keydown.enter)="atualizarCarisma()"
+                    class="form-control bg-dark text-light text-center form-control-sm" placeholder="Total"
+                    style="appearance: none; -moz-appearance: textfield; width: 40px;" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-md-3 d-flex align-items-stretch"> <!-- Bônus de Proficiência ocupando 3 colunas -->
+            <div class="card bg-dark text-light mb-1 flex-grow-1">
+              <div class="card-body d-flex flex-row align-items-center justify-content-center">
+                <h3>BP:</h3>
+                <span class="badge bg-secondary bp-badge" style="width: 60px;">{{ Proficiencia() >= 0 ? '+' : ''
+                  }}{{ Proficiencia() }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row g-1">
+          <div class="col-md-4">
+            <div class="card bg-dark text-light mb-1">
+              <div class="card-body d-flex flex-row align-items-center justify-content-center">
+                <h5>CA:</h5>
+                <span class="badge bg-secondary cainit-badge" style="width: 40px; align-content: center;">{{ ca
+                  }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="card bg-dark text-light mb-1">
+              <div class="card-body d-flex flex-row align-items-center justify-content-center">
+                <h5>Iniciativa:</h5>
+                <span class="badge bg-secondary cainit-badge" style="width: 40px; align-content: center;">{{ iniciativa
+                  }}</span>
+              </div>
+            </div>
+          </div>
+          <!-- Botão para Expandir/Colapsar Deslocamentos -->
+          <div class="col-md-4 d-flex">
+            <button class="btn btn-outline-light mt-1 mb-2 flex flex-fill" type="button" data-bs-toggle="collapse"
+              data-bs-target="#deslocamentosAccordion" aria-expanded="false" aria-controls="deslocamentosAccordion">
+              Deslocamentos
+            </button>
+          </div>
+        </div>
+
+        <!-- Deslocamentos -->
+        <div class="collapse" id="deslocamentosAccordion">
+          <div class="mb-1 row align-items-center">
+            <div class="col-md-4">
+              <div class="card bg-dark text-light mb-1">
+                <div class="card-body d-flex flex-row align-items-center justify-content-center">
+                  <h5>Caminhada:</h5>
+                  <input type="number" [(ngModel)]="deslocamentoCaminhada" (blur)="atualizarDeslocamentoCaminhada()"
+                    (keydown.enter)="atualizarDeslocamentoCaminhada()"
+                    class="form-control bg-dark text-light text-center form-control-sm"
+                    style="appearance: none; -moz-appearance: textfield; width: 60px;" min="0" step="1.5" />
+                  <h5>m</h5>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="card bg-dark text-light mb-1">
+                <div class="card-body d-flex flex-row align-items-center justify-content-center">
+                  <h5>Escalada:</h5>
+                  <input type="number" [(ngModel)]="deslocamentoEscalada" (blur)="atualizarDeslocamentoEscalada()"
+                    (keydown.enter)="atualizarDeslocamentoEscalada()"
+                    class="form-control bg-dark text-light text-center form-control-sm"
+                    style="appearance: none; -moz-appearance: textfield; width: 60px;" min="0" step="1.5" />
+                  <h5>m</h5>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="card bg-dark text-light mb-1">
+                <div class="card-body d-flex flex-row align-items-center justify-content-center">
+                  <h5>Natação:</h5>
+                  <input type="number" [(ngModel)]="deslocamentoAgua" (blur)="atualizarDeslocamentoAgua()"
+                    (keydown.enter)="atualizarDeslocamentoAgua()"
+                    class="form-control bg-dark text-light text-center form-control-sm"
+                    style="appearance: none; -moz-appearance: textfield; width: 60px;" min="0" step="1.5" />
+                  <h5>m</h5>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="mb-1 row align-items-center">
+            <div class="col-md-6">
+              <div class="card bg-dark text-light mb-1">
+                <div class="card-body d-flex flex-row align-items-center justify-content-center">
+                  <h5>Voo:</h5>
+                  <input type="number" [(ngModel)]="deslocamentoVoo" (blur)="atualizarDeslocamentoVoo()"
+                    (keydown.enter)="atualizarDeslocamentoVoo()"
+                    class="form-control bg-dark text-light text-center form-control-sm"
+                    style="appearance: none; -moz-appearance: textfield; width: 60px;" min="0" step="1.5" />
+                  <h5>m</h5>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="card bg-dark text-light mb-1">
+                <div class="card-body d-flex flex-row align-items-center justify-content-center">
+                  <h5>Escavação:</h5>
+                  <input type="number" [(ngModel)]="deslocamentoEscavacao" (blur)="atualizarDeslocamentoEscavacao()"
+                    (keydown.enter)="atualizarDeslocamentoEscavacao()"
+                    class="form-control bg-dark text-light text-center form-control-sm"
+                    style="appearance: none; -moz-appearance: textfield; width: 60px;" min="0" step="1.5" />
+                  <h5>m</h5>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-1">
+          <div class="col-md-6">
+            <div class="card bg-dark text-light mb-1">
+              <div class="card-body d-flex flex-row align-items-center justify-content-center">
+                <h5>Pontos de Vida:</h5>
+                <input type="number" (input)="setHpValue($event)" [(ngModel)]="hpValue"
+                  (blur)="atualizarPontosVidaAtual()" (keydown.enter)="atualizarPontosVidaAtual()"
+                  class="form-control bg-dark text-light text-center form-control-sm" placeholder="Total"
+                  style="appearance: none; -moz-appearance: textfield; width: 80px;" />
+                <h5>/</h5>
+                <input type="number" (input)="setHpMaxValue($event)" [(ngModel)]="hpMaxValue"
+                  (blur)="atualizarPontosVidaMaxima()" (keydown.enter)="atualizarPontosVidaMaxima()"
+                  class="form-control bg-dark text-light text-center form-control-sm" placeholder="Total"
+                  style="appearance: none; -moz-appearance: textfield; width: 80px;" />
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card bg-dark text-light mb-1">
+              <div class="card-body d-flex flex-row align-items-center justify-content-center">
+                <h5>Pontos de Vida Temporária:</h5>
+                <input type="number" (input)="setHpTempValue($event)" [(ngModel)]="hpTempValue"
+                  (blur)="atualizarPontosVidaTemporarios()" (keydown.enter)="atualizarPontosVidaTemporarios()"
+                  class="form-control bg-dark text-light text-center form-control-sm" placeholder="Total"
+                  style="appearance: none; -moz-appearance: textfield; width: 80px;" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-1"> <!-- Nova linha para Testes de Resistência -->
+          <div class="col-md-3"> <!-- Ocupa 3 colunas -->
+            <div class="card bg-dark text-light mb-1">
+              <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                <h6><small><strong>Testes de Resistência</strong></small></h6>
+                <div class="col-md-12" style="display: flex; flex-direction: column; gap: 10px;">
+                  <div style="display: flex; align-items: center;">
+                    <input type="checkbox" [(ngModel)]="forResistenciaCheckbox" (change)="updateForResistencia($event)"
+                      (ngModelChange)="atualizarResistencia_Forca()" class="form-check-input">
+                    <span class="badge bg-secondary modifier-badge" style="width: 30px;"><small>{{ forResistencia >= 0 ?
+                        '+' :
+                        '' }}{{ forResistencia }}</small></span>
+                    <h6 style="margin-left: 5px;"><small>Força</small></h6>
+                  </div>
+                  <div style="display: flex; align-items: center;">
+                    <input type="checkbox" [(ngModel)]="desResistenciaCheckbox" (change)="updateDesResistencia($event)"
+                      (ngModelChange)="atualizarResistencia_Destreza()" class="form-check-input">
+                    <span class="badge bg-secondary modifier-badge" style="width: 30px;"><small>{{ desResistencia >= 0 ?
+                        '+' :
+                        '' }}{{ desResistencia }}</small></span>
+                    <h6 style="margin-left: 5px;"><small>Destreza</small></h6>
+                  </div>
+                  <div style="display: flex; align-items: center;">
+                    <input type="checkbox" [(ngModel)]="conResistenciaCheckbox" (change)="updateConResistencia($event)"
+                      (ngModelChange)="atualizarResistencia_Constituicao()" class="form-check-input">
+                    <span class="badge bg-secondary modifier-badge" style="width: 30px;"><small>{{ conResistencia >= 0 ?
+                        '+' :
+                        '' }}{{ conResistencia }}</small></span>
+                    <h6 style="margin-left: 5px;"><small>Constituição</small></h6>
+                  </div>
+                  <div style="display: flex; align-items: center;">
+                    <input type="checkbox" [(ngModel)]="intResistenciaCheckbox" (change)="updateIntResistencia($event)"
+                      (ngModelChange)="atualizarResistencia_Inteligencia()" class="form-check-input">
+                    <span class="badge bg-secondary modifier-badge" style="width: 30px;"><small>{{ intResistencia >= 0 ?
+                        '+' :
+                        '' }}{{ intResistencia }}</small></span>
+                    <h6 style="margin-left: 5px;"><small>Inteligência</small></h6>
+                  </div>
+                  <div style="display: flex; align-items: center;">
+                    <input type="checkbox" [(ngModel)]="sabResistenciaCheckbox" (change)="updateSabResistencia($event)"
+                      (ngModelChange)="atualizarResistencia_Sabedoria()" class="form-check-input">
+                    <span class="badge bg-secondary modifier-badge" style="width: 30px;"><small>{{ sabResistencia >= 0 ?
+                        '+' :
+                        '' }}{{ sabResistencia }}</small></span>
+                    <h6 style="margin-left: 5px;"><small>Sabedoria</small></h6>
+                  </div>
+                  <div style="display: flex; align-items: center;">
+                    <input type="checkbox" [(ngModel)]="carResistenciaCheckbox" (change)="updateCarResistencia($event)"
+                      (ngModelChange)="atualizarResistencia_Carisma()" class="form-check-input">
+                    <span class="badge bg-secondary modifier-badge" style="width: 30px;"><small>{{ carResistencia >= 0 ?
+                        '+' :
+                        '' }}{{ carResistencia }}</small></span>
+                    <h6 style="margin-left: 5px;"><small>Carisma</small></h6>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bloco para o título "Perícias" -->
+          <div class="col-md-9">
+            <div class="card bg-dark text-light mb-1">
+              <div class="card-body d-flex flex-column align-items-center justify-content-center text-center"
+                style="height: 65px;">
+                <h5><strong>Perícias</strong></h5>
+              </div>
+              <div class="row">
+                <div class="col-md-4">
+                  <div class="card bg-dark text-light mb-1 border-0">
+                    <div class="card-body d-flex flex-column align-items-center justify-content-center">
+
+                      <!-- Coluna 1 -->
+                      <table class="table table-borderless bg-dark text-light">
+                        <tbody>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="acrobaciaCheckbox"
+                                (change)="updateAcrobacia($event)" (ngModelChange)="atualizarAcrobacia()"></td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ acrobaciaModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  acrobaciaModifier
+                                  }}</small></span></td>
+                            <td style="padding: 1px;"><small>Acrobacia</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="adestrarAnimaisCheckbox"
+                                (change)="updateAdestrarAnimais($event)" (ngModelChange)="atualizarAdestrar_Animais()">
+                            </td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ adestrarAnimaisModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  adestrarAnimaisModifier
+                                  }}</small></span>
+                            </td>
+                            <td style="padding: 1px;"><small>Adest. Animais</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="arcanismoCheckbox"
+                                (change)="updateArcanismo($event)" (ngModelChange)="atualizarArcanismo()"></td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ arcanismoModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  arcanismoModifier
+                                  }}</small></span></td>
+                            <td style="padding: 1px;"><small>Arcanismo</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="atletismoCheckbox"
+                                (change)="updateAtletismo($event)" (ngModelChange)="atualizarAtletismo()"></td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ atletismoModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  atletismoModifier
+                                  }}</small></span></td>
+                            <td style="padding: 1px;"><small>Atletismo</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="enganacaoCheckbox"
+                                (change)="updateEnganacao($event)" (ngModelChange)="atualizarEnganacao()"></td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ enganacaoModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  enganacaoModifier
+                                  }}</small></span></td>
+                            <td style="padding: 1px;"><small>Enganação</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="furtividadeCheckbox"
+                                (change)="updateFurtividade($event)" (ngModelChange)="atualizarFurtividade()">
+                            </td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ furtividadeModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  furtividadeModifier
+                                  }}</small></span></td>
+                            <td style="padding: 1px;"><small>Furtividade</small></td>
+                          </tr>
+                        </tbody>
+                      </table>
+
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Coluna 2 -->
+                <div class="col-md-4">
+                  <div class="card bg-dark text-light mb-1 border-0">
+                    <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                      <table class="table table-borderless text-light">
+                        <tbody>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="historiaCheckbox"
+                                (change)="updateHistoria($event)" (ngModelChange)="atualizarHistoria()"></td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ historiaModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  historiaModifier }}</small></span>
+                            </td>
+                            <td style="padding: 1px;"><small>História</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="intimidacaoCheckbox"
+                                (change)="updateIntimidacao($event)" (ngModelChange)="atualizarIntimidacao()">
+                            </td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ intimidacaoModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  intimidacaoModifier
+                                  }}</small></span></td>
+                            <td style="padding: 1px;"><small>Intimidação</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="intuicaoCheckbox"
+                                (change)="updateIntuicao($event)" (ngModelChange)="atualizarIntuicao()"></td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ intuicaoModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  intuicaoModifier }}</small></span>
+                            </td>
+                            <td style="padding: 1px;"><small>Intuição</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="investigacaoCheckbox"
+                                (change)="updateInvestigacao($event)" (ngModelChange)="atualizarInvestigacao()">
+                            </td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ investigacaoModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  investigacaoModifier
+                                  }}</small></span></td>
+                            <td style="padding: 1px;"><small>Investigação</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="medicinaCheckbox"
+                                (change)="updateMedicina($event)" (ngModelChange)="atualizarMedicina()"></td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ medicinaModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  medicinaModifier }}</small></span>
+                            </td>
+                            <td style="padding: 1px;"><small>Medicina</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="naturezaCheckbox"
+                                (change)="updateNatureza($event)" (ngModelChange)="atualizarNatureza()"></td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ naturezaModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  naturezaModifier }}</small></span>
+                            </td>
+                            <td style="padding: 1px;"><small>Natureza</small></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                </div>
+
+                <!-- Coluna 3 -->
+                <div class="col-md-4">
+                  <div class="card bg-dark text-light mb-1 border-0">
+                    <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                      <table class="table table-borderless text-light">
+                        <tbody>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="percepcaoCheckbox"
+                                (change)="updatePercepcao($event)" (ngModelChange)="atualizarPercepcao()"></td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ percepcaoModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  percepcaoModifier
+                                  }}</small></span></td>
+                            <td style="padding: 1px;"><small>Percepção</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="performanceCheckbox"
+                                (change)="updatePerformance($event)" (ngModelChange)="atualizarPerformance()">
+                            </td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ performanceModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  performanceModifier
+                                  }}</small></span></td>
+                            <td style="padding: 1px;"><small>Performance</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="persuasaoCheckbox"
+                                (change)="updatePersuasao($event)" (ngModelChange)="atualizarPersuasao()"></td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ persuasaoModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  persuasaoModifier
+                                  }}</small></span></td>
+                            <td style="padding: 1px;"><small>Persuasão</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="prestidigitacaoCheckbox"
+                                (change)="updatePrestidigitacao($event)" (ngModelChange)="atualizarPrestidigitacao()">
+                            </td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ prestidigitacaoModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  prestidigitacaoModifier
+                                  }}</small></span></td>
+                            <td style="padding: 1px;"><small>Prestidigitação</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="religiaoCheckbox"
+                                (change)="updateReligiao($event)" (ngModelChange)="atualizarReligiao()"></td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ religiaoModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  religiaoModifier }}</small></span>
+                            </td>
+                            <td style="padding: 1px;"><small>Religião</small></td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="sobrevivenciaCheckbox"
+                                (change)="updateSobrevivencia($event)" (ngModelChange)="atualizarSobrevivencia()">
+                            </td>
+                            <td style="padding: 1px;"><span class="badge bg-secondary modifier-badge"
+                                style="width: 30px;"><small>{{ sobrevivenciaModifier >= 0 ?
+                                  '+' : '' }}{{
+                                  sobrevivenciaModifier
+                                  }}</small></span></td>
+                            <td style="padding: 1px;"><small>Sobrevivência</small></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row g-1">
+          <div class="col-md-4"> <!-- Atributos ocupando 4 colunas -->
+            <div class="card bg-dark text-light mb-1">
+              <div class="card-body d-flex flex-row justify-content-between">
+                <h6>Intuição Passiva:</h6>
+                <span class="badge bg-secondary modifier-badge" style="width: 40px; align-content: center;">{{ 10 +
+                  intuicaoModifier }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4"> <!-- Atributos ocupando 9 colunas -->
+            <div class="card bg-dark text-light mb-1">
+              <div class="card-body d-flex flex-row justify-content-between">
+                <h6>Investigação Passiva:</h6>
+                <span class="badge bg-secondary modifier-badge" style="width: 40px; align-content: center;">{{ 10 +
+                  investigacaoModifier }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4"> <!-- Atributos ocupando 9 colunas -->
+            <div class="card bg-dark text-light mb-1">
+              <div class="card-body d-flex flex-row justify-content-between">
+                <h6>Percepção Passiva:</h6>
+                <span class="badge bg-secondary modifier-badge" style="width: 40px; align-content: center;">{{ 10 +
+                  percepcaoModifier }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-2"></div> <!-- Coluna vazia à esquerda -->
+          <div class="col-md-8 d-flex justify-content-center"> <!-- Coluna central -->
+            <button class="btn btn-outline-light mt-1 mb-2 flex-fill" type="button" data-bs-toggle="collapse"
+              data-bs-target="#caracteristicasAccordion" aria-expanded="false" aria-controls="caracteristicasAccordion">
+              Características
+            </button>
+          </div>
+          <div class="col-md-2"></div> <!-- Coluna vazia à direita -->
+        </div>
+
+        <!-- Deslocamentos -->
+        <div class="collapse" id="caracteristicasAccordion">
+          <div class="mb-1 row align-items-center">
+            <div class="col-md-6">
+              <div class="card bg-dark text-light mb-1">
+                <div class="card-body flex-row align-items-center justify-content-center">
+                  <h5>Personalidade:</h5>
+                  <textarea class="form-control bg-dark text-light" rows="4" [(ngModel)]="personalidade"
+                    (blur)="atualizarPersonalidade()"></textarea>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="card bg-dark text-light mb-1">
+                <div class="card-body flex-row align-items-center justify-content-center">
+                  <h5>Ideais:</h5>
+                  <textarea class="form-control bg-dark text-light" rows="4" [(ngModel)]="ideais"
+                    (blur)="atualizarIdeais()"></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="mb-1 row align-items-center">
+            <div class="col-md-6">
+              <div class="card bg-dark text-light mb-1">
+                <div class="card-body flex-row align-items-center justify-content-center">
+                  <h5>Vínculos:</h5>
+                  <textarea class="form-control bg-dark text-light" rows="4" [(ngModel)]="vinculos"
+                    (blur)="atualizarVinculos()"></textarea>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="card bg-dark text-light mb-1">
+                <div class="card-body flex-row align-items-center justify-content-center">
+                  <h5>Defeitos:</h5>
+                  <textarea class="form-control bg-dark text-light" rows="4" [(ngModel)]="defeitos"
+                    (blur)="atualizarDefeitos()"></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="mb-1 row align-items-center">
+            <div class="col-md-3">
+              <div class="card bg-dark text-light mb-1">
+                <div class="card-body flex-row align-items-center justify-content-center">
+                  <h5>Tipo:</h5>
+                  <select [(ngModel)]="tipo" class="form-select bg-dark text-light form-control-sm"
+                    (change)="onTipoSelected()" [(ngModel)]="tipo" (ngModelChange)="atualizarTipo()">
+                    <option value=""> </option>
+                    <option *ngFor="let tipo of todosTipos" [value]="tipo">
+                      {{ tipo }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="card bg-dark text-light mb-1">
+                <div class="card-body flex-row align-items-center justify-content-center">
+                  <h5>Tamanho:</h5>
+                  <select [(ngModel)]="tamanho" class="form-select bg-dark text-light form-control-sm"
+                    (change)="onTamanhoSelected()" [(ngModel)]="tamanho" (ngModelChange)="atualizarTamanho()">
+                    <option value=""> </option>
+                    <option *ngFor="let tamanho of todosTamanhos" [value]="tamanho">
+                      {{ tamanho }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="card bg-dark text-light mb-1">
+                <div class="card-body flex-row align-items-center justify-content-center">
+                  <h5>Altura:</h5>
+                  <input type="text" [(ngModel)]="altura" (blur)="atualizarAltura()" (keydown.enter)="atualizarAltura()"
+                    class="form-control bg-dark text-light form-control-sm" />
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="card bg-dark text-light mb-1">
+                <div class="card-body flex-row align-items-center justify-content-center">
+                  <h5>Peso:</h5>
+                  <input type="text" [(ngModel)]="peso" (blur)="atualizarPeso()" (keydown.enter)="atualizarPeso()"
+                    class="form-control bg-dark text-light form-control-sm" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="mb-1 row align-items-center">
+            <div class="col-md-3">
+              <div class="card bg-dark text-light mb-1">
+                <div class="card-body flex-row align-items-center justify-content-center">
+                  <h5>Idade:</h5>
+                  <input type="text" [(ngModel)]="idade" (blur)="atualizarIdade()" (keydown.enter)="atualizarIdade()"
+                    class="form-control bg-dark text-light form-control-sm" />
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="card bg-dark text-light mb-1">
+                <div class="card-body flex-row align-items-center justify-content-center">
+                  <h5>Pele:</h5>
+                  <input type="text" [(ngModel)]="pele" (blur)="atualizarPele()" (keydown.enter)="atualizarPele()"
+                    class="form-control bg-dark text-light form-control-sm" />
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="card bg-dark text-light mb-1">
+                <div class="card-body flex-row align-items-center justify-content-center">
+                  <h5>Olhos:</h5>
+                  <input type="text" [(ngModel)]="olhos" (blur)="atualizarOlhos()" (keydown.enter)="atualizarOlhos()"
+                    class="form-control bg-dark text-light form-control-sm" />
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="card bg-dark text-light mb-1">
+                <div class="card-body flex-row align-items-center justify-content-center">
+                  <h5>Cabelo:</h5>
+                  <input type="text" [(ngModel)]="cabelo" (blur)="atualizarCabelo()" (keydown.enter)="atualizarCabelo()"
+                    class="form-control bg-dark text-light form-control-sm" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="mb-1 row align-items-center">
+            <div class="col-md-6">
+              <div class="card bg-dark text-light mb-1">
+                <div class="card-body flex-row align-items-center justify-content-center">
+                  <h5>História do Personagem:</h5>
+                  <textarea class="form-control bg-dark text-light" rows="8" [(ngModel)]="lore"
+                    (blur)="atualizarLore()"></textarea>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="card bg-dark text-light mb-1">
+                <div class="card-body flex-row align-items-center justify-content-center">
+                  <h5>Anotações:</h5>
+                  <textarea class="form-control bg-dark text-light" rows="8" [(ngModel)]="anotacoes"
+                    (blur)="atualizarAnotacoes()"></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="tab-pane fade" [class.active]="activeTab === 'inventario'" [class.show]="activeTab === 'inventario'">
+      <div class="container">
+        <div class="row g-1">
+
+        </div>
+      </div>
+    </div>
+    <div class="tab-pane fade" [class.active]="activeTab === 'magias'" [class.show]="activeTab === 'magias'">
+      <div class="container">
+        <div class="row g-1">
+        </div>
+      </div>
+    </div>
+    <div class="tab-pane fade" [class.active]="activeTab === 'configuracoes'"
+      [class.show]="activeTab === 'configuracoes'">
+      <div class="container">
+        <div class="row g-1">
+          <div class="col-md-6">
+            <div class="card bg-dark text-light mb-1">
+              <div class="card-body">
+                <h6 style="padding: 1px; text-align: center;">Configuração de Perícias</h6>
+                <table class="table table-borderless text-light">
+                  <tbody>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><strong>Aptidão</strong></td>
+                      <td style="padding: 1px; text-align: center;"><strong>Perícia</strong></td>
+                      <td style="padding: 1px; text-align: center;"><strong>Atributo</strong></td>
+                      <td style="padding: 1px; text-align: center;"><strong>Bônus</strong></td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          [(ngModel)]="aptacrobaciaCheckbox" (change)="updateAptAcrobacia($event)"
+                          (ngModelChange)="atualizarAptidao_Acrobacia()"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Acrobacia</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <select [(ngModel)]="acrobaciaAtributo" (ngModelChange)="atualizarPericias()"
+                          class="form-control form-control-sm">
+                          <option value="Des">Des</option>
+                          <option value="For">For</option>
+                          <option value="Con">Con</option>
+                          <option value="Int">Int</option>
+                          <option value="Sab">Sab</option>
+                          <option value="Car">Car</option>
+                        </select>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusAcrobacia($event)" [(ngModel)]="bonusAcrobacia"
+                          (blur)="atualizarBonusAcrobacia()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          [(ngModel)]="aptadestrarAnimaisCheckbox" (change)="updateAptAdestrarAnimais($event)"
+                          (ngModelChange)="atualizarAptidao_Adestrar_Animais()">
+                      </td>
+                      <td style="padding: 1px; text-align: center;"><small>Adest. Animais</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="adestrarAnimaisAtributo" (ngModelChange)="atualizarPericias()"
+                            class="form-control form-control-sm">
+                            <option value="Sab">Sab</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Int">Int</option>
+                            <option value="Con">Con</option>
+                            <option value="Car">Car</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusAdestrarAnimais($event)"
+                          [(ngModel)]="bonusAdestrarAnimais" (blur)="atualizarBonusAdestrarAnimais()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          [(ngModel)]="aptarcanismoCheckbox" (change)="updateAptArcanismo($event)"
+                          (ngModelChange)="atualizarAptidao_Arcanismo()"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Arcanismo</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="arcanismoAtributo" (ngModelChange)="atualizarPericias()"
+                            class="form-control form-control-sm">
+                            <option value="Int">Int</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Sab">Sab</option>
+                            <option value="Car">Car</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusArcanismo($event)" [(ngModel)]="bonusArcanismo"
+                          (blur)="atualizarBonusArcanismo()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          [(ngModel)]="aptatletismoCheckbox" (change)="updateAptAtletismo($event)"
+                          (ngModelChange)="atualizarAptidao_Atletismo()"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Atletismo</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="atletismoAtributo" (ngModelChange)="atualizarPericias()"
+                            class="form-control form-control-sm">
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Int">Int</option>
+                            <option value="Sab">Sab</option>
+                            <option value="Car">Car</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusAtletismo($event)" [(ngModel)]="bonusAtletismo"
+                          (blur)="atualizarBonusAtletismo()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          [(ngModel)]="aptenganacaoCheckbox" (change)="updateAptEnganacao($event)"
+                          (ngModelChange)="atualizarAptidao_Enganacao()"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Enganação</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="enganacaoAtributo" (ngModelChange)="atualizarPericias()"
+                            class="form-control form-control-sm">
+                            <option value="Car">Car</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Int">Int</option>
+                            <option value="Sab">Sab</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusEnganacao($event)" [(ngModel)]="bonusEnganacao"
+                          (blur)="atualizarBonusEnganacao()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          [(ngModel)]="aptfurtividadeCheckbox" (change)="updateAptFurtividade($event)"
+                          (ngModelChange)="atualizarAptidao_Furtividade()"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Furtividade</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="furtividadeAtributo" (ngModelChange)="atualizarPericias()"
+                            class="form-control form-control-sm">
+                            <option value="Des">Des</option>
+                            <option value="For">For</option>
+                            <option value="Con">Con</option>
+                            <option value="Int">Int</option>
+                            <option value="Sab">Sab</option>
+                            <option value="Car">Car</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusFurtividade($event)" [(ngModel)]="bonusFurtividade"
+                          (blur)="atualizarBonusFurtividade()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          [(ngModel)]="apthistoriaCheckbox" (change)="updateAptHistoria($event)"
+                          (ngModelChange)="atualizarAptidao_Historia()"></td>
+                      <td style="padding: 1px; text-align: center;"><small>História</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="historiaAtributo" (ngModelChange)="atualizarPericias()"
+                            class="form-control form-control-sm">
+                            <option value="Int">Int</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Sab">Sab</option>
+                            <option value="Car">Car</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusHistoria($event)" [(ngModel)]="bonusHistoria"
+                          (blur)="atualizarBonusHistoria()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          [(ngModel)]="aptintimidacaoCheckbox" (change)="updateAptIntimidacao($event)"
+                          (ngModelChange)="atualizarAptidao_Intimidacao()"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Intimidação</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="intimidacaoAtributo" (ngModelChange)="atualizarPericias()"
+                            class="form-control form-control-sm">
+                            <option value="Car">Car</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Int">Int</option>
+                            <option value="Sab">Sab</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusIntimidacao($event)" [(ngModel)]="bonusIntimidacao"
+                          (blur)="atualizarBonusIntimidacao()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          [(ngModel)]="aptintuicaoCheckbox" (change)="updateAptIntuicao($event)"
+                          (ngModelChange)="atualizarAptidao_Intuicao()"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Intuição</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="intuicaoAtributo" (ngModelChange)="atualizarPericias()"
+                            class="form-control form-control-sm">
+                            <option value="Car">Car</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Int">Int</option>
+                            <option value="Sab">Sab</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusIntuicao($event)" [(ngModel)]="bonusIntuicao"
+                          (blur)="atualizarBonusIntuicao()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          [(ngModel)]="aptinvestigacaoCheckbox" (change)="updateAptInvestigacao($event)"
+                          (ngModelChange)="atualizarAptidao_Investigacao()"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Investigação</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="investigacaoAtributo" (ngModelChange)="atualizarPericias()"
+                            class="form-control form-control-sm">
+                            <option value="Int">Int</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Sab">Sab</option>
+                            <option value="Car">Car</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusInvestigacao($event)" [(ngModel)]="bonusInvestigacao"
+                          (blur)="atualizarBonusInvestigacao()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          [(ngModel)]="aptmedicinaCheckbox" (change)="updateAptMedicina($event)"
+                          (ngModelChange)="atualizarAptidao_Medicina()"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Medicina</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="medicinaAtributo" (ngModelChange)="atualizarPericias()"
+                            class="form-control form-control-sm">
+                            <option value="Sab">Sab</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Int">Int</option>
+                            <option value="Car">Car</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusMedicina($event)" [(ngModel)]="bonusMedicina"
+                          (blur)="atualizarBonusMedicina()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          [(ngModel)]="aptnaturezaCheckbox" (change)="updateAptNatureza($event)"
+                          (ngModelChange)="atualizarAptidao_Natureza()"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Natureza</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="naturezaAtributo" (ngModelChange)="atualizarPericias()"
+                            class="form-control form-control-sm">
+                            <option value="Int">Int</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Sab">Sab</option>
+                            <option value="Car">Car</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusNatureza($event)" [(ngModel)]="bonusNatureza"
+                          (blur)="atualizarBonusNatureza()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          [(ngModel)]="aptpercepcaoCheckbox" (change)="updateAptPercepcao($event)"
+                          (ngModelChange)="atualizarAptidao_Percepcao()"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Percepção</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="percepcaoAtributo" (ngModelChange)="atualizarPericias()"
+                            class="form-control form-control-sm">
+                            <option value="Sab">Sab</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Int">Int</option>
+                            <option value="Car">Car</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusPercepcao($event)" [(ngModel)]="bonusPercepcao"
+                          (blur)="atualizarBonusPercepcao()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          [(ngModel)]="aptperformanceCheckbox" (change)="updateAptPerformance($event)"
+                          (ngModelChange)="atualizarAptidao_Performance()"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Performance</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="performanceAtributo" (ngModelChange)="atualizarPericias()"
+                            class="form-control form-control-sm">
+                            <option value="Car">Car</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Int">Int</option>
+                            <option value="Sab">Sab</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusPerformance($event)" [(ngModel)]="bonusPerformance"
+                          (blur)="atualizarBonusPerformance()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          [(ngModel)]="aptpersuasaoCheckbox" (change)="updateAptPersuasao($event)"
+                          (ngModelChange)="atualizarAptidao_Persuasao()"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Persuasão</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="persuasaoAtributo" (ngModelChange)="atualizarPericias()"
+                            class="form-control form-control-sm">
+                            <option value="Car">Car</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Int">Int</option>
+                            <option value="Sab">Sab</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusPersuasao($event)" [(ngModel)]="bonusPersuasao"
+                          (blur)="atualizarBonusPersuasao()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          [(ngModel)]="aptprestidigitacaoCheckbox" (change)="updateAptPrestidigitacao($event)"
+                          (ngModelChange)="atualizarAptidao_Prestidigitacao()">
+                      </td>
+                      <td style="padding: 1px; text-align: center;"><small>Prestidigitação</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="prestidigitacaoAtributo" (ngModelChange)="atualizarPericias()"
+                            class="form-control form-control-sm">
+                            <option value="Des">Des</option>
+                            <option value="For">For</option>
+                            <option value="Con">Con</option>
+                            <option value="Int">Int</option>
+                            <option value="Sab">Sab</option>
+                            <option value="Car">Car</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusPrestidigitacao($event)"
+                          [(ngModel)]="bonusPrestidigitacao" (blur)="atualizarBonusPrestidigitacao()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          [(ngModel)]="aptreligiaoCheckbox" (change)="updateAptReligiao($event)"
+                          (ngModelChange)="atualizarAptidao_Religiao()"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Religião</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="religiaoAtributo" (ngModelChange)="atualizarPericias()"
+                            class="form-control form-control-sm">
+                            <option value="Int">Int</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Sab">Sab</option>
+                            <option value="Car">Car</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusReligiao($event)" [(ngModel)]="bonusReligiao"
+                          (blur)="atualizarBonusReligiao()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          [(ngModel)]="aptsobrevivenciaCheckbox" (change)="updateAptSobrevivencia($event)"
+                          (ngModelChange)="atualizarAptidao_Sobrevivencia()"></td>
+                      <td style="padding: 1px; text-align: center;"><small>Sobrevivência</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <small>
+                          <select [(ngModel)]="sobrevivenciaAtributo" (ngModelChange)="atualizarPericias()"
+                            class="form-control form-control-sm">
+                            <option value="Sab">Sab</option>
+                            <option value="For">For</option>
+                            <option value="Des">Des</option>
+                            <option value="Con">Con</option>
+                            <option value="Int">Int</option>
+                            <option value="Car">Car</option>
+                          </select>
+                        </small>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusSobrevivencia($event)" [(ngModel)]="bonusSobrevivencia"
+                          (blur)="atualizarBonusSobrevivencia()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <table class="table table-borderless text-light">
+                  <tbody>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><strong>Versatilidade:</strong></td>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          [(ngModel)]="versatilidadeCheckbox" (change)="updateVersatilidade($event)"
+                          (ngModelChange)="atualizarVersatilidade()"></td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><strong>Talento Confiável:</strong></td>
+                      <td style="padding: 1px; text-align: center;"><input type="checkbox"
+                          (ngModelChange)="atualizarTalento_Confiavel()" [(ngModel)]="talconCheckbox"></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card bg-dark text-light mb-1">
+              <div class="card-body">
+                <h6 style="padding: 1px; text-align: center;">Configurações de Personagem:</h6>
+                <table class="table table-borderless text-light">
+                  <tbody>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><strong></strong></td>
+                      <td style="padding: 1px; text-align: center;"><strong>Base</strong></td>
+                      <td style="padding: 1px; text-align: center;"><strong>1º Atrib.</strong></td>
+                      <td style="padding: 1px; text-align: center;"><strong>2º Atrib.</strong></td>
+                      <td style="padding: 1px; text-align: center;"><strong>Bônus</strong></td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><small>CA:</small></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBaseCa($event)" [(ngModel)]="baseCa"
+                          (blur)="atualizarBonusCaBase()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <select [(ngModel)]="caAtributo1" (ngModelChange)="atualizarCa_Atributo1()"
+                          class="form-control form-control-sm">
+                          <option value="Des">Des</option>
+                          <option value="For">For</option>
+                          <option value="D.M2">D.M2</option>
+                          <option value="D.M3">D.M3</option>
+                          <option value="Con">Con</option>
+                          <option value="Int">Int</option>
+                          <option value="Sab">Sab</option>
+                          <option value="Car">Car</option>
+                          <option value=""></option>
+                        </select>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <select [(ngModel)]="caAtributo2" (ngModelChange)="atualizarCa_Atributo2()"
+                          class="form-control form-control-sm">
+                          <option value=""></option>
+                          <option value="For">For</option>
+                          <option value="Des">Des</option>
+                          <option value="Con">Con</option>
+                          <option value="Int">Int</option>
+                          <option value="Sab">Sab</option>
+                          <option value="Car">Car</option>
+                        </select>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusCa($event)" [(ngModel)]="bonusCa"
+                          (blur)="atualizarBonusCa()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><small>Iniciativa:</small></td>
+                      <td></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <select [(ngModel)]="iniciativaAtributo1" (ngModelChange)="atualizarIniciativa_Atributo1()"
+                          class="form-control form-control-sm">
+                          <option value=""></option>
+                          <option value="For">For</option>
+                          <option value="Des">Des</option>
+                          <option value="Con">Con</option>
+                          <option value="Int">Int</option>
+                          <option value="Sab">Sab</option>
+                          <option value="Car">Car</option>
+                        </select>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <select [(ngModel)]="iniciativaAtributo2" (ngModelChange)="atualizarIniciativa_Atributo2()"
+                          class="form-control form-control-sm">
+                          <option value=""></option>
+                          <option value="For">For</option>
+                          <option value="Des">Des</option>
+                          <option value="Con">Con</option>
+                          <option value="Int">Int</option>
+                          <option value="Sab">Sab</option>
+                          <option value="Car">Car</option>
+                        </select>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusIniciativa($event)" [(ngModel)]="bonusIniciativa"
+                          (blur)="atualizarBonusIniciativa()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><small>Res. For:</small></td>
+                      <td></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <select class="form-control form-control-sm">
+                          <option value="For">For</option>
+                        </select>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <select [(ngModel)]="resForAtributoBonus" (ngModelChange)="atualizarRes_For_Atributo_Bonus()"
+                          class="form-control form-control-sm">
+                          <option value=""></option>
+                          <option value="For">For</option>
+                          <option value="Des">Des</option>
+                          <option value="Con">Con</option>
+                          <option value="Int">Int</option>
+                          <option value="Sab">Sab</option>
+                          <option value="Car">Car</option>
+                        </select>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusResFor($event)" [(ngModel)]="bonusResFor"
+                          (blur)="atualizarBonusResFor()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><small>Res. Des:</small></td>
+                      <td></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <select class="form-control form-control-sm">
+                          <option value="Des">Des</option>
+                        </select>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <select [(ngModel)]="resDesAtributoBonus" (ngModelChange)="atualizarRes_Des_Atributo_Bonus()"
+                          class="form-control form-control-sm">
+                          <option value=""></option>
+                          <option value="For">For</option>
+                          <option value="Des">Des</option>
+                          <option value="Con">Con</option>
+                          <option value="Int">Int</option>
+                          <option value="Sab">Sab</option>
+                          <option value="Car">Car</option>
+                        </select>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusResDes($event)" [(ngModel)]="bonusResDes"
+                          (blur)="atualizarBonusResDes()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><small>Res. Con:</small></td>
+                      <td></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <select class="form-control form-control-sm">
+                          <option value="Con">Con</option>
+                        </select>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <select [(ngModel)]="resConAtributoBonus" (ngModelChange)="atualizarRes_Con_Atributo_Bonus()"
+                          class="form-control form-control-sm">
+                          <option value=""></option>
+                          <option value="For">For</option>
+                          <option value="Des">Des</option>
+                          <option value="Con">Con</option>
+                          <option value="Int">Int</option>
+                          <option value="Sab">Sab</option>
+                          <option value="Car">Car</option>
+                        </select>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusResCon($event)" [(ngModel)]="bonusResCon"
+                          (blur)="atualizarBonusResCon()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><small>Res. Int:</small></td>
+                      <td></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <select class="form-control form-control-sm">
+                          <option value="Int">Int</option>
+                        </select>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <select [(ngModel)]="resIntAtributoBonus" (ngModelChange)="atualizarRes_Int_Atributo_Bonus()"
+                          class="form-control form-control-sm">
+                          <option value=""></option>
+                          <option value="For">For</option>
+                          <option value="Des">Des</option>
+                          <option value="Con">Con</option>
+                          <option value="Int">Int</option>
+                          <option value="Sab">Sab</option>
+                          <option value="Car">Car</option>
+                        </select>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusResInt($event)" [(ngModel)]="bonusResInt"
+                          (blur)="atualizarBonusResInt()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><small>Res. Sab:</small></td>
+                      <td></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <select class="form-control form-control-sm">
+                          <option value="Sab">Sab</option>
+                        </select>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <select [(ngModel)]="resSabAtributoBonus" (ngModelChange)="atualizarRes_Sab_Atributo_Bonus()"
+                          class="form-control form-control-sm">
+                          <option value=""></option>
+                          <option value="For">For</option>
+                          <option value="Des">Des</option>
+                          <option value="Con">Con</option>
+                          <option value="Int">Int</option>
+                          <option value="Sab">Sab</option>
+                          <option value="Car">Car</option>
+                        </select>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusResSab($event)" [(ngModel)]="bonusResSab"
+                          (blur)="atualizarBonusResSab()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 1px; text-align: center;"><small>Res. Car:</small></td>
+                      <td></td>
+                      <td style="padding: 1px; text-align: center;">
+                        <select class="form-control form-control-sm">
+                          <option value="Car">Car</option>
+                        </select>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <select [(ngModel)]="resCarAtributoBonus" (ngModelChange)="atualizarRes_Car_Atributo_Bonus()"
+                          class="form-control form-control-sm">
+                          <option value=""></option>
+                          <option value="For">For</option>
+                          <option value="Des">Des</option>
+                          <option value="Con">Con</option>
+                          <option value="Int">Int</option>
+                          <option value="Sab">Sab</option>
+                          <option value="Car">Car</option>
+                        </select>
+                      </td>
+                      <td style="padding: 1px; text-align: center;">
+                        <input type="number" (input)="setBonusResCar($event)" [(ngModel)]="bonusResCar"
+                          (blur)="atualizarBonusResCar()"
+                          class="form-control bg-dark text-light text-center form-control-sm" placeholder="Bônus"
+                          style="appearance: none; -moz-appearance: textfield; width: 60px; margin: 0 auto; display: block;" />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

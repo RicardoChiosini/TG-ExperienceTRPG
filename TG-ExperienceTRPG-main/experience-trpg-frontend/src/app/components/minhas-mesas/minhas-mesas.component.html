@@ -1,0 +1,104 @@
+<div class="container-fluid dark-theme py-4">
+  <div class="row">
+    <!-- Sidebar para Criar Mesa -->
+    <div class="col-lg-2 mb-4">
+      <div class="card dark-card h-100">
+        <div class="card-body text-center">
+          <h4 class="card-title mb-4">Minhas Mesas</h4>
+          <button class="btn btn-primary w-100 mb-3" routerLink="/criar-mesa">
+            <i class="fas fa-plus-circle me-2"></i>Criar Nova Mesa
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Listagem de Mesas -->
+    <div class="col-lg-10">
+      <div class="row">
+        <div class="col-12 mb-3">
+          <h3 class="text-center">Suas Aventuras</h3>
+          <p class="text-center text-muted">Encontre ou gerencie suas mesas de RPG</p>
+        </div>
+      </div>
+
+      <div class="row row-cols-1 row-cols-md-2 g-4">
+        <div class="col" *ngFor="let mesa of paginatedMesas">
+          <div class="card dark-card h-100">
+            <div class="card-body">
+              <div class="d-flex">
+                <div class="flex-shrink-0">
+                  <img [src]="mesa.imagem || 'assets/default-mesa.jpg'" 
+                       class="img-thumbnail mesa-thumbnail" 
+                       alt="Imagem da Mesa">
+                </div>
+                <div class="flex-grow-1 ms-3">
+                  <h5 class="card-title">{{ mesa.nome }}</h5>
+                  
+                  <div class="mesa-info">
+                    <div class="mb-2">
+                      <i class="fas fa-crown me-2 text-warning"></i>
+                      <span>Mestre: {{ mesa.mesCriador?.nome || 'Não definido' }}</span>
+                    </div>
+                    
+                    <div class="mb-2">
+                      <i class="fas fa-users me-2 text-info"></i>
+                      <span>Participantes: {{ getParticipantesNomes(mesa) }}</span>
+                    </div>
+                    
+                    <div class="mb-3">
+                      <i class="fas fa-clock me-2 text-secondary"></i>
+                      <span>Último acesso: {{ mesa.dataUltimoAcesso | date:'dd/MM/yyyy' }}</span>
+                    </div>
+                  </div>
+                  
+                  <div class="d-flex justify-content-between align-items-end">
+                    <button class="btn btn-primary btn-sm" (click)="entrarNaMesa(mesa)">
+                      <i class="fas fa-door-open me-1"></i> Entrar
+                    </button>
+                    
+                    <div class="btn-group">
+                      <button *ngIf="mesa.mesCriador?.usuarioId === usuarioId" 
+                              class="btn btn-outline-danger btn-sm me-1" 
+                              (click)="apagarMesa(mesa)">
+                        <i class="fas fa-trash-alt me-1"></i>
+                      </button>
+                      
+                      <button *ngIf="mesa.mesCriador?.usuarioId === usuarioId" 
+                              class="btn btn-outline-secondary btn-sm me-1" 
+                              (click)="configurarMesa(mesa)">
+                        <i class="fas fa-cog me-1"></i>
+                      </button>
+                      
+                      <button *ngIf="mesa.mesCriador?.usuarioId !== usuarioId" 
+                              class="btn btn-outline-warning btn-sm" 
+                              (click)="sairDaMesa(mesa)">
+                        <i class="fas fa-sign-out-alt me-1"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Paginação -->
+      <div class="row mt-4">
+        <div class="col-12 d-flex justify-content-center">
+          <nav>
+            <ul class="pagination">
+              <li class="page-item" [class.disabled]="currentPage === 0">
+                <a class="page-link dark-pagination" (click)="previousPage()">Anterior</a>
+              </li>              
+              <li class="page-item" 
+                  [class.disabled]="(currentPage + 1) * itemsPerPage >= totalMesas">
+                <a class="page-link dark-pagination" (click)="nextPage()">Próximo</a>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

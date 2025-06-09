@@ -1,0 +1,14 @@
+#main-container {
+
+    flex-direction: column; /* Flexível na direção da coluna */
+    user-select: none;
+  }
+  
+  
+  #content-container {
+    user-select: none;
+    flex: 1; /* O content-container ocupa o restante do espaço */
+    overflow-y: auto; /* Adiciona rolagem vertical se necessário */
+    padding-left: 0%;
+    padding-right: 0%;
+  }

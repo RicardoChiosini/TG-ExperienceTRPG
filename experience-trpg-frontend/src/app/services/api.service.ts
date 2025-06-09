@@ -170,23 +170,6 @@ export class ApiService {
     return this.http.get<ImagemDto>(`${this.baseUrl}/imagens/${imagemId}`);
   }
 
-  getMapaBackgroundImage(mapaId: number): Observable<ImagemDto | null> {
-    return this.http.get<ImagemDto>(`${this.baseUrl}/mapa/${mapaId}/background-image`);
-  }
-
-  setMapaBackgroundImage(mapaId: number, imagemId: number): Observable<MapaDto> {
-    return this.http.post<MapaDto>(
-      `${this.baseUrl}/mapa/${mapaId}/background-image/${imagemId}`,
-      {}
-    );
-  }
-
-  removeMapaBackgroundImage(mapaId: number): Observable<MapaDto> {
-    return this.http.delete<MapaDto>(
-      `${this.baseUrl}/mapa/${mapaId}/background-image`
-    );
-  }
-
   getMapaById(mesaId: number, mapaId: number): Observable<MapaDto> {
     return this.http.get<MapaDto>(`${this.baseUrl}/mapa/${mesaId}/mapa/${mapaId}`);
   }
@@ -230,6 +213,7 @@ export class ApiService {
       catchError(error => {
         console.error('Erro ao buscar tokens:', error);
         return of({
+          mapaId: mapaId, // Adiciona o mapaId para manter consistência
           tokens: [],
           camadas: [],
           objetos: [],
@@ -246,12 +230,13 @@ export class ApiService {
 
   salvarEstadoMapa(mapaId: number, estado: MapaEstadoDto): Observable<MapaEstadoDto> {
     return this.http.put<MapaEstadoDto>(
-      `${this.baseUrl}/mapa/${mapaId}/estado`, // Rota atualizada
+      `${this.baseUrl}/mapa/${mapaId}/estado`,
       estado
     ).pipe(
       catchError(error => {
         console.error('Erro ao salvar estado:', error);
         return of({
+          mapaId: mapaId, // Garante que o fallback tenha mapaId
           tokens: [],
           camadas: [],
           objetos: [],

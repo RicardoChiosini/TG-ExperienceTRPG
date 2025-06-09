@@ -1,0 +1,131 @@
+.ficha-container {
+  background-color: #1e1e1e; /* Cor de fundo do container da ficha */
+  border-radius: 0.5rem; /* Bordas arredondadas */
+  padding: 1.5rem; /* Espaçamento interno */
+}
+
+.ficha-container .form-control,
+.ficha-container .form-select {
+  background-color: #343a40; /* Cor de fundo dos inputs e selects */
+  color: #ffffff; /* Cor do texto */
+  border: 1px solid #495057; /* Cor da borda */
+}
+
+.ficha-container .form-label {
+  color: #ffffff; /* Cor das labels */
+}
+
+.ficha-container .nav-tabs .nav-link {
+  color: #ffffff; /* Cor do texto das abas */
+}
+
+.ficha-container .nav-tabs .nav-link.active {
+  background-color: #343a40; /* Cor de fundo da aba ativa */
+  color: #ffffff; /* Cor do texto da aba ativa */
+}
+
+.ficha-container .nav-tabs .nav-link:hover {
+  background-color: #495057; /* Cor de fundo ao passar o mouse nas abas */
+}
+
+.ficha-container h2 {
+  color: #ffffff; /* Cor do título */
+}
+
+.card {
+  min-width: 120px; /* Definindo uma largura mínima para que todos os cards sejam uniformes */
+}
+
+.modifier-badge {
+  font-size: 0.8em; /* Ajuste o tamanho conforme necessário */
+}
+
+.bp-badge {
+  font-size: 1.5em; /* Ajuste o tamanho conforme necessário */
+}
+
+.cainit-badge {
+  font-size: 1em; /* Ajuste o tamanho conforme necessário */
+}
+
+.atributo-badge {
+  font-size: 1em; /* Ajuste o tamanho conforme necessário */
+}
+
+.table {
+  background-color: transparent; /* Para garantir que o fundo não seja branco */
+}
+
+.table td {
+  background-color: transparent; /* Cor de fundo escura */
+  color: white; /* Cor do texto branco */
+  padding: 1px; /* Para ter um espaçamento menor entre os componentes */
+}
+
+ /* Imagem */
+.image-selector-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1050;
+}
+
+.image-selector-container {
+  background-color: white;
+  border-radius: 8px;
+  padding: 20px;
+  width: 80%;
+  max-width: 800px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+}
+
+.image-selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.image-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 15px;
+}
+
+.image-selector-item {
+  cursor: pointer;
+  transition: transform 0.2s;
+  text-align: center;
+}
+
+.image-selector-item:hover {
+  transform: scale(1.05);
+}
+
+.image-selector-item img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border: 2px solid transparent;
+  border-radius: 4px;
+}
+
+.image-selector-item:hover img {
+  border-color: var(--bs-primary);
+}
+
+.image-name {
+  margin-top: 5px;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

@@ -1,0 +1,113 @@
+/* Tema escuro principal */
+.dark-theme {
+  background-color: #121212;
+  color: #e0e0e0;
+  min-height: 100vh;
+}
+
+/* Cards */
+.dark-card {
+  background-color: #1e1e1e;
+  border: 1px solid #333;
+  color: #e0e0e0;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s ease;
+}
+
+.dark-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Thumbnails */
+.mesa-thumbnail {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid #444;
+}
+
+/* Informações da mesa */
+.mesa-info {
+  font-size: 0.9rem;
+  color: #b0b0b0;
+}
+
+/* Botões */
+.btn-primary {
+  background-color: #6c5ce7;
+  border-color: #6c5ce7;
+}
+
+.btn-primary:hover {
+  background-color: #5649c0;
+  border-color: #5649c0;
+}
+
+.btn-outline-danger {
+  color: #ff7675;
+  border-color: #ff7675;
+}
+
+.btn-outline-danger:hover {
+  background-color: #ff7675;
+  color: #121212;
+}
+
+.btn-outline-secondary {
+  color: #b0b0b0;
+  border-color: #b0b0b0;
+}
+
+.btn-outline-secondary:hover {
+  background-color: #b0b0b0;
+  color: #121212;
+}
+
+.btn-outline-warning {
+  color: #fdcb6e;
+  border-color: #fdcb6e;
+}
+
+.btn-outline-warning:hover {
+  background-color: #fdcb6e;
+  color: #121212;
+}
+
+/* Paginação */
+.dark-pagination {
+  background-color: #1e1e1e;
+  color: #e0e0e0;
+  border-color: #333;
+}
+
+.page-item.active .page-link {
+  background-color: #6c5ce7;
+  border-color: #6c5ce7;
+}
+
+.page-link:hover {
+  background-color: #2d2d2d;
+  color: #6c5ce7;
+}
+
+/* Responsividade */
+@media (max-width: 992px) {
+  .mesa-thumbnail {
+    width: 80px;
+    height: 80px;
+  }
+}
+
+@media (max-width: 768px) {
+  .row-cols-md-2 {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .mesa-thumbnail {
+    width: 60px;
+    height: 60px;
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "Files": [
+    {
+      "Id": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\images\\18ac3d97-9d17-459e-911c-cd8c35bfbe6f.jpg",
+      "PackagePath": "staticwebassets\\images\\18ac3d97-9d17-459e-911c-cd8c35bfbe6f.jpg"
+    },
+    {
+      "Id": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\images\\1a24751c-fa32-49a2-a4bb-ef3c03ca7eaf.jpg",
+      "PackagePath": "staticwebassets\\images\\1a24751c-fa32-49a2-a4bb-ef3c03ca7eaf.jpg"
+    },
+    {
+      "Id": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\images\\4004543c-4b51-4cf2-b41b-e64e61b4489f.jpg",
+      "PackagePath": "staticwebassets\\images\\4004543c-4b51-4cf2-b41b-e64e61b4489f.jpg"
+    },
+    {
+      "Id": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\images\\58d690e6-a0c0-4465-9346-5bf33acb89a8.jpg",
+      "PackagePath": "staticwebassets\\images\\58d690e6-a0c0-4465-9346-5bf33acb89a8.jpg"
+    },
+    {
+      "Id": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\images\\70901a53-1c73-4965-bb16-b2f86a0b3db0.jpg",
+      "PackagePath": "staticwebassets\\images\\70901a53-1c73-4965-bb16-b2f86a0b3db0.jpg"
+    },
+    {
+      "Id": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\images\\8f5fce8d-9ff2-4256-b004-0a686c980664.jpg",
+      "PackagePath": "staticwebassets\\images\\8f5fce8d-9ff2-4256-b004-0a686c980664.jpg"
+    },
+    {
+      "Id": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\images\\91b0df9d-88d2-4fde-b719-9aa0f2d1408c.jpg",
+      "PackagePath": "staticwebassets\\images\\91b0df9d-88d2-4fde-b719-9aa0f2d1408c.jpg"
+    },
+    {
+      "Id": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\images\\b947a717-42bd-4aef-bc01-8a757912e86c.jpg",
+      "PackagePath": "staticwebassets\\images\\b947a717-42bd-4aef-bc01-8a757912e86c.jpg"
+    },
+    {
+      "Id": "C:\\Users\\Note\\Documents\\Projeto TG\\experience-trpg-backend\\wwwroot\\images\\c6bcf1c6-4fa7-4da7-b472-4a2a9d193acd.jpg",
+      "PackagePath": "staticwebassets\\images\\c6bcf1c6-4fa7-4da7-b472-4a2a9d193acd.jpg"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.build.experience-trpg-backend.props",
+      "PackagePath": "build\\experience-trpg-backend.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.buildMultiTargeting.experience-trpg-backend.props",
+      "PackagePath": "buildMultiTargeting\\experience-trpg-backend.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.buildTransitive.experience-trpg-backend.props",
+      "PackagePath": "buildTransitive\\experience-trpg-backend.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.experience-trpg-backend.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    }
+  ],
+  "ElementsToRemove": []
+}

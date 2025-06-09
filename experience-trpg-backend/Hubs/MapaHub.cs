@@ -68,10 +68,14 @@ namespace experience_trpg_backend.Hubs
             }
         }
 
-        public async Task UpdateMapaConfig(ConfiguracaoMapaDto config, int mesaId)
+        public async Task UpdateBackgroundImage(int mesaId, int mapaId, ImagemDto? imagem)
         {
-            _logger.LogInformation($"Configurações do mapa atualizadas na mesa {mesaId}");
-            await Clients.OthersInGroup(mesaId.ToString()).SendAsync("ReceiveConfigUpdate", config);
+            await Clients.Group(mesaId.ToString()).SendAsync("ReceiveBackgroundImageUpdate", mapaId, imagem);
+        }
+
+        public async Task UpdateMapConfig(int mesaId, int mapaId, MapaConfigDto config)
+        {
+            await Clients.Group(mesaId.ToString()).SendAsync("ReceiveConfigUpdate", mapaId, config);
         }
 
         public async Task UpdateCamadas(CamadaDto[] camadas, int mesaId)

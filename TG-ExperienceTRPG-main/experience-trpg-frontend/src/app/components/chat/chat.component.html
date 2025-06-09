@@ -1,0 +1,13 @@
+<div id="chat-container-component">
+  <div class="mensagens" #mensagensContainer>
+    <div *ngFor="let msg of mensagens" class="mensagem" [innerHTML]="msg.message"></div>
+    <div #scrollAnchor></div>
+  </div>
+
+  <div class="enviar-mensagem">
+    <input [(ngModel)]="novaMensagem" 
+           placeholder="Digite sua mensagem..." 
+           (keyup.enter)="enviarMensagem()">
+    <button (click)="enviarMensagem()">Enviar</button>
+  </div>
+</div>

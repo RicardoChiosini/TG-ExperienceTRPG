@@ -1,0 +1,148 @@
+/* Tema escuro principal */
+.dark-theme {
+  background-color: #121212;
+  color: #e0e0e0;
+  min-height: 100vh;
+}
+
+/* Cards */
+.dark-card {
+  background-color: #1e1e1e;
+  border: 1px solid #333;
+  color: #e0e0e0;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s ease;
+}
+
+.premium-card {
+  background-color: #1a1a2e;
+  border: 1px solid #6c5ce7;
+  color: #e0e0e0;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(108, 92, 231, 0.3);
+  position: relative;
+  transform: scale(1.02);
+  transition: transform 0.3s ease;
+}
+
+.premium-card:hover {
+  transform: scale(1.05);
+}
+
+.premium-badge {
+  position: absolute;
+  top: -10px;
+  right: 20px;
+  background-color: #6c5ce7;
+  color: white;
+  padding: 5px 15px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+/* Títulos */
+.assinatura-title {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  color: #f8f9fa;
+  margin-bottom: 0.5rem;
+}
+
+/* Preços */
+.price-display {
+  margin: 1.5rem 0;
+}
+
+.price-amount {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #6c5ce7;
+}
+
+.premium-card .price-amount {
+  color: #fdcb6e;
+}
+
+.price-period {
+  font-size: 1rem;
+  color: #b0b0b0;
+}
+
+.price-saving {
+  font-size: 0.9rem;
+  color: #00b894;
+  margin-top: 0.5rem;
+}
+
+/* Lista de features */
+.features-list {
+  margin: 1.5rem 0;
+  text-align: left;
+}
+
+.dark-list-item {
+  background-color: transparent;
+  color: #e0e0e0;
+  border-color: #333;
+  padding: 0.75rem 1rem;
+}
+
+/* Botões */
+.btn-primary {
+  background-color: #6c5ce7;
+  border-color: #6c5ce7;
+  padding: 0.75rem 1.5rem;
+  font-weight: 500;
+  width: 100%;
+}
+
+.btn-primary:hover {
+  background-color: #5649c0;
+  border-color: #5649c0;
+}
+
+.btn-outline-light {
+  width: 100%;
+}
+
+/* Accordion FAQ */
+.dark-accordion-item {
+  background-color: #252525;
+  border-color: #333;
+}
+
+.dark-accordion-button {
+  background-color: #252525;
+  color: #e0e0e0;
+}
+
+.dark-accordion-button:not(.collapsed) {
+  background-color: #2d2d2d;
+  color: #6c5ce7;
+}
+
+.dark-accordion-button:focus {
+  box-shadow: none;
+  border-color: #6c5ce7;
+}
+
+.accordion-body {
+  background-color: #2d2d2d;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .assinatura-title {
+    font-size: 1.8rem;
+  }
+  
+  .premium-card {
+    transform: none;
+  }
+  
+  .premium-card:hover {
+    transform: none;
+  }
+}

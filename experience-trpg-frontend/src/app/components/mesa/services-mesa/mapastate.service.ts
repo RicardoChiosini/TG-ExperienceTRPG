@@ -1,49 +1,64 @@
 // mapa-state.service.ts
-import { Injectable } from '@angular/core';
+import { Inject, Injectable } from '@angular/core';
 import { ApiService } from '../../../services/api.service';
 import { ToastrService } from 'ngx-toastr';
 import { MapaEstadoDto, ConfiguracaoMapaDto } from '../../../dtos/mapaEstado.dto';
 import { MapaDto } from '../../../dtos/mapa.dto';
+import { TokenDto } from '../../../dtos/mapaEstado.dto';
 import { MapaService } from '../../../services/mapa.service';
-import { throwError, of } from 'rxjs';
+import { PhaserGameService } from './phasergame.service';
+import { AuthService } from '../../../services/auth.service';
+import { throwError, of, Subscription } from 'rxjs';
 import { switchMap, catchError } from 'rxjs/operators';
 import * as Phaser from 'phaser';
-import { TokenDto } from '../../../dtos/mapaEstado.dto';
-import { TokenService } from './token.service';
+import { MapaConfigDto } from '../../../dtos/mapaconfig.dto';
+import { e, im } from 'mathjs';
+import { HttpHeaders } from '@angular/common/http';
 
 @Injectable({
     providedIn: 'root'
 })
 export class MapaStateService {
+    private get usuarioId(): number {
+        const id = this.authService.getUserId();
+        if (id === null) {
+            throw new Error('User ID not available - user not logged in');
+        }
+        return id;
+    }
     // Estado interno de mapas
     private estadosMapa: { [mapaId: number]: MapaEstadoDto } = {};
+    private subscriptions = new Subscription();
 
     // Dados externos: estes valores serão definidos via setters
-    private currentMapId!: number;
-    private currentMap: any = null; // Defina uma interface para o mapa se desejar
+    public currentMapId!: number;
+    public currentMap: MapaDto | null = null;
     private mesaId!: number;
     private phaserGame!: Phaser.Game;
+    private gridContainer: Phaser.GameObjects.Container | null = null;
 
     private isLoading: boolean = false;
     private mapaCarregado: boolean = false;
-    private gridControlsVisible: boolean = false;
+    public gridControlsVisible: boolean = false;
 
     // Para o grid, lista local de configurações
     private maps: Array<{ gridSize: { cols: number; rows: number }; hexRadius: number }> = [
         { gridSize: { cols: 30, rows: 30 }, hexRadius: 40 }
     ];
-    private allMaps: MapaDto[] = [];
+    public allMaps: MapaDto[] = [];
 
     // Outras flags
     private configuracoesAbertas: boolean = false;
     private isCriador: boolean = false;
     private currentMapIndex: number = 0;
+    private selectedToken?: Phaser.GameObjects.Sprite;
 
     constructor(
         private apiService: ApiService,
         private mapaService: MapaService,
         private toastr: ToastrService,
-        private tokenService: TokenService
+        private authService: AuthService,
+        private phaserGameService: PhaserGameService
     ) { }
 
     /* SETTERS para injetar dados externos */
@@ -53,8 +68,14 @@ export class MapaStateService {
     public setCurrentMap(map: any): void {
         this.currentMap = map;
     }
+    public getCurrentMap(): MapaDto | null {
+        return this.currentMap;
+    }
     public setCurrentMapId(mapId: number): void {
         this.currentMapId = mapId;
+    }
+    public getCurrentMapId(): number | null {
+        return this.currentMapId;
     }
     public setMesaId(mesaId: number): void {
         this.mesaId = mesaId;
@@ -73,6 +94,48 @@ export class MapaStateService {
     }
 
     /////////////////////////////////
+    // MÉTODOS DE LISTENERS
+    /////////////////////////////////
+
+    public setupMapaListeners(): void {
+        this.subscriptions.add(
+            this.mapaService.estadoUpdates$.subscribe(estado => {
+                if (this.currentMapId === estado.mapaId) {
+                    this.phaserGameService.applyMapChanges(estado);
+                }
+            })
+        );
+
+        this.subscriptions.add(
+            this.mapaService.tokenUpdates$.subscribe(token => {
+                if (this.currentMapId === token.mapaId) {
+                    this.phaserGameService.updateExistingToken(`token-${token.id}`, token);
+                }
+            })
+        );
+    }
+
+    public async loadInitialMapState(mapaId: number): Promise<void> {
+        if (!this.mesaId) return;
+
+        try {
+            const estado = await this.mapaService.loadInitialMapState(this.mesaId, mapaId).toPromise();
+            if (estado) {
+                this.estadosMapa[mapaId] = estado;
+                this.phaserGameService.applyMapChanges(estado);
+            }
+        } catch (error) {
+            console.error('Erro ao carregar estado inicial do mapa:', error);
+            this.toastr.error('Erro ao carregar estado do mapa');
+        }
+    }
+
+    // Comunicação entre serviços
+    public setPhaserGameService(service: PhaserGameService): void {
+        this.phaserGameService = service;
+    }
+
+    /////////////////////////////////
     // MÉTODOS DE ESTADO DO MAPA
     /////////////////////////////////
 
@@ -80,17 +143,27 @@ export class MapaStateService {
         if (!this.currentMapId) {
             throw new Error('Nenhum mapa está carregado atualmente');
         }
+
         if (!this.estadosMapa[this.currentMapId]) {
             this.estadosMapa[this.currentMapId] = {
-                tokens: [],
+                mapaId: this.currentMapId,
+                tokens: [], // Garantir que tokens existe e é um array vazio
                 configuracoes: {
                     tipoGrid: 'hexagonal',
                     tamanhoCelula: 40,
                     corGrid: '#cccccc',
                     snapToGrid: true
-                }
+                },
+                camadas: [],
+                objetos: []
             };
         }
+
+        // Garantir que tokens existe mesmo se o estado já existir
+        if (!this.estadosMapa[this.currentMapId].tokens) {
+            this.estadosMapa[this.currentMapId].tokens = [];
+        }
+
         return this.estadosMapa[this.currentMapId];
     }
 
@@ -99,38 +172,157 @@ export class MapaStateService {
         return estado.configuracoes;
     }
 
-    // Aplica as mudanças do estado (tokens) na cena, delegando à TokenService (sem passar a cena)
-    public applyMapChanges(mapState: MapaEstadoDto): void {
-        if (!this.phaserGame || !this.currentMapId) return;
-        const scene = this.phaserGame.scene.scenes[0];
-        if (!scene) return;
+    public async atualizarImagemFundo(imagemId: number | null): Promise<void> {
+        if (!this.currentMap || !this.mesaId) return;
 
-        // Limpa todos os tokens existentes do mapa atual
-        scene.children.each(child => {
-            if (child instanceof Phaser.GameObjects.Sprite && child.getData('tokenData')) {
-                const tokenData = child.getData('tokenData');
-                if (tokenData.mapaId === this.currentMapId) {
-                    child.destroy();
-                }
-            }
-        });
+        try {
+            const mapaAtualizado = await this.mapaService.updateBackgroundImage(
+                this.mesaId,
+                this.currentMap.mapaId,
+                imagemId
+            ).toPromise();
 
-        // Para cada token do novo estado, delega a criação/instanciação à TokenService
-        (mapState.tokens || []).forEach((token: TokenDto) => {
-            try {
-                if (token.mapaId === this.currentMapId) {
-                    const key = `token-${token.id}`;
-                    if (scene.textures.exists(key)) {
-                        // Chama tokenService sem a cena, pois ja foi configurada internamente
-                        this.tokenService.instantiateToken(key, token);
-                    } else {
-                        this.tokenService.createTokenSprite(key, token);
-                    }
-                }
-            } catch (e) {
-                console.error('Erro ao aplicar mudanças no token:', e);
+            // Verificação adicional de tipo
+            if (!mapaAtualizado) {
+                throw new Error('Mapa atualizado não retornado pelo servidor');
             }
-        });
+
+            // Atualiza localmente
+            this.currentMap = mapaAtualizado;
+
+            // Verificações antes de chamar os métodos
+            if (this.currentMap) {
+                this.aplicarConfiguracaoMapa(this.currentMap);
+                this.atualizarListaMapasAposSalvar(this.currentMap);
+            }
+
+            this.toastr.success('Imagem de fundo atualizada');
+        } catch (error) {
+            console.error('Erro ao atualizar imagem de fundo:', error);
+            this.toastr.error('Erro ao atualizar imagem de fundo');
+        }
+    }
+
+    public getImagemFundoUrl(): string {
+        if (!this.currentMap?.imaFundo) {
+            return 'assets/default-bg.jpg';
+        }
+
+        // Usa a lógica do ImageService adaptada
+        const imagem = this.currentMap.imaFundo;
+        if (imagem.imageUrl) return imagem.imageUrl;
+        if (imagem.extensao && imagem.dados) {
+            return `data:image/${imagem.extensao};base64,${imagem.dados}`;
+        }
+        return 'assets/default-bg.jpg';
+    }
+
+    public updateTokenState(tokenId: number | string, changes: Partial<TokenDto>): void {
+        const estado = this.getEstadoMapaAtual();
+        const tokenIndex = estado.tokens.findIndex(t =>
+            typeof t.id === 'string' ? Number(t.id) === Number(tokenId) : t.id === tokenId
+        );
+
+        if (tokenIndex !== -1) {
+            estado.tokens[tokenIndex] = {
+                ...estado.tokens[tokenIndex],
+                ...changes,
+                metadados: {
+                    ...estado.tokens[tokenIndex].metadados,
+                    ...changes.metadados
+                }
+            };
+            this.onLocalMapChange(estado);
+        }
+    }
+
+    public saveTokenState(): void {
+        if (!this.selectedToken || !this.currentMapId || this.configuracoesAbertas) return;
+
+        try {
+            const tokenData = this.selectedToken.getData('tokenData') as TokenDto;
+
+            // Corrigindo os tipos para números
+            const metadados = {
+                ...tokenData.metadados,
+                rotation: this.selectedToken.angle, // número
+                width: this.selectedToken.displayWidth, // número
+                height: this.selectedToken.displayHeight // número
+            };
+
+            const tokenAtualizado: TokenDto = {
+                ...tokenData,
+                x: this.selectedToken.x,
+                y: this.selectedToken.y,
+                metadados
+            };
+
+            // Obtendo o estado completo do mapa
+            const estadoCompleto = this.getEstadoMapaAtual();
+
+            // Atualizando o token específico
+            const tokenIndex = estadoCompleto.tokens.findIndex(t => t.id === tokenAtualizado.id);
+            if (tokenIndex !== -1) {
+                estadoCompleto.tokens[tokenIndex] = tokenAtualizado;
+            } else {
+                estadoCompleto.tokens.push(tokenAtualizado);
+            }
+
+            this.apiService.salvarEstadoMapa(this.currentMapId, estadoCompleto).pipe(
+                switchMap(() => this.mapaService.sendMapUpdate(
+                    this.mesaId!,
+                    this.currentMapId!,
+                    JSON.stringify(estadoCompleto)
+                ))
+            ).subscribe({
+                error: (err) => {
+                    console.error('Erro ao salvar token:', err);
+                    this.toastr.error('Erro ao salvar alterações no token');
+                }
+            });
+        } catch (e) {
+            console.error('Erro ao preparar estado do token:', e);
+        }
+    }
+
+    public adicionarTokenAoMapa(token: TokenDto): void {
+        if (!this.currentMapId) {
+            console.error('Tentativa de adicionar token sem mapa carregado');
+            return;
+        }
+
+        const estadoAtual = this.getEstadoMapaAtual();
+
+        if (!estadoAtual.tokens) {
+            estadoAtual.tokens = [];
+        }
+
+        estadoAtual.tokens.push(token);
+        this.onLocalMapChange(estadoAtual);
+    }
+
+    public rotateToken(tokenId: number, rotation: number): void {
+        const changes: Partial<TokenDto> = {
+            metadados: {
+                rotation: rotation
+            }
+        };
+        this.updateTokenState(tokenId, changes);
+    }
+
+    public resizeToken(tokenId: number, width: number, height: number): void {
+        const changes: Partial<TokenDto> = {
+            metadados: {
+                width: width,
+                height: height
+            }
+        };
+        this.updateTokenState(tokenId, changes);
+    }
+
+    public handleTokenSelection(token: TokenDto): void {
+        // Lógica de seleção (ex: mostrar controles de rotação)
+        this.phaserGameService.onTokenSelected.emit(token);
     }
 
     // Atualiza o estado local e dispara atualização para outros usuários
@@ -147,6 +339,7 @@ export class MapaStateService {
             return;
         }
         const estadoCompleto: MapaEstadoDto = {
+            mapaId: currentMapId,
             tokens: tokensDoMapaAtual,
             camadas: mapState.camadas ?? [],
             objetos: mapState.objetos ?? [],
@@ -184,66 +377,74 @@ export class MapaStateService {
     }
 
     // Coleta os tokens da cena e salva o estado do mapa
-    public saveMapState(mapaId: number): void {
-        if (!this.currentMap || this.currentMap.mapaId !== mapaId || this.configuracoesAbertas) {
+    public saveMapState(mapaId: number, options: { silent?: boolean } = {}): void {
+        // Verificação mais segura do currentMap
+        if (!this.currentMap?.mapaId || this.currentMap.mapaId !== mapaId || this.configuracoesAbertas) {
             return;
         }
+
         try {
-            if (!this.phaserGame) {
-                throw new Error('Jogo Phaser não está disponível');
-            }
+            if (!this.phaserGame) throw new Error('Jogo Phaser não está disponível');
+
             const scene = this.phaserGame.scene.scenes[0];
-            if (!scene) {
-                throw new Error('Cena do Phaser não encontrada');
-            }
+            if (!scene) throw new Error('Cena do Phaser não encontrada');
+
+            // Coleta tokens da cena
             const tokens: TokenDto[] = [];
             scene.children.each(child => {
-                const sprite = child as Phaser.GameObjects.Sprite;
-                if (sprite && sprite.getData) {
-                    const tokenData = sprite.getData('tokenData');
+                if (child instanceof Phaser.GameObjects.Sprite && child.getData('tokenData')) {
+                    const tokenData = child.getData('tokenData');
                     if (tokenData?.mapaId === mapaId) {
                         tokens.push(tokenData);
                     }
                 }
             });
-            const estadoAtual = this.estadosMapa[mapaId] ?? {
-                tokens: [],
-                configuracoes: {
-                    tipoGrid: 'hexagonal',
-                    tamanhoCelula: 40,
-                    corGrid: '#cccccc',
-                    snapToGrid: true
-                }
+
+            const estadoAtual: MapaEstadoDto = {
+                mapaId,
+                tokens,
+                camadas: this.estadosMapa[mapaId]?.camadas || [],
+                objetos: this.estadosMapa[mapaId]?.objetos || [],
+                configuracoes: this.getConfiguracoesMapaAtual()
             };
-            estadoAtual.tokens = tokens;
 
             this.apiService.salvarEstadoMapa(mapaId, estadoAtual).pipe(
                 switchMap(() => {
-                    if (!this.currentMap) {
-                        return throwError(() => new Error('CurrentMap é nulo'));
+                    if (!options.silent) {
+                        return this.mapaService.sendMapUpdate(
+                            this.mesaId,
+                            mapaId,
+                            JSON.stringify(estadoAtual)
+                        );
                     }
-                    return this.mapaService.sendMapUpdate(
-                        this.mesaId,
-                        mapaId,
-                        JSON.stringify(estadoAtual)
-                    );
+                    return of(null);
                 })
             ).subscribe({
                 next: () => {
+                    // Atualiza o estado local com verificação segura
                     this.estadosMapa[mapaId] = estadoAtual;
+
+                    // Verificação adicional antes de acessar currentMap
                     if (this.currentMap) {
                         this.currentMap.estadoJson = JSON.stringify(estadoAtual);
                     }
-                    console.log(`Estado do mapa ${mapaId} salvo com sucesso`);
+
+                    if (!options.silent) {
+                        console.log(`Estado do mapa ${mapaId} salvo e sincronizado`);
+                    }
                 },
                 error: (err) => {
                     console.error(`Erro ao salvar estado do mapa ${mapaId}:`, err);
-                    this.toastr.error('Erro ao salvar estado do mapa');
+                    if (!options.silent) {
+                        this.toastr.error('Erro ao salvar estado do mapa');
+                    }
                 }
             });
         } catch (error) {
             console.error('Erro ao salvar estado do mapa:', error);
-            this.toastr.error('Erro ao salvar estado do mapa');
+            if (!options.silent) {
+                this.toastr.error('Erro ao salvar estado do mapa');
+            }
         }
     }
 
@@ -252,31 +453,26 @@ export class MapaStateService {
         if (!this.currentMap || !this.isCriador) return;
 
         this.isLoading = true;
-        const gridConfig = this.getCurrentGridConfig();
-
-        const config: ConfiguracaoMapaDto = {
-            tipoGrid: this.currentMap.configuracoes?.tipoGrid || gridConfig.tipoGrid || 'hexagonal',
-            tamanhoCelula: this.currentMap.configuracoes?.tamanhoCelula || 40,
-            corGrid: this.currentMap.configuracoes?.corGrid || '#cccccc',
-            snapToGrid: this.currentMap.configuracoes?.snapToGrid ?? true
+        const config: MapaConfigDto = {
+            nome: this.currentMap.nome,
+            largura: this.currentMap.largura,
+            altura: this.currentMap.altura,
+            tamanhoHex: this.currentMap.tamanhoHex,
+            visivel: this.currentMap.visivel
         };
 
+        const mesaId = this.mesaId;
         const mapaId = this.currentMap.mapaId;
-        this.apiService.salvarConfigMapa(mapaId, config).pipe(
-            switchMap((mapaAtualizado) => {
-                this.aplicarConfiguracaoMapa(config);
-                this.atualizarListaMapasAposSalvar(mapaAtualizado);
-                if (!this.mesaId) return throwError(() => new Error('ID da mesa não disponível'));
-                return this.mapaService.updateMapConfig(
-                    this.mesaId,
-                    mapaId,
-                    config
-                );
-            })
-        ).subscribe({
+
+        // Obter connectionId do SignalR
+        const connectionId = this.mapaService.getConnectionId();
+        const headers = connectionId ? new HttpHeaders().set('X-SignalR-ConnectionId', connectionId) : new HttpHeaders();
+
+        this.mapaService.updateMapConfig(mesaId, mapaId, config, headers).subscribe({
             next: () => {
+                // REMOVER ATUALIZAÇÕES LOCAIS AQUI
                 this.isLoading = false;
-                this.toastr.success('Configurações salvas e sincronizadas');
+                this.toastr.success('Configurações salvas. Sincronizando...');
             },
             error: (err) => {
                 console.error('Erro ao salvar:', err);
@@ -286,49 +482,61 @@ export class MapaStateService {
         });
     }
 
-    // Aplica as configurações ao modelo local e redesenha o grid
-    public aplicarConfiguracaoMapa(config: ConfiguracaoMapaDto): void {
-        if (!this.currentMap || !this.phaserGame) {
-            console.warn('Mapa ou Phaser não disponível para aplicar configurações');
-            return;
-        }
-        try {
-            // Atualiza o modelo local mantendo as propriedades básicas do mapa
-            this.currentMap = {
-                ...this.currentMap,
-                largura: this.currentMap.largura,
-                altura: this.currentMap.altura,
-                tamanhoHex: this.currentMap.tamanhoHex,
-                visivel: this.currentMap.visivel
-            };
+    public async atualizarConfiguracaoSignalR(config: MapaConfigDto): Promise<void> {
+        if (!this.currentMap) return;
+        this.currentMap = {
+            ...this.currentMap,
+            ...config
+        };
+        await this.aplicarConfiguracaoMapa(this.currentMap);
+    }
 
-            if (this.currentMap.estadoJson) {
-                const estado = JSON.parse(this.currentMap.estadoJson);
-                estado.configuracoes = {
-                    ...estado.configuracoes,
-                    ...config
-                };
-                this.currentMap.estadoJson = JSON.stringify(estado);
-            }
+    public aplicarConfiguracaoMapa(mapa: MapaDto): void {
+        if (!this.phaserGameService || !this.phaserGame) return;
+        const scene = this.phaserGame.scene.scenes[0];
+        if (!scene) return;
 
-            const scene = this.phaserGame.scene.scenes[0];
-            if (scene) {
-                this.drawHexGrid(scene);
-                if (config.snapToGrid !== undefined) {
-                    scene.children.each(child => {
-                        if (child.getData('isMapElement')) {
-                            if ('setVisible' in child && typeof child.setVisible === 'function') {
-                                child.setVisible(config.snapToGrid);
-                            }
-                        }
-                    });
-                }
-            }
-            console.log('Configurações do mapa aplicadas com sucesso');
-        } catch (error) {
-            console.error('Erro ao aplicar configurações do mapa:', error);
-            this.toastr.error('Erro ao aplicar configurações recebidas');
+        // Obtenha a configuração ATUALIZADA
+        const gridConfig = {
+            cols: mapa.largura || 30,
+            rows: mapa.altura || 30,
+            hexRadius: mapa.tamanhoHex || 40
+        };
+
+        // Passe a configuração explicitamente
+        this.phaserGameService.drawHexGrid(scene, {
+            cols: mapa.largura,
+            rows: mapa.altura,
+            hexRadius: mapa.tamanhoHex
+        });
+
+        // Carrega imagem de fundo se existir
+        if (mapa.imaFundo) {
+            const textureKey = `mapBackground_${mapa.mapaId}`;
+            const imageUrl = this.getImagemFundoUrl(); // método do MapaStateService
+            this.phaserGameService.carregarImagemFundoPhaser(scene, textureKey, imageUrl);
         }
+    }
+
+    public limparCena(): void {
+        if (!this.phaserGame) return;
+
+        const scene = this.phaserGame.scene.scenes[0];
+        if (!scene) return;
+
+        // Destruir todos os elementos da cena
+        scene.children.each(child => {
+            if (!(child instanceof Phaser.Cameras.Scene2D.Camera)) {
+                child.destroy();
+            }
+        });
+
+        // Resetar container
+        this.gridContainer = null;
+
+        // Recriar elementos essenciais
+        this.gridContainer = scene.add.container(0, 0);
+        scene.cameras.main.centerOn(0, 0);
     }
 
     public atualizarListaMapasAposSalvar(mapaAtualizado: MapaDto): void {
@@ -358,7 +566,7 @@ export class MapaStateService {
                 const novoMapa = this.allMaps.find(m => m.visivel) || this.allMaps[0];
                 if (novoMapa) {
                     this.currentMapId = novoMapa.mapaId;
-                    this.mudarMapaAtual(this.currentMapId);
+                    this.carregarMapaInicial(this.currentMapId);
                 }
                 this.isLoading = false;
             },
@@ -369,17 +577,38 @@ export class MapaStateService {
         });
     }
 
-    public mudarMapaAtual(mapaId: number): void {
+    public async carregarMapaInicial(mapaId: number): Promise<void> {
+        // Não verifica se é criador
+        this.clearSelection();
+        this.phaserGameService.cleanupTextures();
+        this.currentMap = null;
+        this.mapaCarregado = false;
+        this.currentMapId = mapaId;
+        await this.carregarMapa(mapaId);
+        // Notificar PhaserGameService da mudança
+        if (this.phaserGameService) {
+            this.phaserGameService.setCurrentMapData(this.currentMap);
+        }
+    }
+
+    public async mudarMapaAtual(mapaId: number): Promise<void> {
         if (!this.isCriador) {
             this.toastr.warning('Apenas o criador da mesa pode alterar mapas');
             return;
         }
+
         this.clearSelection();
-        this.cleanupTextures();
+        this.phaserGameService.cleanupTextures();
         this.currentMap = null;
         this.mapaCarregado = false;
         this.currentMapId = mapaId;
-        this.carregarMapa(mapaId);
+
+        await this.carregarMapa(mapaId);
+
+        // Notificar PhaserGameService da mudança
+        if (this.phaserGameService) {
+            this.phaserGameService.setCurrentMapData(this.currentMap);
+        }
     }
 
     public criarNovoMapa(): void {
@@ -450,20 +679,6 @@ export class MapaStateService {
         }
     }
 
-    public updateGridSize(axis: 'cols' | 'rows', value: number): void {
-        this.maps[this.currentMapIndex].gridSize[axis] = Math.max(5, Math.min(100, value));
-        if (this.phaserGame) {
-            this.drawHexGrid(this.phaserGame.scene.scenes[0]);
-        }
-    }
-
-    public updateHexSize(value: number): void {
-        this.maps[this.currentMapIndex].hexRadius = Math.max(10, Math.min(100, value));
-        if (this.phaserGame) {
-            this.drawHexGrid(this.phaserGame.scene.scenes[0]);
-        }
-    }
-
     public toggleGridControls(): void {
         this.gridControlsVisible = !this.gridControlsVisible;
         this.configuracoesAbertas = this.gridControlsVisible;
@@ -484,13 +699,13 @@ export class MapaStateService {
 
     // STUBS e métodos auxiliares
 
-    private getCurrentGridConfig(): { cols: number; rows: number; hexRadius: number; tipoGrid?: string } {
+    public getCurrentGridConfig(): { cols: number; rows: number; hexRadius: number; visivel?: boolean; } {
         if (this.currentMap) {
             return {
                 cols: this.currentMap.largura || 30,
                 rows: this.currentMap.altura || 30,
                 hexRadius: this.currentMap.tamanhoHex || 40,
-                tipoGrid: this.currentMap.configuracoes?.tipoGrid || 'hexagonal'
+                visivel: this.currentMap.visivel || false,
             };
         } else if (this.maps.length > 0 && this.currentMapIndex < this.maps.length) {
             const localMap = this.maps[this.currentMapIndex];
@@ -498,33 +713,96 @@ export class MapaStateService {
                 cols: localMap.gridSize.cols,
                 rows: localMap.gridSize.rows,
                 hexRadius: localMap.hexRadius,
-                tipoGrid: 'hexagonal'
+                visivel: true
             };
         }
-        return { cols: 30, rows: 30, hexRadius: 40, tipoGrid: 'hexagonal' };
-    }
-
-    private drawHexGrid(scene: Phaser.Scene): void {
-        console.log('drawHexGrid() chamado');
+        return { cols: 30, rows: 30, hexRadius: 40, visivel: false };
     }
 
     private toggleMapInteractions(enable: boolean): void {
-        console.log('toggleMapInteractions() chamado com enable =', enable);
+        if (!this.phaserGame) return;
+
+        const scene = this.phaserGame.scene.scenes[0];
+        if (!scene) return;
+
+        scene.children.each(child => {
+            if (child instanceof Phaser.GameObjects.Sprite && child.getData('tokenData')) {
+                child.disableInteractive();
+
+                if (enable) {
+                    const tokenData = child.getData('tokenData') as TokenDto;
+                    if (this.isCriador || tokenData.donoId === this.usuarioId) {
+                        child.setInteractive();
+                    }
+                }
+            }
+        });
+
+        // Adiciona/remove classe CSS para feedback visual
+        const container = document.querySelector('.game-container');
+        if (container) {
+            if (enable) {
+                container.classList.remove('map-disabled');
+            } else {
+                container.classList.add('map-disabled');
+            }
+        }
     }
 
     private clearSelection(): void {
-        console.log('clearSelection() chamado');
-    }
+        if (!this.phaserGame) return;
 
-    private cleanupTextures(): void {
-        console.log('cleanupTextures() chamado');
+        const scene = this.phaserGame.scene.scenes[0];
+        if (!scene) return;
+
+        // Remove qualquer seleção visual
+        scene.children.each(child => {
+            if (child instanceof Phaser.GameObjects.Sprite && child.getData('selected')) {
+                child.clearTint();
+                child.setData('selected', false);
+            }
+        });
     }
 
     private carregarMapa(mapaId: number): void {
-        console.log('carregarMapa() chamado para mapaId =', mapaId);
+        if (!this.mesaId) return;
+
+        this.clearSelection();
+        this.phaserGameService.cleanupTextures();
+
+        this.apiService.getMapaById(this.mesaId, mapaId).subscribe({
+            next: (mapa) => {
+                this.currentMap = mapa;
+                this.currentMapId = mapa.mapaId;
+                this.mapaCarregado = true;
+
+                this.phaserGameService.setCurrentMapData(mapa);
+
+                // Carrega estado inicial
+                const estadoInicial = mapa.estadoJson
+                    ? JSON.parse(mapa.estadoJson)
+                    : { tokens: [], configuracoes: this.getConfiguracoesMapaAtual() };
+
+                this.estadosMapa[mapaId] = estadoInicial;
+                this.phaserGameService.applyMapChanges(estadoInicial);
+
+                // Desenha o grid
+                if (this.phaserGame) {
+                    const scene = this.phaserGame.scene.scenes[0];
+                    this.phaserGameService.drawHexGrid(scene);
+                }
+
+                // Conecta ao grupo do mapa para atualizações em tempo real
+                this.mapaService.joinMesaGroup(this.mesaId.toString()).then();
+            },
+            error: (err) => {
+                console.error('Erro ao carregar mapa:', err);
+                this.toastr.error('Erro ao carregar o mapa');
+            }
+        });
     }
 
-    private isCurrentMapVisible(): boolean {
+    public isCurrentMapVisible(): boolean {
         return this.currentMap ? this.currentMap.visivel : false;
     }
 }

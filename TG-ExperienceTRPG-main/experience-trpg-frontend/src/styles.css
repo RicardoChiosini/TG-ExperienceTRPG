@@ -1,0 +1,172 @@
+/* You can add global styles to this file, and also import other style files */
+body {
+    background-color: #2b2933 !important; /* Fundo escuro com prioridade */
+    color: #fff !important; /* Letras claras com prioridade */
+    font-family: Arial, sans-serif; /* Fonte padrão */
+    margin: 0; /* Remove margem padrão */
+    padding: 0; /* Remove padding padrão */
+    overflow: hidden; /* Evita rolagem da página */
+    all: initial;
+  }
+
+  #chat-container-component {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    min-height: 0;
+    min-width: 0;
+    background-color: #2b2933;
+    color: white;
+  }
+
+#chat-container-component .mensagens {
+  flex: 1;
+  overflow-y: auto; /* Barra de rolagem vertical quando necessário */
+  overflow-x: hidden; /* Sem barra de rolagem horizontal */
+  min-height: 0; /* Permite que a área de mensagens encolha */
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Container de scroll personalizado */
+#chat-container-component .mensagens::-webkit-scrollbar {
+  width: 8px;
+}
+
+#chat-container-component .mensagens::-webkit-scrollbar-track {
+  background: #2b2933;
+}
+
+#chat-container-component .mensagens::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 4px;
+}
+
+#chat-container-component .mensagens::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}
+
+#chat-container-component .mensagem {
+  word-break: break-word;
+  line-height: 1.5;
+  padding: 0.5rem;
+  border-radius: 4px;
+  background-color: #3a3744;
+  word-break: break-word; /* Quebra palavras longas */
+  overflow-wrap: break-word; /* Quebra palavras muito longas */
+}
+
+#chat-container-component .enviar-mensagem {
+  display: flex;
+  padding: 0.75rem;
+  background-color: #333;
+  border-top: 1px solid #444;
+  flex-shrink: 0; /* Impede que a área de envio encolha */
+  min-width: 0;
+}
+
+#chat-container-component .mensagem:last-child {
+  margin-bottom: 0;
+}
+
+#chat-container-component .mensagem strong {
+  font-weight: bold;
+  color: #f0f0f0;
+}
+
+#chat-container-component .enviar-mensagem {
+  display: flex;
+  padding: 0.5rem;
+  background-color: #333;
+  border-top: 1px solid #444;
+}
+
+#chat-container-component .enviar-mensagem input {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background-color: #222;
+  color: white;
+  margin-right: 0.5rem;
+  min-width: 0;
+}
+
+#chat-container-component .enviar-mensagem button {
+  padding: 0.5rem 1rem;
+  background-color: #0052aa;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#chat-container-component .enviar-mensagem button:hover {
+  background-color: #0066cc;
+}
+
+#chat-container-component .dice-critical-fail {
+  color: #ff6b6b; /* Vermelho */
+  font-weight: bold;
+}
+
+#chat-container-component .dice-critical-success {
+  color: #70a1ff; /* Azul */
+  font-weight: bold;
+}
+
+#chat-container-component .dice-normal {
+  color: #f8f8f8; /* Branco normal */
+}
+
+/* Corrija a herança para elementos dentro do dice-ignored */
+#chat-container-component .dice-ignored,
+#chat-container-component .dice-ignored span {
+  color: #888 !important;
+  text-decoration: line-through !important;
+  display: inline; /* Mantém na mesma linha */
+}
+
+#chat-container-component .dice-ignored .dice-critical-fail,
+.dice-ignored .dice-critical-success,
+.dice-ignored .dice-normal {
+  color: inherit !important; /* Mantém o cinza para valores ignorados */
+}
+
+/* Restante do CSS permanece igual */
+#chat-container-component .dice-roll {
+  background-color: #2d2a36;
+  padding: 10px;
+  border-radius: 6px;
+  margin-top: 5px;
+}
+
+/* Conteúdo principal (fica na mesma linha) */
+#chat-container-component .dice-roll-content {
+  display: inline;
+}
+
+#chat-container-component .dice-roll-header {
+  display: inline; /* Mantém na mesma linha */
+}
+
+#chat-container-component .dice-operations {
+  display: inline; /* Mantém na mesma linha */
+}
+
+/* Total (fica em linha separada) */
+#chat-container-component .dice-total {
+  display: block;
+  font-size: 1.5em;
+  margin-top: 0.5rem;
+  font-weight: bold;
+  color: #f8f8f8;
+}
+
+#chat-container-component .dice-error {
+  color: #ff4444;
+  font-style: italic;
+}

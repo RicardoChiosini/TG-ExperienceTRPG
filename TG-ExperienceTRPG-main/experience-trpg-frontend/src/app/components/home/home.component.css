@@ -1,0 +1,65 @@
+/* Tema escuro principal */
+.dark-theme {
+  background-color: #121212;
+  color: #e0e0e0;
+  min-height: 100vh;
+}
+
+/* Header */
+.header-section {
+  background: linear-gradient(rgba(0, 0, 0, 0.7)), url('https://images.unsplash.com/photo-1605106702734-205df224ecce?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80') no-repeat center center;
+  background-size: cover;
+  min-height: 300px;
+}
+
+.main-title {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  color: #f8f9fa;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* Cards */
+.dark-card {
+  background-color: #1e1e1e;
+  border: 1px solid #333;
+  color: #e0e0e0;
+  transition: transform 0.3s ease;
+}
+
+.dark-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Botões */
+.btn-primary {
+  background-color: #6c5ce7;
+  border-color: #6c5ce7;
+}
+
+.btn-primary:hover {
+  background-color: #5649c0;
+  border-color: #5649c0;
+}
+
+.btn-outline-light:hover {
+  color: #121212;
+}
+
+/* Rodapé */
+.footer {
+  background-color: #0a0a0a;
+  border-top: 1px solid #333;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .header-section {
+    min-height: 200px;
+  }
+  
+  .main-title {
+    font-size: 2.5rem;
+  }
+}

@@ -3,7 +3,7 @@ import { MapaEstadoDto } from "./mapaEstado.dto";
 
 export interface MapaDto {
   mapaId: number;
-  mesaId: number;
+  mesaId?: number;
   nome: string;
   largura: number;
   altura: number;
@@ -11,8 +11,8 @@ export interface MapaDto {
   estadoJson: string;
   ultimaAtualizacao: Date;
   visivel: boolean;
-  imagemFundo?: number;  // ID da imagem de fundo
-  imaFundo?: ImagemDto;  // Dados completos da imagem
-  fundoUrl?: string;     // URL pronta (opcional)
+  imagemFundo?: number;
+  imaFundo?: ImagemDto;
+  fundoUrl?: string;
   estado?: MapaEstadoDto;
 }

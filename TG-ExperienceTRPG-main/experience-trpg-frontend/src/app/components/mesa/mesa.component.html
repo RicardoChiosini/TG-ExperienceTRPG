@@ -1,0 +1,232 @@
+<div class="mesa-container" [class.loading]="isLoading">
+  <!-- Tela de loading -->
+  <div *ngIf="isLoading" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <p>Carregando mesa...</p>
+  </div>
+
+  <!-- Conteúdo Principal (80%) com o Mapa SEMPRE visível -->
+  <div class="conteudo-principal">
+    <!-- Container do Phaser (sempre visível) -->
+    <div #gameContainer class="game-container" (dragover)="allowDrop($event)" (drop)="onDrop($event)"></div>
+
+    <!-- Controles no canto superior direito -->
+    <div class="map-controls-top">
+      <!-- Botão de configurações (visível apenas para criadores) -->
+      <button *ngIf="isCriador" (click)="toggleGridControls()" title="Controles do Grid"
+        class="map-control-button map-settings-button">
+        <!-- O ícone será substituído pelo pseudo-elemento CSS -->
+      </button>
+
+      <!-- Painel de configurações do grid -->
+      <div class="grid-config-panel" *ngIf="gridControlsVisible && isCriador">
+        <h4>Configurações do Mapa</h4>
+
+        <!-- Seletor de Mapas -->
+        <div class="form-group">
+          <label for="mapList">Mapas:</label>
+          <div class="map-selector-container">
+            <select id="mapList" [(ngModel)]="currentMapId" (change)="currentMapId && mudarMapaAtual(currentMapId)">
+              <option *ngFor="let map of allMaps" [value]="map.mapaId">
+                {{ map.nome }} {{ map.visivel ? '(Ativo)' : '' }}
+              </option>
+            </select>
+            <button class="btn-add-map" (click)="criarNovoMapa()" title="Adicionar novo mapa">
+              <span class="plus-icon">+</span>
+            </button>
+            <button class="btn-delete-map" (click)="confirmarExclusaoMapa()"
+              [disabled]="!currentMapId || isCurrentMapVisible()" title="Excluir mapa">
+              <span class="delete-icon">×</span>
+            </button>
+          </div>
+        </div>
+
+        <ng-container *ngIf="currentMap">
+          <!-- Nome do Mapa -->
+          <div class="form-group">
+            <label for="mapName">Nome:</label>
+            <input type="text" id="mapName" [(ngModel)]="currentMap.nome" class="form-control">
+          </div>
+
+          <!-- Dimensões do Mapa -->
+          <div class="form-group dimensions-group">
+            <div>
+              <label for="mapWidth">Largura:</label>
+              <input type="number" id="mapWidth" [(ngModel)]="currentMap.largura" min="5" max="100"
+                class="form-control">
+            </div>
+            <div>
+              <label for="mapHeight">Altura:</label>
+              <input type="number" id="mapHeight" [(ngModel)]="currentMap.altura" min="5" max="100"
+                class="form-control">
+            </div>
+          </div>
+
+          <!-- Tamanho do Hexágono -->
+          <div class="form-group">
+            <label for="hexSize">Tamanho Hex:</label>
+            <input type="number" id="hexSize" [(ngModel)]="currentMap.tamanhoHex" min="10" max="100"
+              class="form-control">
+          </div>
+
+          <!-- Imagem de Fundo (Nova seção) -->
+          <div class="form-group">
+            <label>Imagem de Fundo:</label>
+            <div class="image-upload-container">
+              @if (temImagemDeFundo()) {
+              <div class="position-relative">
+                <img [src]="getImagemFundoUrl()" alt="Imagem de Fundo" class="img-fluid rounded map-background-preview">
+                <button class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1" (click)="removerImagemFundo()">
+                  <i class="bi bi-x"></i>
+                </button>
+              </div>
+              } @else {
+              <button class="btn btn-outline-primary w-100 py-2" (click)="abrirSeletorImagens()">
+                <i class="bi bi-plus-circle me-2"></i> Selecionar Imagem
+              </button>
+              }
+            </div>
+          </div>
+
+          <!-- Mapa Atual (Checkbox) -->
+          <div class="form-group form-check">
+            <input type="checkbox" id="currentMap" [(ngModel)]="currentMap.visivel" class="form-check-input">
+            <label for="currentMap" class="form-check-label">Mapa Atual</label>
+          </div>
+
+          <!-- Seletor de Imagens (modal) -->
+          @if (showImageSelector) {
+          <div class="modal-backdrop show" (click)="showImageSelector = false"></div>
+          <div class="modal show d-block" tabindex="-1" (click)="showImageSelector = false">
+            <div class="modal-dialog modal-lg" (click)="$event.stopPropagation()">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title">Selecione uma Imagem de Fundo</h5>
+                  <button type="button" class="btn-close" (click)="showImageSelector = false"></button>
+                </div>
+                <div class="modal-body">
+                  <div class="row">
+                    @for (image of mesaImages; track image.imagemId) {
+                    <div class="col-md-3 mb-3">
+                      <div class="card image-selector-card" (click)="selecionarImagemFundo(image)">
+                        <img [src]="image.imageUrl || ('data:image/' + image.extensao + ';base64,' + image.dados)"
+                          class="card-img-top" [alt]="image.nome">
+                        <div class="card-body p-2">
+                          <h6 class="card-title">{{ image.nome }}</h6>
+                        </div>
+                      </div>
+                    </div>
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          }
+        </ng-container>
+
+        <!-- Botão de Salvar -->
+        <button class="save-config-btn" (click)="saveMapConfig()" [disabled]="!currentMap">
+          <i class="fas fa-save"></i> Salvar Configurações
+        </button>
+      </div>
+    </div>
+
+    <!-- Controles de zoom no canto inferior direito -->
+    <div class="zoom-controls">
+      <button (click)="zoomIn()" title="Zoom In (+10%)" class="zoom-button zoom-in"
+        [disabled]="isZooming || zoomPercentual >= ZOOM_MAXIMO">
+      </button>
+      <div class="zoom-display">
+        {{ zoomPercentual }}%
+      </div>
+      <button (click)="zoomOut()" title="Zoom Out (-10%)" class="zoom-button zoom-out"
+        [disabled]="isZooming || zoomPercentual <= ZOOM_MINIMO">
+      </button>
+    </div>
+  </div>
+
+  <!-- Menu (20%) -->
+  <div class="menu">
+    <!-- Abas do Menu -->
+    <div class="abas">
+      <button (click)="setActiveTab('chat')" [class.active]="activeTab === 'chat'">Chat</button>
+      <button (click)="setActiveTab('fichas')" [class.active]="activeTab === 'fichas'">Fichas</button>
+      <button (click)="setActiveTab('imagens')" [class.active]="activeTab === 'imagens'">Imagens</button>
+      <button (click)="setActiveTab('config')" [class.active]="activeTab === 'config'">Configurações</button>
+    </div>
+
+    <!-- Conteúdo das Abas -->
+    <div class="conteudo-abas">
+      <!-- Aba de Chat -->
+      <app-chat [mesaId]="mesaId" [usuarioId]="usuarioId" *ngIf="loadedTabs['chat'] && mesaId"
+        [hidden]="activeTab !== 'chat'">
+      </app-chat>
+
+      <!-- Aba de Fichas -->
+      <div *ngIf="loadedTabs['fichas']" class="aba-fichas" [hidden]="activeTab !== 'fichas'">
+        <button (click)="adicionarFicha()" class="btn btn-primary mb-3">Adicionar Ficha</button>
+        <div *ngFor="let ficha of fichas" class="ficha-item" (click)="abrirFicha(ficha)">
+          {{ ficha.nome }}
+        </div>
+      </div>
+
+      <!-- Aba de Imagens -->
+      <div *ngIf="activeTab === 'imagens'" class="imagens-container">
+        <!-- Botão de Upload simplificado -->
+        <div class="upload-area">
+          <input type="file" accept="image/*" (change)="onFileSelected($event)" #fileInput hidden>
+          <button class="upload-button" (click)="fileInput.click()">
+            <i class="fas fa-upload"></i> Enviar Imagem
+          </button>
+        </div>
+
+        <!-- Lista de Imagens -->
+        <div class="imagens-list">
+          <div *ngFor="let img of imagens" class="imagem-item" draggable="true" (dragstart)="dragImage($event, img)">
+            <div class="imagem-preview">
+              <img [src]="img.url" [alt]="img.nome" onerror="this.src='assets/imagem-padrao.png'">
+              <button class="delete-button" (click)="deletarImagem(img.imagemId); $event.stopPropagation()"
+                title="Excluir imagem">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+            <div class="imagem-info">
+              <div class="imagem-nome" contenteditable="true" (blur)="atualizarNomeImagem(img, $event)">
+                {{ img.nome }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Aba de Configurações -->
+      <div *ngIf="loadedTabs['config']" class="aba-config" [hidden]="activeTab !== 'config'">
+        <!-- Exibe o link de convite apenas para o criador da mesa -->
+        <div *ngIf="isCriador && linkConvite" class="link-convite">
+          <strong>Link de Convite: </strong>
+          <a>Clique para Copiar</a>
+          <div class="censored-link" (click)="copyToClipboard(linkConvite)">
+            <span class="censorship-bar"></span>
+            <span class="hidden-text">{{ linkConvite }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modals abertas -->
+<ng-container *ngFor="let modal of modalsAbertas">
+  <div class="modal-window" [id]="modal.modalId" [ngStyle]="{ 'top.px': modal.top, 'left.px': modal.left }">
+    <div class="modal-header" (mousedown)="iniciarArrastar($event, modal.modalId)">
+      <h5 class="modal-title">{{ modal.ficha.nome }}</h5>
+      <button type="button" class="btn-close" (click)="fecharModal(modal.modalId)"></button>
+    </div>
+    <div class="modal-body">
+      <ng-container
+        *ngComponentOutlet="getComponenteFicha(modal.ficha.sistemaId); inputs: { fichaId: modal.ficha.fichaId }">
+      </ng-container>
+    </div>
+  </div>
+</ng-container>

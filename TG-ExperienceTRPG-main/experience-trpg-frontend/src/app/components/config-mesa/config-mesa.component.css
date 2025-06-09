@@ -1,0 +1,147 @@
+/* Tema escuro principal */
+.dark-theme {
+  background-color: #121212;
+  color: #e0e0e0;
+  min-height: 100vh;
+}
+
+/* Card principal */
+.dark-card {
+  background-color: #1e1e1e;
+  border: 1px solid #333;
+  color: #e0e0e0;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.dark-card-inner {
+  background-color: #252525;
+  border: 1px solid #444;
+}
+
+/* Título */
+.mesa-config-title {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  color: #f8f9fa;
+  margin-bottom: 0.5rem;
+}
+
+.participantes-title {
+  color: #f8f9fa;
+  border-bottom: 1px solid #444;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+/* Inputs */
+.dark-input {
+  background-color: #2d2d2d;
+  border: 1px solid #444;
+  color: #e0e0e0;
+  padding: 0.75rem;
+}
+
+.dark-input:focus {
+  background-color: #3a3a3a;
+  border-color: #6c5ce7;
+  color: #fff;
+  box-shadow: 0 0 0 0.25rem rgba(108, 92, 231, 0.25);
+}
+
+/* Select */
+.form-select.dark-input {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23e0e0e0' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+}
+
+/* Switches */
+.form-check-input {
+  background-color: #444;
+  border-color: #555;
+}
+
+.form-check-input:checked {
+  background-color: #6c5ce7;
+  border-color: #6c5ce7;
+}
+
+.form-check-label {
+  color: #e0e0e0;
+}
+
+/* Lista de Participantes */
+.participantes-list {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.participante-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background-color: #252525;
+  border-bottom: 1px solid #333;
+}
+
+.participante-item:last-child {
+  border-bottom: none;
+}
+
+.participante-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #6c5ce7;
+}
+
+.participante-nome {
+  font-weight: 500;
+}
+
+/* Botões */
+.btn-primary {
+  background-color: #6c5ce7;
+  border-color: #6c5ce7;
+  padding: 0.75rem;
+  font-weight: 500;
+}
+
+.btn-primary:hover {
+  background-color: #5649c0;
+  border-color: #5649c0;
+}
+
+.btn-outline-danger {
+  color: #ff7675;
+  border-color: #ff7675;
+}
+
+.btn-outline-danger:hover {
+  background-color: #ff7675;
+  color: #121212;
+}
+
+/* Placeholders */
+::placeholder {
+  color: #999 !important;
+  opacity: 1;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .mesa-config-title {
+    font-size: 1.5rem;
+  }
+  
+  .participante-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .participante-item button {
+    align-self: flex-end;
+  }
+}

@@ -44,6 +44,7 @@ export interface ConfiguracaoMapaDto {
 }
 
 export interface MapaEstadoDto {
+  mapaId: number;
   tokens: TokenDto[];
   camadas?: CamadaDto[];
   objetos?: ObjetoDeMapaDto[];

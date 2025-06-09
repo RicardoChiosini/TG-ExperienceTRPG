@@ -1,0 +1,894 @@
+.mesa-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+.mapa-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Estilo para o container do jogo */
+.game-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  cursor: default;
+}
+
+/* Feedback visual durante arraste */
+.game-container.grabbing {
+  cursor: grabbing;
+}
+
+/* Garanta que o canvas do Phaser ocupe todo o espaço */
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.map-controls-top {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.map-controls {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.grid-control {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.grid-control label {
+  width: 100px;
+}
+
+.grid-control input {
+  flex-grow: 1;
+  background: #333;
+  color: white;
+  border: 1px solid #555;
+  padding: 5px;
+}
+
+/* Adicione um botão para alternar para o mapa nas abas */
+.abas button.map-tab {
+  background-color: #444;
+  color: white;
+}
+
+.abas button.map-tab.active {
+  background-color: #666;
+}
+
+/* Estilo para quando o mapa estiver em tela cheia */
+.mapa-fullscreen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  color: white;
+}
+
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  color: white;
+  font-size: 1.2em;
+}
+
+.loading-spinner {
+  border: 5px solid #f3f3f3;
+  border-top: 5px solid #3498db;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+.mesa-container.loading {
+  position: relative;
+}
+
+.mesa-container.loading::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.blurred {
+  filter: blur(2px);
+  pointer-events: none;
+}
+
+/* Garante que o container do mapa ocupe o espaço correto */
+.tab-content[hidden] {
+  display: none;
+}
+
+.conteudo-principal {
+  flex: 4;
+  position: relative;
+  min-width: 0;
+  background-color: #1a1a1a; /* Cor de fundo para o mapa */
+}
+
+.menu {
+  flex: 1; /* Ocupa 20% */
+  background-color: #333;
+  color: white;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* Importante para flexbox */
+}
+
+.abas {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 10px;
+}
+
+.abas button {
+  background-color: #444;
+  color: white;
+  border: none;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.abas button.active {
+  background-color: #666;
+}
+
+.conteudo-abas {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* Mantém o overflow escondido no container */
+  min-height: 0; /* Permite que o conteúdo encolha */
+}
+
+/* Garante que o app-chat ocupe todo o espaço */
+app-chat {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.aba-fichas,
+.aba-imagens,
+.aba-config {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+}
+
+.btn-primary {
+  background-color: #0052aa;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  background-color: #0056b3;
+}
+
+.ficha-item {
+  padding: 10px;
+  border: 1px solid #ccc;
+  margin-bottom: 5px;
+  border-radius: 4px;
+  cursor: pointer;
+  background-color: #444;
+}
+
+.ficha-item:hover {
+  background-color: #333;
+}
+
+.censored-link {
+  position: relative;
+  display: inline-block;
+  cursor: pointer; /* Indica que é interativo */
+}
+
+.censorship-bar {
+  background-color: black;
+  height: 1.5em; /* Ajuste a altura conforme necessário */
+  width: 100%; /* Cobre todo o texto */
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 4px; /* Bordas arredondadas, opcional */
+}
+
+.hidden-text {
+  color: transparent; /* Torna o texto invisível */
+  text-decoration: underline; /* Opcional: texto sublinhado para dar impressão de link */
+  cursor: pointer; /* Cursor de ponteiro indicando interatividade */
+}
+
+.modal-window {
+  position: absolute;
+  border: 1px solid #ccc;
+  background-color: #444;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  resize: both;
+  overflow: auto;
+  width: 850px; /* Largura padrão */
+  height: 800px; /* Altura padrão */
+  min-width: 850px; /* Largura mínima */
+  max-width: 850px; /* Largura máxima */
+  min-height: 400px; /* Altura mínima */
+  z-index: 1050; /* Garante que as modals fiquem acima de outros elementos */
+}
+
+.modal-header {
+  cursor: move;
+  background-color: #333;
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+.modal-body {
+  padding: 10px;
+}
+
+.btn-close {
+  cursor: pointer;
+}
+
+.imagens-container {
+  padding: 20px;
+  color: #fff;
+}
+
+.upload-area {
+  margin-bottom: 20px;
+}
+
+.upload-button {
+  width: 100%;
+  padding: 12px;
+  background-color: #1a73e8; /* Azul */
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s;
+}
+
+.upload-button:hover {
+  background-color: #0d5bbc;
+}
+
+.upload-button i {
+  margin-right: 8px;
+}
+
+.imagens-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 15px;
+}
+
+.imagem-item {
+  background-color: #2d3748;
+  border-radius: 6px;
+  overflow: hidden;
+  transition: transform 0.2s;
+}
+
+.imagem-item:hover {
+  transform: translateY(-3px);
+}
+
+.imagem-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.imagem-preview {
+  height: 120px;
+  overflow: hidden;
+  position: relative; /* Adicionado para posicionamento absoluto do botão */
+}
+
+/* Estilo para o botão de excluir */
+.delete-button {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background: rgba(0, 0, 0, 0.5);
+  border: none;
+  color: white;
+  cursor: pointer;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+}
+
+.delete-button:hover {
+  background: rgba(229, 62, 62, 0.8);
+  transform: scale(1.1);
+}
+
+/* Ajuste para o ícone */
+.delete-button i {
+  font-size: 12px;
+}
+
+/* Restante do CSS permanece igual */
+.imagem-info {
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.imagem-nome {
+  flex-grow: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 4px;
+  margin-right: 8px;
+  border-radius: 3px;
+}
+
+.imagem-nome:focus {
+  background-color: #4a5568;
+  outline: none;
+}
+
+.zoom-controls {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.zoom-display {
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 14px;
+  min-width: 50px;
+  text-align: center;
+}
+
+.zoom-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #555;
+}
+
+.zoom-button:disabled:hover {
+  transform: none;
+  background-color: #555;
+}
+
+/* Estilo para os botões do mapa (azuis como o botão de enviar) */
+.map-control-button,
+.zoom-button {
+  background: #0052aa; /* Azul similar ao botão de enviar */
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  margin-bottom: 10px;
+  transition: all 0.2s;
+  font-weight: bold; /* Para deixar os símbolos mais visíveis */
+}
+
+.map-control-button:hover,
+.zoom-button:hover {
+  background: #0066cc; /* Tom mais claro de azul no hover */
+  transform: scale(1.1);
+}
+
+/* Estilo específico para o botão de configurações do mapa */
+.map-settings-button {
+  background: #0052aa;
+  color: white;
+}
+
+/* Remove os ícones do Font Awesome e usa texto simples */
+.map-control-button i,
+.zoom-button i {
+  display: none;
+}
+
+/* Mostra os pseudo-elementos com os símbolos */
+.map-control-button::after {
+  content: "M"; /* Símbolo para o botão de mapa */
+}
+
+.zoom-button.zoom-in::after {
+  content: "+"; /* Símbolo para zoom in */
+}
+
+.zoom-button.zoom-out::after {
+  content: "-"; /* Símbolo para zoom out */
+}
+
+.zoom-button.reset-view::after {
+  content: "R"; /* Símbolo para reset view */
+}
+
+/* Estilo para o grupo de checkbox */
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.checkbox-group label {
+  width: auto;
+  margin-right: 10px;
+}
+
+.checkbox-group input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+
+/* Estilo para o container do seletor de mapas */
+.map-selector-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Estilo para o select de mapas */
+.map-select {
+  flex: 1;
+  padding: 8px 12px;
+  background-color: #333;
+  color: white;
+  border: 1px solid #555;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.map-select:focus {
+  outline: none;
+  border-color: #0052aa;
+}
+
+/* Estilo para o botão de adicionar mapa */
+.btn-add-map {
+  background-color: #0052aa;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-add-map:hover {
+  background-color: #0066cc;
+  transform: scale(1.05);
+}
+
+.btn-add-map:active {
+  transform: scale(0.95);
+}
+
+.btn-delete-map {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-delete-map:hover:not(:disabled) {
+  background-color: #c82333;
+  transform: scale(1.05);
+}
+
+.btn-delete-map:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.plus-icon,
+.delete-icon {
+  font-size: 18px;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.btn-delete-map {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-delete-map:hover:not(:disabled) {
+  background-color: #bb2d3b;
+  transform: scale(1.05);
+}
+
+.btn-delete-map:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.btn-delete-map:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+/* Estilo para o ícone de × */
+.delete-icon {
+  font-size: 20px;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.map-selector select {
+  flex-grow: 1;
+  background: #333;
+  color: white;
+  border: 1px solid #555;
+  padding: 5px;
+  border-radius: 4px;
+}
+
+.map-selector button {
+  background: #0052aa;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.map-selector button:hover {
+  background: #0066cc;
+}
+
+/* Estilos para o painel de configurações */
+.grid-config-panel {
+  background: rgba(0, 0, 0, 0.9);
+  padding: 15px;
+  border-radius: 5px;
+  color: white;
+  width: 300px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.grid-config-panel h4 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  border-bottom: 1px solid #555;
+  padding-bottom: 5px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group select {
+  width: 100%;
+  padding: 8px;
+  background: #333;
+  color: white;
+  border: 1px solid #555;
+  border-radius: 4px;
+}
+
+/* Grupo de dimensões lado a lado */
+.dimensions-group {
+  display: flex;
+  gap: 10px;
+}
+
+.dimensions-group > div {
+  flex: 1;
+}
+
+/* Grupo de checkbox */
+.checkbox-group {
+  display: flex;
+  align-items: center;
+}
+
+.checkbox-group label {
+  margin-right: 10px;
+  margin-bottom: 0;
+}
+
+.checkbox-group input {
+  width: auto;
+}
+
+/* Botão de salvar */
+.save-config-btn {
+  width: 100%;
+  padding: 10px;
+  background: #0052aa;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: all 0.2s;
+}
+
+.save-config-btn:hover {
+  background: #0066cc;
+}
+
+.save-config-btn i {
+  margin-right: 8px;
+}
+
+.token {
+  transition: transform 0.2s, opacity 0.3s;
+  cursor: grab;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.token:hover {
+  transform: scale(1.05);
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+}
+
+.token:active {
+  cursor: grabbing;
+  opacity: 0.9;
+}
+
+.token-loading {
+  opacity: 0.5;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0.5;
+  }
+}
+
+.map-disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* Estilos do seletor de imagens (reutilizados) */
+.image-selector-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1050;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.image-selector-container {
+  background: white;
+  border-radius: 5px;
+  width: 80%;
+  max-width: 800px;
+  max-height: 80vh;
+  overflow: auto;
+  padding: 20px;
+}
+
+.image-selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.image-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.image-selector-item {
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.image-selector-item:hover {
+  transform: scale(1.05);
+}
+
+.image-selector-item img {
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+}
+
+.image-name {
+  font-size: 0.8rem;
+  text-align: center;
+  margin-top: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* mapa.component.css */
+.image-upload-container {
+  min-height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.map-background-preview {
+  max-height: 200px;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.image-selector-card {
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.image-selector-card:hover {
+  transform: scale(1.03);
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.modal-backdrop {
+  opacity: 0.5;
+}
+
+.dimensions-group {
+  display: flex;
+  gap: 1rem;
+}
+
+.dimensions-group > div {
+  flex: 1;
+}
+
+/* Estilo para o botão de seleção */
+.btn-outline-primary {
+  border: 1px solid #0d6efd;
+  color: #0d6efd;
+  transition: all 0.3s ease;
+}
+
+.btn-outline-primary:hover {
+  background-color: #0d6efd;
+  color: white;
+}
+
+/* Ajustes para o ícone */
+.bi-plus-circle {
+  font-size: 1.2rem;
+  vertical-align: middle;
+}

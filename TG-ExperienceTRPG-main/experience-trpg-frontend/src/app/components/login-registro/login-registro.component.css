@@ -1,0 +1,91 @@
+/* Herda o tema escuro principal */
+.dark-theme {
+  background-color: #121212;
+  color: #e0e0e0;
+  min-height: 100vh;
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+
+/* Cards */
+.dark-card {
+  background-color: #1e1e1e;
+  border: 1px solid #333;
+  color: #e0e0e0;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.dark-card h2 {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  color: #f8f9fa;
+  font-size: 1.8rem;
+}
+
+/* Inputs */
+.dark-input {
+  background-color: #2d2d2d;
+  border: 1px solid #444;
+  color: #e0e0e0;
+}
+
+.dark-input:focus {
+  background-color: #3a3a3a;
+  border-color: #6c5ce7;
+  color: #fff;
+  box-shadow: 0 0 0 0.25rem rgba(108, 92, 231, 0.25);
+}
+
+/* Botões */
+.btn-primary {
+  background-color: #6c5ce7;
+  border-color: #6c5ce7;
+  padding: 0.5rem;
+  font-weight: 500;
+}
+
+.btn-primary:hover {
+  background-color: #5649c0;
+  border-color: #5649c0;
+}
+
+.btn-success {
+  background-color: #00b894;
+  border-color: #00b894;
+  padding: 0.5rem;
+  font-weight: 500;
+}
+
+.btn-success:hover {
+  background-color: #00a381;
+  border-color: #00a381;
+}
+
+/* Alertas */
+.alert-warning {
+  background-color: rgba(253, 203, 110, 0.2);
+  border-color: rgba(253, 203, 110, 0.3);
+  color: #fdcb6e;
+}
+
+/* Links */
+a.text-primary {
+  color: #6c5ce7 !important;
+  text-decoration: none;
+}
+
+a.text-primary:hover {
+  text-decoration: underline;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .dark-card {
+    margin-bottom: 1.5rem;
+  }
+  
+  .dark-card h2 {
+    font-size: 1.5rem;
+  }
+}
