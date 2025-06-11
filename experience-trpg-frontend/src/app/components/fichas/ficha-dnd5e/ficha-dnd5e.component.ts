@@ -586,6 +586,181 @@ export class FichaDnd5eComponent implements OnInit {
         });
     }
 
+    rollWeaponAttack(weapon: any) {
+        if (!weapon || !weapon.arma) return;
+
+        // Calcular modificador de ataque
+        const attackModifier = this.calculateAttackModifier(weapon.arma);
+
+        this.diceRollService.requestRoll({
+            type: 'weapon-attack',
+            name: weapon.nome || 'Ataque com Arma',
+            modifier: attackModifier,
+            expression: `1d20${attackModifier >= 0 ? '+' : ''}${attackModifier}`,
+            mesaId: this.ficha.mesaId,
+            nome: this.ficha.nome
+        });
+    }
+
+    rollWeaponDamage(weapon: any) {
+        if (!weapon || !weapon.arma) return;
+
+        const damageExpressions = this.getDamageExpressions(weapon.arma, false);
+        const hasMultipleDamages = damageExpressions.length > 1;
+
+        damageExpressions.forEach((damage, index) => {
+            const damageName = hasMultipleDamages
+                ? `${weapon.nome} (${damage.tipoDano})`
+                : weapon.nome;
+
+            this.diceRollService.requestRoll({
+                type: 'weapon-damage',
+                name: damageName,
+                modifier: 0,
+                expression: damage.expression,
+                mesaId: this.ficha.mesaId,
+                nome: this.ficha.nome,
+                tipoDano: damage.tipoDano
+            });
+        });
+    }
+
+    rollWeaponCritical(weapon: any) {
+        if (!weapon || !weapon.arma) return;
+
+        const damageExpressions = this.getDamageExpressions(weapon.arma, true);
+        const hasMultipleDamages = damageExpressions.length > 1;
+
+        damageExpressions.forEach((damage, index) => {
+            const damageName = hasMultipleDamages
+                ? `${weapon.nome} (${damage.tipoDano})`
+                : weapon.nome;
+
+            this.diceRollService.requestRoll({
+                type: 'weapon-critical',
+                name: damageName,
+                modifier: 0,
+                expression: damage.expression,
+                mesaId: this.ficha.mesaId,
+                nome: this.ficha.nome,
+                tipoDano: damage.tipoDano
+            });
+        });
+    }
+
+    // Métodos auxiliares
+    private calculateAttackModifier(arma: any): number {
+        // Implemente a lógica para calcular o modificador de ataque
+        // Considerando proficiência, bônus mágico, atributo selecionado, etc.
+        let modifier = 0;
+
+        // Adicione o modificador do atributo de acerto
+        const attributeModifier = this.getAttributeModifier(arma.tipoAcerto);
+        modifier += attributeModifier;
+
+        // Adicione proficiência se aplicável
+        if (arma.proficiencia) {
+            modifier += this.Proficiencia() || 0;
+        }
+
+        // Adicione bônus mágico
+        if (arma.bonusMagico) {
+            modifier += +arma.bonusMagico;
+        }
+
+        // Adicione outros bônus (se houver campo bonusAcerto)
+        if (arma.bonusAcerto) {
+            modifier += +arma.bonusAcerto;
+        }
+
+        return modifier;
+    }
+
+    private getDamageExpressions(arma: any, isCritical: boolean): { expression: string, tipoDano: string }[] {
+        const expressions = [];
+
+        // Dano primário
+        if (arma.dadosDano1) {
+            let diceExpression = arma.dadosDano1;
+
+            if (isCritical) {
+                diceExpression = arma.dadosCritico1 || this.doubleDiceExpression(arma.dadosDano1);
+            }
+
+            let expression = diceExpression;
+
+            // Adicionar modificador de atributo se aplicável
+            if (arma.bonusDano1) {
+                const attributeModifier = this.getAttributeModifier(arma.bonusDano1);
+                if (attributeModifier !== 0) {
+                    expression += attributeModifier >= 0 ? `+${attributeModifier}` : attributeModifier;
+                }
+            }
+
+            // Adicionar outros bônus
+            if (arma.bonusMagico) {
+                expression += `+${arma.bonusMagico}`;
+            }
+
+            expressions.push({
+                expression,
+                tipoDano: arma.tipoDano1 || 'Dano' // Usa tipoDano1 ou padrão 'Dano'
+            });
+        }
+
+        // Dano secundário (se existir)
+        if (arma.dadosDano2) {
+            let diceExpression = arma.dadosDano2;
+
+            if (isCritical) {
+                diceExpression = arma.dadosCritico2 || this.doubleDiceExpression(arma.dadosDano2);
+            }
+
+            let expression = diceExpression;
+
+            // Adicionar modificador de atributo se aplicável
+            if (arma.bonusDano2) {
+                const attributeModifier = this.getAttributeModifier(arma.bonusDano2);
+                if (attributeModifier !== 0) {
+                    expression += attributeModifier >= 0 ? `+${attributeModifier}` : attributeModifier;
+                }
+            }
+
+            expressions.push({
+                expression,
+                tipoDano: arma.tipoDano2 || 'Dano Secundário' // Usa tipoDano2 ou padrão 'Dano Secundário'
+            });
+        }
+
+        return expressions.length > 0 ? expressions : [{ expression: '0', tipoDano: 'Dano' }];
+    }
+
+    private doubleDiceExpression(diceExpression: string): string {
+        // Implemente a lógica para dobrar a expressão de dados (ex: "1d6" -> "2d6")
+        const match = diceExpression.match(/(\d+)d(\d+)/);
+        if (match) {
+            const count = parseInt(match[1], 10);
+            const sides = match[2];
+            return `${count * 2}d${sides}`;
+        }
+        return diceExpression;
+    }
+
+    private getAttributeModifier(attribute: string): number {
+        // Implemente a lógica para obter o modificador do atributo
+        // Exemplo básico - ajuste conforme sua estrutura de ficha
+        switch (attribute) {
+            case ' ': return 0;
+            case 'For': return this.forModifier || 0;
+            case 'Des': return this.desModifier || 0;
+            case 'Con': return this.conModifier || 0;
+            case 'Int': return this.intModifier || 0;
+            case 'Sab': return this.sabModifier || 0;
+            case 'Car': return this.carModifier || 0;
+            default: return 0;
+        }
+    }
+
     inicializaFicha(): void {
         this.nome = this.ficha.nome;
         // Atributos

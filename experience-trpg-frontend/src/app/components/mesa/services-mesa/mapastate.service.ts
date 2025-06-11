@@ -8,7 +8,7 @@ import { TokenDto } from '../../../dtos/mapaEstado.dto';
 import { MapaService } from '../../../services/mapa.service';
 import { PhaserGameService } from './phasergame.service';
 import { AuthService } from '../../../services/auth.service';
-import { throwError, of, Subscription, Observable } from 'rxjs';
+import { throwError, of, Subscription, Observable, lastValueFrom } from 'rxjs';
 import { switchMap, catchError, tap, finalize } from 'rxjs/operators';
 import * as Phaser from 'phaser';
 import { MapaConfigDto } from '../../../dtos/mapaconfig.dto';
@@ -471,10 +471,6 @@ export class MapaStateService {
     }
 
     public async mudarMapaAtual(mapaId: number): Promise<void> {
-        if (!this.isCriador) {
-            this.toastr.warning('Apenas o criador da mesa pode alterar mapas');
-            return;
-        }
 
         this.clearSelection();
         this.phaserGameService.cleanupTextures();

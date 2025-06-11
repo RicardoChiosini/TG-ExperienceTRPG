@@ -906,7 +906,7 @@
           <!-- Seção de Inventário -->
           <div class="row g-1 mt-2">
             <!-- Coluna Esquerda (Armaduras, Armas, Escudos) -->
-            <div class="col-md-6">
+            <div class="col-md-8">
               <!-- ARMADURAS -->
               <div class="card bg-dark text-light mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
@@ -1000,6 +1000,11 @@
                       <div class="d-flex justify-content-between align-items-center">
                         <div>{{ item.nome }}</div>
                         <div>
+                          <button class="btn btn-sm btn-primary me-1" (click)="rollWeaponAttack(item)">Ataque</button>
+                          <button class="btn btn-sm btn-danger me-1" (click)="rollWeaponDamage(item)">Dano</button>
+                          <button class="btn btn-sm btn-warning me-2" (click)="rollWeaponCritical(item)">Crítico</button>
+                        </div>
+                        <div>
                           <button class="toggle-btn" (click)="toggleExpandir(item.equipamentoId)">
                             {{ expandedStates[item.equipamentoId] ? 'V' : 'V' }}
                           </button>
@@ -1072,6 +1077,7 @@
                             <label>Modificador:</label>
                             <select class="form-select bg-dark text-light" *ngIf="item.arma"
                               [(ngModel)]="item.arma.bonusDano1" (ngModelChange)="onItemChange(item)">
+                              <option value=" "> </option>
                               <option value="For">For</option>
                               <option value="Des">Des</option>
                               <option value="Con">Con</option>
@@ -1079,11 +1085,6 @@
                               <option value="Sab">Sab</option>
                               <option value="Car">Car</option>
                             </select>
-                          </div>
-                          <div class="col-md-4 d-flex flex-column align-items-center">
-                            <label>+</label>
-                            <input type="text" class="form-control bg-dark text-light" *ngIf="item.arma"
-                              [(ngModel)]="item.arma.bonusDano1" (blur)="onItemChange(item)">
                           </div>
                         </div>
                         <div class="row mb-1">
@@ -1110,6 +1111,7 @@
                             <label>Modificador:</label>
                             <select class="form-select bg-dark text-light" *ngIf="item.arma"
                               [(ngModel)]="item.arma.bonusDano2" (ngModelChange)="onItemChange(item)">
+                              <option value=" "> </option>
                               <option value="For">For</option>
                               <option value="Des">Des</option>
                               <option value="Con">Con</option>
@@ -1117,11 +1119,6 @@
                               <option value="Sab">Sab</option>
                               <option value="Car">Car</option>
                             </select>
-                          </div>
-                          <div class="col-md-4 d-flex flex-column align-items-center">
-                            <label>+</label>
-                            <input type="text" class="form-control bg-dark text-light" *ngIf="item.arma"
-                              [(ngModel)]="item.arma.bonusDano2" (blur)="onItemChange(item)">
                           </div>
                         </div>
                         <div class="row mb-1">
@@ -1215,7 +1212,7 @@
             </div>
 
             <!-- Coluna Direita (Moedas e Itens) -->
-            <div class="col-md-6 d-flex flex-column">
+            <div class="col-md-4 d-flex flex-column">
               <!-- Moedas (Topo) -->
               <div class="card bg-dark text-light mb-4">
                 <div class="card-header">

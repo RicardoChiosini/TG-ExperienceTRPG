@@ -444,6 +444,31 @@ namespace experience_trpg_backend.Controllers
             return Ok(_mapper.Map<MapaDto>(mapa));
         }
 
+        [HttpGet("{mesaId}/mapa/visivel/id")]
+        public async Task<ActionResult<int>> GetMapaVisivelId(int mesaId)
+        {
+            try
+            {
+                // Busca apenas o ID do mapa visível
+                var mapaId = await _context.Mapas
+                    .Where(m => m.MesaId == mesaId && m.Visivel)
+                    .Select(m => m.MapaId)
+                    .FirstOrDefaultAsync();
+
+                if (mapaId == 0)
+                {
+                    return NotFound(new { Message = "Nenhum mapa visível encontrado para esta mesa" });
+                }
+            
+                return Ok(mapaId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao buscar ID do mapa visível");
+                return StatusCode(500, new { Message = "Erro interno ao processar a requisição" });
+            }
+        }
+
         [HttpPost("{mesaId}/mapa")]
         public async Task<ActionResult<MapaDto>> CriarMapa(int mesaId, [FromBody] MapaDto mapaDto)
         {

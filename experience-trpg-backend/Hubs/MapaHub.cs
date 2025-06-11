@@ -81,7 +81,7 @@ namespace experience_trpg_backend.Hubs
 
         public async Task UpdateMapConfig(int mesaId, int mapaId, MapaConfigDto config)
         {
-            await Clients.Group(mesaId.ToString()).SendAsync("ReceiveConfigUpdate", mapaId, config);
+            await Clients.Group(mesaId.ToString()).SendAsync("ReceiveMapConfigUpdate", mapaId, config);
         }
 
         public async Task UpdateCamadas(CamadaDto[] camadas, int mesaId)

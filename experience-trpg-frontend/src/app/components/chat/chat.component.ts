@@ -17,8 +17,9 @@ interface DiceRollResult {
   expressaoOriginal?: string;
   erro?: string;
   // Adicione estas novas propriedades
-  tipo?: 'attribute' | 'skill' | 'saving-throw' | 'custom';
+  tipo?: 'attribute' | 'skill' | 'saving-throw' | 'custom' | 'weapon-attack' | 'weapon-damage' | 'weapon-critical';
   nome?: string;
+  tipoDano?: string;
   personagem?: string;
 }
 
@@ -161,8 +162,21 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   private criarMensagemAcao(rollData: RollData): ChatMessage {
     let acaoTexto = '';
+    let tipoMensagem: 'acao' | 'dado' = 'acao';
 
     switch (rollData.type) {
+      case 'weapon-attack':
+        acaoTexto = `${rollData.nome} ataca com ${rollData.name}`;
+        tipoMensagem = 'dado'; // Considera como mensagem de dado
+        break;
+      case 'weapon-damage':
+        acaoTexto = `${rollData.nome} causa dano com ${rollData.name}`;
+        tipoMensagem = 'dado';
+        break;
+      case 'weapon-critical':
+        acaoTexto = `${rollData.nome} acerta um CRÍTICO com ${rollData.name}`;
+        tipoMensagem = 'dado';
+        break;
       case 'attribute':
         acaoTexto = `${rollData.nome} testa ${rollData.name}`;
         break;
@@ -180,7 +194,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
       user: rollData.nome,
       message: `<div class="action-message"><strong>${rollData.nome}:</strong> ${acaoTexto}</div>`,
       texto: acaoTexto,
-      tipoMensagem: 'acao',
+      tipoMensagem: tipoMensagem,
       usuarioId: this.authService.getUserId()!,
       mesaId: rollData.mesaId,
       dataHora: new Date().toISOString()
@@ -472,20 +486,33 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
 
     let mensagem = `<div class="dice-roll"><span class="dice-roll-content"><strong>${resultado.personagem || usuario}:</strong> `;
 
+    // Adiciona tratamento específico para rolagens de armas
     if (resultado.tipo && resultado.nome) {
-      let tipoTexto = '';
       switch (resultado.tipo) {
+        case 'weapon-attack':
+          mensagem += `<span class="roll-type">Ataque com ${resultado.nome.replace(/\(([^)]+)\)$/, '')}: </span>`;
+          break;
+        case 'weapon-damage':
+        case 'weapon-critical':
+          const weaponName = resultado.nome.replace(/\(([^)]+)\)$/, '');
+          const damageType = resultado.tipoDano || resultado.nome.match(/\(([^)]+)\)$/)?.[1] || '';
+
+          if (resultado.tipo === 'weapon-critical') {
+            mensagem += `<span class="roll-type">DANO CRÍTICO com ${weaponName}: </span>`;
+          } else {
+            mensagem += `<span class="roll-type">Dano com ${weaponName}: </span>`;
+          }
+          break;
         case 'attribute':
-          tipoTexto = `Utiliza ${resultado.nome}`;
+          mensagem += `<span class="roll-type">Teste de ${resultado.nome}: </span>`;
           break;
         case 'skill':
-          tipoTexto = `Usa ${resultado.nome}`;
+          mensagem += `<span class="roll-type">Teste de perícia ${resultado.nome}: </span>`;
           break;
         case 'saving-throw':
-          tipoTexto = `Tenta resistir com ${resultado.nome}`;
+          mensagem += `<span class="roll-type">Teste de resistência ${resultado.nome}: </span>`;
           break;
       }
-      mensagem += `<span class="roll-type">${tipoTexto}: </span>`;
     }
 
     // Trata mensagens de erro
@@ -552,8 +579,14 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
       }
     }
 
-    mensagem += `</span><div class="dice-total">= ${resultado.total}</div></div>`;
+    // Destaque especial para críticos
+    const criticalClass = resultado.tipo === 'weapon-critical' ? 'dice-critical-total' : '';
 
+    // Adiciona o tipo de dano à direita do total, se existir
+    const damageType = resultado.tipoDano || '';
+    const damageTypeHtml = damageType ? `<span class="damage-type">${damageType}</span>` : '';
+
+    mensagem += `</span><div class="dice-total ${criticalClass}">= ${resultado.total} ${damageTypeHtml}</div></div>`;
     return mensagem;
   }
 

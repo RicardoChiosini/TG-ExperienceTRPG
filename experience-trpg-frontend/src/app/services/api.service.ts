@@ -205,6 +205,10 @@ export class ApiService {
     return this.http.get<MapaDto>(`${this.baseUrl}/mapa/${mesaId}/mapa/${mapaId}`);
   }
 
+  getMapaVisivelId(mesaId: number): Observable<number> {
+    return this.http.get<number>(`${this.baseUrl}/mapa/${mesaId}/mapa/visivel/id`);
+  }
+
   excluirMapa(mesaId: number, mapaId: number): Observable<{ message: string }> {
     return this.http.delete<{ message: string }>(
       `${this.baseUrl}/mapa/${mesaId}/mapa/${mapaId}`

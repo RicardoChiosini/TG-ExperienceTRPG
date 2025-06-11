@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Subject } from 'rxjs';
 
-export type RollType = 'attribute' | 'skill' | 'saving-throw' | 'custom';
+export type RollType = 'attribute' | 'skill' | 'saving-throw' | 'custom' | 'weapon-attack' | 'weapon-damage' | 'weapon-critical';
 
 export interface RollData {
   type: RollType;
@@ -10,6 +10,7 @@ export interface RollData {
   expression: string;
   mesaId: number;
   nome: string;
+  tipoDano?: string;
 }
 
 @Injectable({ providedIn: 'root' })

@@ -3,7 +3,7 @@ import { ActivatedRoute } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { lastValueFrom, of, Subject, Subscription } from 'rxjs';
-import { catchError, filter, switchMap, take, takeUntil, tap } from 'rxjs/operators';
+import { catchError, filter, map, switchMap, take, takeUntil, tap } from 'rxjs/operators';
 
 // Serviços
 import { ChatService } from '../../services/chat.service';
@@ -198,13 +198,20 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
         // 2. Atualizar lista de mapas
         this.mapaStateService.atualizarListaMapasAposSalvar(this.mapaStateService.currentMap);
 
-        // 3. Redesenhar grid se necessário
+        // ⭐ 3. Apenas atualizar configurações SEM recriar o grid inteiro
         if (this.phaserGameService.phaserGame) {
           const scene = this.phaserGameService.phaserGame.scene.scenes[0];
           if (scene) {
-            this.phaserGameService.drawHexGrid(scene);
+            // ⭐ Atualiza apenas as configurações necessárias
+            this.phaserGameService.updateGridConfig({
+              cols: mapaDto.largura,
+              rows: mapaDto.altura,
+              hexRadius: mapaDto.tamanhoHex
+            });
           }
         }
+
+        // ⭐ 4. Forçar atualização da cena
         this.mapaStateService.carregarMapa(this.mapaStateService.currentMapId);
       })
     );
@@ -309,20 +316,20 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // Métodos de ficha
   carregarFichas(): void {
-  this.apiService.getFichasPorMesa(this.mesaId).subscribe(
-    (data: FichaDto[]) => {
-      this.fichas = data;
-      this.recursosCarregados.fichas = true;
-      this.fichaStateService.setFichas(this.mesaId, this.fichas);
-      this.verificarCarregamentoCompleto();
-    },
-    (error) => {
-      console.error('Erro ao carregar fichas:', error);
-      this.recursosCarregados.fichas = true;
-      this.verificarCarregamentoCompleto();
-    }
-  );
-}
+    this.apiService.getFichasPorMesa(this.mesaId).subscribe(
+      (data: FichaDto[]) => {
+        this.fichas = data;
+        this.recursosCarregados.fichas = true;
+        this.fichaStateService.setFichas(this.mesaId, this.fichas);
+        this.verificarCarregamentoCompleto();
+      },
+      (error) => {
+        console.error('Erro ao carregar fichas:', error);
+        this.recursosCarregados.fichas = true;
+        this.verificarCarregamentoCompleto();
+      }
+    );
+  }
 
   private verificarCarregamentoCompleto(): void {
     if (

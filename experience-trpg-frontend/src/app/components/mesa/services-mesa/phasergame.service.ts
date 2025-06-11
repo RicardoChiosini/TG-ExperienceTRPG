@@ -250,6 +250,16 @@ export class PhaserGameService {
         const graphics = scene.add.graphics().setData('gridElement', true);
         this.gridContainer.add(graphics);
 
+        // Configurar profundidade do grid
+        if (this.gridContainer) {
+            this.gridContainer.setDepth(10); // ⭐ Camada intermediária
+        }
+
+        // Configurar profundidade do fundo
+        if (this.backgroundImage) {
+            this.backgroundImage.setDepth(0); // ⭐ Camada inferior
+        }
+
         // Desenha o grid hexagonal
         for (let y = 0; y < rows; y++) {
             for (let x = 0; x < cols; x++) {
@@ -366,6 +376,29 @@ export class PhaserGameService {
         }
 
         return { x: rx, y: ry, z: rz };
+    }
+
+    public updateGridConfig(config: HexGridConfig): void {
+        const scene = this.phaserGame?.scene.scenes[0];
+        if (!scene) return;
+
+        // Atualizar apenas elementos gráficos do grid (sem destruir o container)
+        if (this.gridContainer) {
+            const graphics = this.gridContainer.getAt(0) as Phaser.GameObjects.Graphics;
+            if (graphics) {
+                graphics.clear();
+
+                // Redesenhar hexágonos com novas configurações
+                for (let y = 0; y < config.rows; y++) {
+                    for (let x = 0; x < config.cols; x++) {
+                        // ... lógica de desenho ...
+                    }
+                }
+            }
+        }
+
+        // Atualizar limites da câmera
+        this.ajustarCameraParaNovoGrid();
     }
 
     public updateGridSize(axis: 'cols' | 'rows', value: number): void {
@@ -808,8 +841,9 @@ export class PhaserGameService {
         const sprite = scene.add.sprite(token.x, token.y, textureKey)
             .setName(`token-${token.id}`)
             .setInteractive()
-            .setDisplaySize(displayWidth, displayHeight) // Tamanho quadrado
-            .setData('tokenData', token);
+            .setDisplaySize(displayWidth, displayHeight)
+            .setData('tokenData', token)
+            .setDepth(100);
 
         // Configurar teclado apenas uma vez
         if (!this.keyboardSetupDone) {
@@ -904,10 +938,9 @@ export class PhaserGameService {
         this.clearSelection();
         this.selectedToken = tokenSprite;
 
-        // Removido: tokenSprite.setTint(0x00ff00); // Remover destaque de cor interna
-
-        // Criar retângulo de seleção AZUL
         const bounds = tokenSprite.getBounds();
+
+        // Retângulo de seleção (depth 150)
         this.selectionRectangle = tokenSprite.scene.add.graphics()
             .lineStyle(2, 0x0000ff)
             .strokeRect(
@@ -915,14 +948,17 @@ export class PhaserGameService {
                 bounds.y - 5,
                 bounds.width + 10,
                 bounds.height + 10
-            );
+            )
+            .setDepth(150); // ⭐⭐ Definir depth alto
 
-        // Criar alça de redimensionamento AZUL (canto inferior direito)
+        // Alça de redimensionamento (depth 151 - acima do retângulo)
         this.resizeHandle = tokenSprite.scene.add.ellipse(
             bounds.right,
             bounds.bottom,
-            15, 15, 0x0000ff // AZUL
-        ).setInteractive();
+            15, 15, 0x0000ff
+        )
+            .setInteractive()
+            .setDepth(151); // ⭐⭐ Depth mais alto que o retângulo
 
         // Configurar interações
         this.setupResizeInteraction();
@@ -985,10 +1021,12 @@ export class PhaserGameService {
                 bounds.y - 5,
                 bounds.width + 10,
                 bounds.height + 10
-            );
+            )
+            .setDepth(150); // ⭐ Manter depth
 
         // Atualizar alças
-        this.resizeHandle.setPosition(bounds.right, bounds.bottom);
+        this.resizeHandle.setPosition(bounds.right, bounds.bottom)
+        .setDepth(151);
     }
 
     // Novo: Remover token visualmente
