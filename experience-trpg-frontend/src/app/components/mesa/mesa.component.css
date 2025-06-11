@@ -1,4 +1,5 @@
 .mesa-container {
+  position: relative;
   display: flex;
   height: 100vh;
   width: 100vw;
@@ -25,6 +26,7 @@
   padding: 0;
   overflow: hidden;
   cursor: default;
+  pointer-events: auto;
 }
 
 /* Feedback visual durante arraste */
@@ -39,6 +41,7 @@ canvas {
   height: 100%;
   margin: 0;
   padding: 0;
+  filter: contrast(1.2);
 }
 
 .map-controls-top {
@@ -62,13 +65,15 @@ canvas {
 }
 
 .grid-control {
-  display: flex;
-  align-items: center;
-  margin-bottom: 8px;
+  background: rgba(40, 40, 40, 0.85); /* Fundo mais escuro */
+  border: 1px solid #555;
+  border-radius: 8px;
+  padding: 12px;
 }
 
 .grid-control label {
-  width: 100px;
+  color: #e0e0e0; /* Texto mais claro */
+  font-weight: 500;
 }
 
 .grid-control input {
@@ -274,18 +279,33 @@ app-chat {
 }
 
 .modal-window {
+  transition: transform 0.1s ease-out;
+  /* Garante tamanho fixo horizontal */
+  width: 850px;
+  min-width: 850px;
+  max-width: 850px;
+
+  /* Permite apenas redimensionamento vertical */
+  resize: vertical;
+
+  /* Só mostra barra de rolagem vertical quando necessário */
+  overflow-x: hidden;
+  overflow-y: auto;
+
+  /* Mantém outras propriedades existentes */
   position: absolute;
   border: 1px solid #ccc;
   background-color: #444;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  resize: both;
-  overflow: auto;
-  width: 850px; /* Largura padrão */
-  height: 800px; /* Altura padrão */
-  min-width: 850px; /* Largura mínima */
-  max-width: 850px; /* Largura máxima */
-  min-height: 400px; /* Altura mínima */
-  z-index: 1050; /* Garante que as modals fiquem acima de outros elementos */
+  height: 700px;
+  max-height: 800px;
+  min-height: 400px;
+  z-index: 1050;
+}
+
+.modal-window.colliding {
+  transform: scale(0.98);
+  box-shadow: 0 0 15px rgba(255, 50, 50, 0.5);
 }
 
 .modal-header {
@@ -297,6 +317,45 @@ app-chat {
 
 .modal-body {
   padding: 10px;
+}
+
+.modal-window.minimized {
+  width: 150px;
+  min-width: 150px;
+  max-width: 150px;
+  height: 40px !important;
+  max-height: 40px;
+  min-height: 40px;
+  resize: none;
+  overflow: hidden;
+}
+
+/* Mantém o header visível quando minimizado */
+.modal-header {
+  cursor: pointer;
+  user-select: none;
+  height: 40px; /* Altura fixa para o header */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Esconde o corpo quando minimizado */
+.modal-body.d-none {
+  display: none;
+}
+
+/* Opcional: estilo visual para indicar estado minimizado */
+.modal-window.minimized {
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  opacity: 0.9;
+}
+
+.restore-icon::after {
+  content: "⤢";
+  float: right;
+  margin-right: 15px;
+  cursor: pointer;
 }
 
 .btn-close {

@@ -16,6 +16,13 @@ namespace experience_trpg_backend.Controllers
     [ApiController]
     public class MapController : ControllerBase
     {
+
+        private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = false
+        };
+
         private readonly AppDbContext _context;
         private readonly IHubContext<MapaHub> _hubContext;
         private readonly IMapper _mapper;
@@ -165,12 +172,8 @@ namespace experience_trpg_backend.Controllers
             }
         }
 
-        [HttpPut("{mapaId}/token/{tokenId}")]
-        public async Task<IActionResult> UpdateToken(
-        int mesaId,
-        int mapaId,
-        string tokenId,
-        [FromBody] TokenUpdateDto update)
+        [HttpPut("{mesaId}/mapa/{mapaId}/token/{tokenId}")]
+        public async Task<IActionResult> UpdateToken(int mesaId, int mapaId, string tokenId, [FromBody] TokenUpdateDto update)
         {
             try
             {
@@ -180,30 +183,52 @@ namespace experience_trpg_backend.Controllers
                 if (mapa == null)
                     return NotFound("Mapa não encontrado");
 
-                var estado = string.IsNullOrEmpty(mapa.EstadoJson)
-                    ? new MapaEstadoDto()
-                    : JsonSerializer.Deserialize<MapaEstadoDto>(mapa.EstadoJson);
+                // 1. OPÇÕES DE SERIALIZAÇÃO (consistentes com SalvarEstadoMapa)
+                var serializeOptions = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    WriteIndented = false
+                };
 
-                var token = estado.Tokens.FirstOrDefault(t => t.Id == tokenId);
+                // Desserialização segura do estado COM OPÇÕES
+                MapaEstadoDto estado;
+                try
+                {
+                    estado = string.IsNullOrWhiteSpace(mapa.EstadoJson)
+                        ? new MapaEstadoDto()
+                        : JsonSerializer.Deserialize<MapaEstadoDto>(mapa.EstadoJson, serializeOptions); // <- Adicione as opções aqui
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogError(ex, "Erro ao desserializar EstadoJson");
+                    estado = new MapaEstadoDto();
+                }
+
+                var token = estado.Tokens?.FirstOrDefault(t => t.Id == tokenId);
                 if (token == null)
+                {
+                    // Log detalhado para depuração
+                    var tokenIds = estado.Tokens?.Select(t => t.Id).ToList() ?? new List<string>();
+                    _logger.LogWarning($"Token {tokenId} não encontrado. Tokens disponíveis: {string.Join(", ", tokenIds)}");
                     return NotFound("Token não encontrado");
+                }
 
-                // Atualiza as propriedades do token
+                // Atualização das propriedades
                 if (update.X.HasValue) token.X = update.X.Value;
                 if (update.Y.HasValue) token.Y = update.Y.Value;
                 if (update.Z.HasValue) token.Z = update.Z.Value;
                 if (update.VisivelParaTodos.HasValue) token.VisivelParaTodos = update.VisivelParaTodos.Value;
                 if (update.Bloqueado.HasValue) token.Bloqueado = update.Bloqueado.Value;
                 if (update.Metadados != null) token.Metadados = update.Metadados;
-
+                token.Version++;
                 token.DataAtualizacao = DateTime.UtcNow;
 
-                // Salva no banco
-                mapa.EstadoJson = JsonSerializer.Serialize(estado);
+                // 2. USAR AS OPÇÕES NA SERIALIZAÇÃO AO SALVAR
+                mapa.EstadoJson = JsonSerializer.Serialize(estado, serializeOptions); // <- Use as opções aqui também
                 mapa.UltimaAtualizacao = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
 
-                // Notifica via SignalR
+                // Notificação SignalR
                 await _hubContext.Clients.Group(mesaId.ToString())
                     .SendAsync("ReceiveTokenUpdate", token);
 
@@ -217,10 +242,7 @@ namespace experience_trpg_backend.Controllers
         }
 
         [HttpPost("{mesaId}/mapa/{mapaId}/token")]
-        public async Task<ActionResult<TokenDto>> AddToken(
-    int mesaId,
-    int mapaId,
-    [FromBody] TokenCreateDto tokenDto)
+        public async Task<ActionResult<TokenDto>> AddToken(int mesaId, int mapaId, [FromBody] TokenCreateDto tokenDto)
         {
             try
             {
@@ -230,15 +252,13 @@ namespace experience_trpg_backend.Controllers
                 if (mapa == null)
                     return NotFound(new { Message = "Mapa não encontrado" });
 
-                // Desserializa o estado atual ou cria novo se vazio
+                // Desserializa com opções consistentes
                 var estado = string.IsNullOrEmpty(mapa.EstadoJson)
-                    ? new MapaEstadoDto()
-                    : JsonSerializer.Deserialize<MapaEstadoDto>(mapa.EstadoJson);
+                    ? new MapaEstadoDto { Tokens = new List<TokenDto>() } // Inicializa a lista!
+                    : JsonSerializer.Deserialize<MapaEstadoDto>(mapa.EstadoJson, _jsonOptions); // Usa opções
 
-                // Garante que a lista de tokens existe
-                estado.Tokens ??= new List<TokenDto>();
+                estado.Tokens ??= new List<TokenDto>(); // Garante que a lista não seja nula
 
-                // Cria o novo token
                 var newToken = new TokenDto
                 {
                     Id = Guid.NewGuid().ToString(),
@@ -258,21 +278,14 @@ namespace experience_trpg_backend.Controllers
                 // Adiciona o novo token mantendo os existentes
                 estado.Tokens.Add(newToken);
 
-                // Configurações de serialização
-                var options = new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                    WriteIndented = false
-                };
-
-                // Atualiza e salva o estado
-                mapa.EstadoJson = JsonSerializer.Serialize(estado, options);
+                // Serializa com opções
+                mapa.EstadoJson = JsonSerializer.Serialize(estado, _jsonOptions);
                 mapa.UltimaAtualizacao = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
 
                 // Notifica outros clientes via SignalR
                 await _hubContext.Clients.Group(mesaId.ToString())
-                    .SendAsync("AddOrUpdateToken", newToken, mesaId);
+                    .SendAsync("ReceiveTokenAddition", newToken);
 
                 return CreatedAtAction(
                     nameof(GetToken),
@@ -287,7 +300,51 @@ namespace experience_trpg_backend.Controllers
             }
         }
 
-        [HttpGet("{mapaId}/token/{tokenId}")]
+        [HttpDelete("{mesaId}/mapa/{mapaId}/token/{tokenId}")]
+        public async Task<IActionResult> DeleteToken(int mesaId, int mapaId, string tokenId)
+        {
+            try
+            {
+                var mapa = await _context.Mapas
+                    .FirstOrDefaultAsync(m => m.MapaId == mapaId && m.MesaId == mesaId);
+
+                if (mapa == null)
+                    return NotFound("Mapa não encontrado");
+
+                // Desserializar com opções consistentes
+                var estado = string.IsNullOrEmpty(mapa.EstadoJson)
+                    ? new MapaEstadoDto { Tokens = new List<TokenDto>() }
+                    : JsonSerializer.Deserialize<MapaEstadoDto>(mapa.EstadoJson, _jsonOptions);
+
+                // Garantir que a lista de tokens não seja nula
+                estado.Tokens ??= new List<TokenDto>();
+
+                // Encontrar e remover o token
+                var token = estado.Tokens.FirstOrDefault(t => t.Id == tokenId);
+                if (token == null)
+                    return NotFound("Token não encontrado");
+
+                estado.Tokens.Remove(token);
+
+                // Serializar com opções consistentes
+                mapa.EstadoJson = JsonSerializer.Serialize(estado, _jsonOptions);
+                mapa.UltimaAtualizacao = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+                // Notificar exclusão
+                await _hubContext.Clients.Group(mesaId.ToString())
+                    .SendAsync("DeleteToken", tokenId);
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao excluir token");
+                return StatusCode(500, "Erro interno ao excluir token");
+            }
+        }
+
+        [HttpGet("{mesaId}/mapa/{mapaId}/token/{tokenId}")]
         public async Task<ActionResult<TokenDto>> GetToken(int mesaId, int mapaId, string tokenId)
         {
             try
@@ -298,9 +355,13 @@ namespace experience_trpg_backend.Controllers
                 if (mapa == null)
                     return NotFound("Mapa não encontrado");
 
+                // Desserializar com opções consistentes
                 var estado = string.IsNullOrEmpty(mapa.EstadoJson)
-                    ? new MapaEstadoDto()
-                    : JsonSerializer.Deserialize<MapaEstadoDto>(mapa.EstadoJson);
+                    ? new MapaEstadoDto { Tokens = new List<TokenDto>() }
+                    : JsonSerializer.Deserialize<MapaEstadoDto>(mapa.EstadoJson, _jsonOptions);
+
+                // Garantir que a lista de tokens não seja nula
+                estado.Tokens ??= new List<TokenDto>();
 
                 var token = estado.Tokens.FirstOrDefault(t => t.Id == tokenId);
                 if (token == null)

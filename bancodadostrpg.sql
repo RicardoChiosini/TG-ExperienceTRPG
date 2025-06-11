@@ -145,6 +145,7 @@ select * from fichas;
 select * from atributos;
 select * from proficiencias;
 select * from habilidades;
+select * from equipamentos;
 select * from mesas;
 select * from usuariomesas;
 select * from mensagens;

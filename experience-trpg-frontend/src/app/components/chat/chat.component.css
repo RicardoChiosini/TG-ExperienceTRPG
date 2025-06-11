@@ -1,0 +1,10 @@
+.action-message {
+  color: #666;
+  font-style: italic;
+  margin-bottom: 4px;
+}
+
+.roll-type {
+  font-weight: bold;
+  color: #444;
+}

@@ -1,15 +1,15 @@
 // mapa-state.service.ts
-import { Inject, Injectable } from '@angular/core';
+import { EventEmitter, Inject, Injectable } from '@angular/core';
 import { ApiService } from '../../../services/api.service';
 import { ToastrService } from 'ngx-toastr';
-import { MapaEstadoDto, ConfiguracaoMapaDto } from '../../../dtos/mapaEstado.dto';
+import { MapaEstadoDto, ConfiguracaoMapaDto, TokenUpdateDto } from '../../../dtos/mapaEstado.dto';
 import { MapaDto } from '../../../dtos/mapa.dto';
 import { TokenDto } from '../../../dtos/mapaEstado.dto';
 import { MapaService } from '../../../services/mapa.service';
 import { PhaserGameService } from './phasergame.service';
 import { AuthService } from '../../../services/auth.service';
-import { throwError, of, Subscription } from 'rxjs';
-import { switchMap, catchError } from 'rxjs/operators';
+import { throwError, of, Subscription, Observable } from 'rxjs';
+import { switchMap, catchError, tap, finalize } from 'rxjs/operators';
 import * as Phaser from 'phaser';
 import { MapaConfigDto } from '../../../dtos/mapaconfig.dto';
 import { e, im } from 'mathjs';
@@ -28,7 +28,10 @@ export class MapaStateService {
     }
     // Estado interno de mapas
     private estadosMapa: { [mapaId: number]: MapaEstadoDto } = {};
+    public onTokenAdicionado = new EventEmitter<TokenDto>();
     private subscriptions = new Subscription();
+    private localUpdates = new Set<string>();
+
 
     // Dados externos: estes valores serão definidos via setters
     public currentMapId!: number;
@@ -52,6 +55,8 @@ export class MapaStateService {
     private isCriador: boolean = false;
     private currentMapIndex: number = 0;
     private selectedToken?: Phaser.GameObjects.Sprite;
+    private ignoreNextTokenUpdate: Set<string> = new Set();
+    private ignoreNextTokenDelete: Set<string> = new Set();
 
     constructor(
         private apiService: ApiService,
@@ -59,7 +64,17 @@ export class MapaStateService {
         private toastr: ToastrService,
         private authService: AuthService,
         private phaserGameService: PhaserGameService
-    ) { }
+    ) {
+        this.phaserGameService.onTokenDeleteRequested.subscribe(tokenId => {
+            this.removerToken(tokenId).subscribe();
+        });
+
+        this.phaserGameService.onTokenUpdated.subscribe(({ token, changes }) => {
+            if (token.id && this.currentMapId) {
+                this.atualizarToken(token.id, changes).subscribe();
+            }
+        });
+    }
 
     /* SETTERS para injetar dados externos */
     public setPhaserGame(game: Phaser.Game): void {
@@ -96,17 +111,6 @@ export class MapaStateService {
     /////////////////////////////////
     // MÉTODOS DE LISTENERS
     /////////////////////////////////
-
-    public setupMapaListeners(): void {
-        this.subscriptions.add(
-            this.mapaService.estadoUpdates$.subscribe(estado => {
-                if (this.currentMapId === estado.mapaId) {
-                    this.phaserGameService.applyMapChanges(estado);
-                }
-            })
-        );
-
-    }
 
     public async loadInitialMapState(mapaId: number): Promise<void> {
         if (!this.mesaId) return;
@@ -208,114 +212,6 @@ export class MapaStateService {
             return `data:image/${imagem.extensao};base64,${imagem.dados}`;
         }
         return 'assets/default-bg.jpg';
-    }
-
-    public updateTokenState(tokenId: number | string, changes: Partial<TokenDto>): void {
-        const estado = this.getEstadoMapaAtual();
-        const tokenIndex = estado.tokens.findIndex(t =>
-            typeof t.id === 'string' ? Number(t.id) === Number(tokenId) : t.id === tokenId
-        );
-
-        if (tokenIndex !== -1) {
-            estado.tokens[tokenIndex] = {
-                ...estado.tokens[tokenIndex],
-                ...changes,
-                metadados: {
-                    ...estado.tokens[tokenIndex].metadados,
-                    ...changes.metadados
-                }
-            };
-            this.onLocalMapChange(estado);
-        }
-    }
-
-    public saveTokenState(): void {
-        if (!this.selectedToken || !this.currentMapId || this.configuracoesAbertas) return;
-
-        try {
-            const tokenData = this.selectedToken.getData('tokenData') as TokenDto;
-
-            // Corrigindo os tipos para números
-            const metadados = {
-                ...tokenData.metadados,
-                rotation: this.selectedToken.angle, // número
-                width: this.selectedToken.displayWidth, // número
-                height: this.selectedToken.displayHeight // número
-            };
-
-            const tokenAtualizado: TokenDto = {
-                ...tokenData,
-                x: this.selectedToken.x,
-                y: this.selectedToken.y,
-                metadados
-            };
-
-            // Obtendo o estado completo do mapa
-            const estadoCompleto = this.getEstadoMapaAtual();
-
-            // Atualizando o token específico
-            const tokenIndex = estadoCompleto.tokens.findIndex(t => t.id === tokenAtualizado.id);
-            if (tokenIndex !== -1) {
-                estadoCompleto.tokens[tokenIndex] = tokenAtualizado;
-            } else {
-                estadoCompleto.tokens.push(tokenAtualizado);
-            }
-
-            this.apiService.salvarEstadoMapa(this.currentMapId, estadoCompleto).pipe(
-                switchMap(() => this.mapaService.sendMapUpdate(
-                    this.mesaId!,
-                    this.currentMapId!,
-                    JSON.stringify(estadoCompleto)
-                ))
-            ).subscribe({
-                error: (err) => {
-                    console.error('Erro ao salvar token:', err);
-                    this.toastr.error('Erro ao salvar alterações no token');
-                }
-            });
-        } catch (e) {
-            console.error('Erro ao preparar estado do token:', e);
-        }
-    }
-
-    public adicionarTokenAoMapa(token: TokenDto): void {
-        if (!this.currentMapId) {
-            console.error('Tentativa de adicionar token sem mapa carregado');
-            return;
-        }
-
-        const estadoAtual = this.getEstadoMapaAtual();
-
-        if (!estadoAtual.tokens) {
-            estadoAtual.tokens = [];
-        }
-
-        estadoAtual.tokens.push(token);
-        this.onLocalMapChange(estadoAtual);
-    }
-
-    public rotateToken(tokenId: number, rotation: number): void {
-        const changes: Partial<TokenDto> = {
-            metadados: {
-                rotation: rotation
-            }
-        };
-        this.updateTokenState(tokenId, changes);
-    }
-
-    public resizeToken(tokenId: number, width: number, height: number): void {
-        const changes: Partial<TokenDto> = {
-            metadados: {
-                width: width,
-                height: height
-            }
-        };
-        this.updateTokenState(tokenId, changes);
-    }
-
-    public handleTokenSelection(token: TokenDto): void {
-        // Lógica de seleção (ex: mostrar controles de rotação)
-        this.phaserGameService.onTokenSelected.emit(token);
     }
 
     // Atualiza o estado local e dispara atualização para outros usuários
@@ -463,7 +359,6 @@ export class MapaStateService {
 
         this.mapaService.updateMapConfig(mesaId, mapaId, config, headers).subscribe({
             next: () => {
-                // REMOVER ATUALIZAÇÕES LOCAIS AQUI
                 this.isLoading = false;
                 this.toastr.success('Configurações salvas. Sincronizando...');
             },
@@ -748,7 +643,7 @@ export class MapaStateService {
         });
     }
 
-    private carregarMapa(mapaId: number): void {
+    public carregarMapa(mapaId: number): void {
         if (!this.mesaId) return;
 
         this.clearSelection();
@@ -775,6 +670,9 @@ export class MapaStateService {
                     const scene = this.phaserGame.scene.scenes[0];
                     this.phaserGameService.drawHexGrid(scene);
                 }
+                if (!estadoInicial.tokens) {
+                    estadoInicial.tokens = [];
+                }
 
                 // Conecta ao grupo do mapa para atualizações em tempo real
                 this.mapaService.joinMesaGroup(this.mesaId.toString()).then();
@@ -788,5 +686,113 @@ export class MapaStateService {
 
     public isCurrentMapVisible(): boolean {
         return this.currentMap ? this.currentMap.visivel : false;
+    }
+
+    // Novo: Carregar tokens do mapa
+    public carregarTokensMapa(mapaId: number): Observable<TokenDto[]> {
+        if (!this.mesaId) return of([]);
+
+        return this.mapaService.getTokensDoMapa(this.mesaId, mapaId).pipe(
+            tap(tokens => {
+                // Atualiza estado local
+                if (!this.estadosMapa[mapaId]) {
+                    this.estadosMapa[mapaId] = {
+                        mapaId: mapaId, // Adicione esta linha
+                        tokens: [],
+                        configuracoes: {
+                            tipoGrid: 'hexagonal', // Objeto literal em vez de 'new'
+                            tamanhoCelula: 40,
+                            corGrid: '#cccccc',
+                            snapToGrid: true
+                        },
+                        camadas: [],
+                        objetos: []
+                    };
+                }
+                this.estadosMapa[mapaId].tokens = tokens;
+
+                // Envia para o Phaser
+                this.phaserGameService.applyMapChanges(this.estadosMapa[mapaId]);
+            }),
+            catchError(err => {
+                console.error('Erro ao carregar tokens:', err);
+                return of([]);
+            })
+        );
+    }
+
+    // Novo: Adicionar token
+    public adicionarToken(token: TokenDto): Observable<TokenDto> {
+        return this.mapaService.addToken(this.mesaId, this.currentMapId, token).pipe(
+            tap(novoToken => {
+                // Atualização local apenas para o criador
+                if (!this.estadosMapa[this.currentMapId].tokens) {
+                    this.estadosMapa[this.currentMapId].tokens = [];
+                }
+                this.estadosMapa[this.currentMapId].tokens.push(novoToken);
+            })
+        );
+    }
+
+    // Novo: Atualizar token
+    public atualizarToken(tokenId: string, changes: Partial<TokenDto>): Observable<TokenDto> {
+        // Converter para TokenUpdateDto incluindo apenas campos permitidos
+        const updateData: TokenUpdateDto = {
+            x: changes.x,
+            y: changes.y,
+            z: changes.z,
+            visivelParaTodos: changes.visivelParaTodos,
+            bloqueado: changes.bloqueado,
+            metadados: changes.metadados
+        };
+
+        return this.mapaService.updateToken(
+            this.mesaId,
+            this.currentMapId,
+            tokenId,
+            updateData
+        ).pipe(
+            tap(tokenAtualizado => {
+                // Atualiza os metadados corretamente
+                if (this.estadosMapa[this.currentMapId]) {
+                    const index = this.estadosMapa[this.currentMapId].tokens.findIndex(t => t.id === tokenId);
+                    if (index !== -1) {
+                        this.estadosMapa[this.currentMapId].tokens[index] = {
+                            ...this.estadosMapa[this.currentMapId].tokens[index],
+                            ...tokenAtualizado
+                        };
+                    }
+                }
+            })
+        );
+    }
+
+    // Novo: Remover token
+    public removerToken(tokenId: string): Observable<void> {
+        if (!this.mesaId || !this.currentMapId) return throwError('Mapa não selecionado');
+
+        return this.mapaService.removeToken(
+            this.mesaId,
+            this.currentMapId,
+            tokenId
+        ).pipe(
+            tap(() => {
+                // Atualiza o estado local
+                if (this.estadosMapa[this.currentMapId]) {
+                    this.estadosMapa[this.currentMapId].tokens =
+                        this.estadosMapa[this.currentMapId].tokens.filter(t => t.id !== tokenId);
+                }
+                this.phaserGameService.removerTokenVisual(tokenId);
+            })
+        );
+    }
+
+    // Novo: Obter token específico
+    public getToken(tokenId: string): Observable<TokenDto | null> {
+        if (!this.mesaId || !this.currentMapId) return of(null);
+
+        return this.mapaService.getToken(this.mesaId, this.currentMapId, tokenId).pipe(
+            catchError(() => of(null))
+        );
     }
 }

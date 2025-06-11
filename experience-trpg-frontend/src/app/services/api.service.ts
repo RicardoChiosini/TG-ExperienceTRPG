@@ -1,12 +1,13 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpEvent, HttpEventType } from '@angular/common/http';
-import { catchError, map, Observable, of } from 'rxjs';
+import { catchError, map, Observable, of, throwError } from 'rxjs';
 import { MesaDto } from '../dtos/mesa.dto';
 import { ImagemDto } from '../dtos/imagem.dto';
 import { FichaDto, AtributoDto, HabilidadeDto, ProficienciaDto } from '../dtos/ficha.dto';
 import { MapaDto } from '../dtos/mapa.dto';
 import { MapaEstadoDto } from '../dtos/mapaEstado.dto';
 import { HttpHeaders } from '@angular/common/http';
+import { EquipamentoDto } from '../dtos/equipamento.dto';
 
 @Injectable({
   providedIn: 'root',
@@ -108,9 +109,39 @@ export class ApiService {
     return this.http.post<FichaDto>(`${this.baseUrl}/fichas/criarficha/${mesaId}`, {});
   }
 
+  excluirFicha(fichaId: number) {
+    return this.http.delete(`${this.baseUrl}/fichas/${fichaId}`, { responseType: 'text' });
+  }
+
   // Busca uma ficha por ID
   getFichaPorId(fichaId: number): Observable<FichaDto> {
     return this.http.get<FichaDto>(`${this.baseUrl}/fichas/${fichaId}`);
+  }
+
+  // Obter todos os equipamentos de uma ficha
+  getEquipamentos(fichaId: number): Observable<EquipamentoDto[]> {
+    return this.http.get<EquipamentoDto[]>(`${this.baseUrl}/equipamento/${fichaId}/equipamento`);
+  }
+
+  // Criar novo equipamento
+  criarEquipamento(fichaId: number, equipamento: EquipamentoDto): Observable<EquipamentoDto> {
+    return this.http.post<EquipamentoDto>(`${this.baseUrl}/equipamento/${fichaId}/equipamento`, equipamento);
+  }
+
+  // Atualizar equipamento existente
+  atualizarEquipamento(fichaId: number, id: number, equipamento: EquipamentoDto): Observable<any> {
+    return this.http.put(`${this.baseUrl}/equipamento/${fichaId}/equipamento/${id}`, equipamento);
+  }
+
+  // Excluir equipamento
+  excluirEquipamento(fichaId: number, id: number): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/equipamento/${fichaId}/equipamento/${id}`);
+  }
+
+  // Alternar estado de equipamento (armadura/escudo)
+  toggleEquipar(tipo: 'Armadura' | 'Escudo', fichaId: number, id: number): Observable<any> {
+    const endpoint = tipo === 'Armadura' ? 'armadura' : 'escudo';
+    return this.http.patch(`${this.baseUrl}/equipamento/${fichaId}/equipamento/${endpoint}/equipar/${id}`, {});
   }
 
   // Atualiza a ficha

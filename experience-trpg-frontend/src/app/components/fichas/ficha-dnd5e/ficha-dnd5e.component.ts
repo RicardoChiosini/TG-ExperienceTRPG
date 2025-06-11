@@ -3,6 +3,10 @@ import { ApiService } from '../../../services/api.service';
 import { FichaDto, AtributoDto, HabilidadeDto, ProficienciaDto } from '../../../dtos/ficha.dto';
 import { ImagemDto } from '../../../dtos/imagem.dto';
 import { FichaStateService } from '../../../services/ficha-state.service';
+import { DiceRollService } from '../../../services/dice-roll.service';
+import { ArmaDto, EquipamentoDto, ItemDto } from '../../../dtos/equipamento.dto';
+import { catchError, Observable, Subject, tap, throwError } from 'rxjs';
+import { ToastrService } from 'ngx-toastr';
 
 @Component({
     selector: 'app-ficha-dnd5e',
@@ -10,6 +14,7 @@ import { FichaStateService } from '../../../services/ficha-state.service';
     templateUrl: './ficha-dnd5e.component.html',
     styleUrls: ['./ficha-dnd5e.component.css']
 })
+
 export class FichaDnd5eComponent implements OnInit {
     @Input() fichaId: number = 0;
     ficha: FichaDto = {
@@ -24,6 +29,9 @@ export class FichaDnd5eComponent implements OnInit {
         proficiencias: [],
     }
     activeTab: string = 'ficha'; // Define a aba ativa
+
+    equipamentos: EquipamentoDto[] = [];
+    equipamentosUpdated = new Subject<void>();
 
     todasClasses: string[] = [
         'Artífice', 'Bárbaro', 'Bardo', 'Bruxo', 'Clérigo',
@@ -48,6 +56,8 @@ export class FichaDnd5eComponent implements OnInit {
     selectedImage: ImagemDto | null = null;
     showImageSelector = false;
     mesaImages: ImagemDto[] = [];
+    expanded: boolean = false;
+    expandedStates: { [key: number]: boolean } = {};
 
     nome: string = '';
 
@@ -283,11 +293,17 @@ export class FichaDnd5eComponent implements OnInit {
         }
     }
 
-    constructor(private apiService: ApiService, private fichaStateService: FichaStateService) { }
+    constructor(
+        private apiService: ApiService,
+        private fichaStateService: FichaStateService,
+        private diceRollService: DiceRollService,
+        private toastr: ToastrService
+    ) { }
 
     ngOnInit(): void {
         if (this.fichaId) {
             this.carregarFichaComImagem(this.fichaId);
+            this.carregarEquipamentosDaFicha().subscribe();
         }
 
         this.atualizarModificadores();
@@ -354,12 +370,161 @@ export class FichaDnd5eComponent implements OnInit {
         });
     }
 
+    public carregarEquipamentosDaFicha(): Observable<EquipamentoDto[]> {
+        if (!this.fichaId) {
+            return throwError(() => new Error('FichaId não definido'));
+        }
+
+        return this.apiService.getEquipamentos(this.fichaId).pipe(
+            tap((equipamentos: EquipamentoDto[]) => {
+                // Mantém os estados de expansão ao recarregar
+                const novosExpandedStates: { [id: number]: boolean } = {};
+
+                equipamentos.forEach(eq => {
+                    // Preserva estado de expansão se o equipamento ainda existir
+                    if (this.expandedStates[eq.equipamentoId]) {
+                        novosExpandedStates[eq.equipamentoId] = true;
+                    }
+                });
+
+                this.equipamentos = equipamentos;
+                this.expandedStates = novosExpandedStates;
+                this.equipamentosUpdated.next();
+            }),
+            catchError((error) => {
+                console.error('Erro ao carregar equipamentos:', error);
+                this.toastr.error('Erro ao carregar equipamentos da ficha');
+                return throwError(() => error);
+            })
+        );
+    }
+
+    // Adicionar novo equipamento
+    adicionarEquipamento(descricao: 'Arma' | 'Armadura' | 'Escudo' | 'Item'): void {
+        const novoEquipamento = this.criarEquipamentoPadrao(descricao);
+
+        this.apiService.criarEquipamento(this.fichaId, novoEquipamento)
+            .subscribe({
+                next: () => {
+                    // Recarrega todos os equipamentos após criação
+                    this.carregarEquipamentosDaFicha().subscribe(() => {
+                        // Expande automaticamente o novo equipamento
+                        const novoId = this.equipamentos[this.equipamentos.length - 1]?.equipamentoId;
+                        if (novoId) {
+                            this.expandedStates[novoId] = true;
+                        }
+                    });
+                },
+                error: (erro) => {
+                    console.error('Erro ao criar equipamento', erro);
+                }
+            });
+    }
+
+    onItemChange(equipamento: EquipamentoDto) {
+        if (!equipamento.equipamentoId || !equipamento.fichaId) {
+            console.error('Missing required fields for update');
+            return;
+        }
+
+        this.apiService.atualizarEquipamento(
+            equipamento.fichaId,
+            equipamento.equipamentoId,
+            equipamento
+        ).subscribe({
+            next: (updatedItem) => {
+                // Optionally update local state if needed
+                console.log('Item updated successfully', updatedItem);
+            },
+            error: (err) => {
+                console.error('Error updating item', err);
+            }
+        });
+    }
+
+    excluirEquipamento(equipamento: EquipamentoDto) {
+        if (confirm('Tem certeza que deseja excluir este equipamento?')) {
+            this.apiService.excluirEquipamento(equipamento.fichaId, equipamento.equipamentoId)
+                .subscribe({
+                    next: () => {
+                        // Recarrega todos os equipamentos após exclusão
+                        this.carregarEquipamentosDaFicha().subscribe(() => {
+                            // Atualiza estados de expansão se necessário
+                            delete this.expandedStates[equipamento.equipamentoId];
+                        });
+                    },
+                    error: (err) => {
+                        console.error('Erro ao excluir equipamento', err);
+                        alert('Erro ao excluir equipamento');
+                    }
+                });
+        }
+    }
+
+    // Atualiza estado de expansão
+    toggleExpandir(equipamentoId: number): void {
+        this.expandedStates[equipamentoId] = !this.expandedStates[equipamentoId];
+    }
+
+    // Filtra equipamentos por tipo (para uso no template)
+    filterEquipamento(tipo: string): EquipamentoDto[] {
+        return this.equipamentos.filter(e => e.descricao === tipo);
+    }
+
+    trackByEquipamentoId(index: number, equipamento: EquipamentoDto): number {
+        return equipamento.equipamentoId;
+    }
+
     private createImageUrl(img: ImagemDto): string {
         // Fallback para imagens antigas que ainda usam base64
         if (img.dados && img.extensao) {
             return `data:image/${img.extensao};base64,${img.dados}`;
         }
         return 'assets/imagem-padrao.png'; // Imagem padrão caso não tenha URL
+    }
+
+    private criarEquipamentoPadrao(descricao: 'Arma' | 'Armadura' | 'Escudo' | 'Item'): EquipamentoDto {
+        // Usa a factory method da classe
+        const novoEquipamento = EquipamentoDto.create(descricao);
+
+        // Configura propriedades base
+        novoEquipamento.nome = `Novo ${descricao}`;
+        novoEquipamento.fichaId = this.fichaId;
+
+        // Configura propriedades específicas do tipo
+        const estado = novoEquipamento.estado;
+        if (estado) {
+            estado.nome = `Novo ${descricao}`;
+
+            // Propriedades específicas por tipo
+            if (descricao === 'Arma') {
+                (estado as ArmaDto).quantidade = 1;
+            }
+            if (descricao === 'Item') {
+                (estado as ItemDto).quantidade = 1;
+            }
+        }
+
+        return novoEquipamento;
+    }
+
+    // Alternar estado equipado
+    toggleEquipar(descricao: 'Armadura' | 'Escudo', id: number): void {
+        this.apiService.toggleEquipar(descricao, this.fichaId, id)
+            .subscribe({
+                next: () => {
+                    const equipamento = this.equipamentos.find(e => e.equipamentoId === id);
+                    if (!equipamento || equipamento.descricao !== descricao) return;
+
+                    const estado = equipamento.estado;
+                    if (estado && 'equipado' in estado) {
+                        (estado as any).equipado = !(estado as any).equipado;
+                    }
+                },
+                error: (erro) => {
+                    console.error('Erro ao alternar estado', erro);
+                }
+            });
     }
 
     toggleImageSelector(): void {
@@ -373,12 +538,52 @@ export class FichaDnd5eComponent implements OnInit {
         this.apiService.updateFicha(this.ficha.fichaId, { imagemId: this.ficha.imagemId }).subscribe(
             () => {
                 console.log('Ficha atualizada com sucesso!');
-                this.fichaStateService.updateFicha(this.ficha);
+                this.fichaStateService.updateFicha(this.ficha.mesaId, this.ficha);
             },
             (error) => {
                 console.error('Erro ao atualizar ficha:', error);
             }
         );
+    }
+
+    atualizarEquipamentos() {
+        this.carregarEquipamentosDaFicha().subscribe();
+    }
+
+    // Método para rolagem de atributo
+    rollAttribute(attributeName: string, modifier: number) {
+        this.diceRollService.requestRoll({
+            type: 'attribute',
+            name: attributeName,
+            modifier: modifier,
+            expression: `1d20${modifier >= 0 ? '+' : ''}${modifier}`,
+            mesaId: this.ficha.mesaId,
+            nome: this.ficha.nome
+        });
+    }
+
+    // Método para rolagem de perícia
+    rollSkill(skillName: string, modifier: number) {
+        this.diceRollService.requestRoll({
+            type: 'skill',
+            name: skillName,
+            modifier: modifier,
+            expression: `1d20${modifier >= 0 ? '+' : ''}${modifier}`,
+            mesaId: this.ficha.mesaId,
+            nome: this.ficha.nome
+        });
+    }
+
+    // Método para rolagem de teste de resistência
+    rollSavingThrow(attributeName: string, modifier: number) {
+        this.diceRollService.requestRoll({
+            type: 'saving-throw',
+            name: attributeName,
+            modifier: modifier,
+            expression: `1d20${modifier >= 0 ? '+' : ''}${modifier}`,
+            mesaId: this.ficha.mesaId,
+            nome: this.ficha.nome
+        });
     }
 
     inicializaFicha(): void {
@@ -530,7 +735,7 @@ export class FichaDnd5eComponent implements OnInit {
                 () => {
                     console.log('Nome da ficha atualizado com sucesso!');
                     this.ficha.nome = this.nome; // Atualiza o nome original após confirmação
-                    this.fichaStateService.updateFicha(this.ficha);
+                    this.fichaStateService.updateFicha(this.ficha.mesaId, this.ficha);
                 },
                 (error) => {
                     console.error('Erro ao atualizar nome da ficha:', error);

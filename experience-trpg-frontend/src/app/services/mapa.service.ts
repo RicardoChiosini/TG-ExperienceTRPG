@@ -3,7 +3,7 @@ import * as signalR from '@microsoft/signalr';
 import { Observable, Subject, from, of, throwError } from 'rxjs';
 import { map, catchError, switchMap, tap } from 'rxjs/operators';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { MapaEstadoDto, TokenDto, CamadaDto, ObjetoDeMapaDto, ConfiguracaoMapaDto } from '../dtos/mapaEstado.dto';
+import { MapaEstadoDto, TokenDto, CamadaDto, ObjetoDeMapaDto, ConfiguracaoMapaDto, TokenUpdateDto } from '../dtos/mapaEstado.dto';
 import { MapaDto } from '../dtos/mapa.dto';
 import { ImagemDto } from '../dtos/imagem.dto';
 import { MapaConfigDto } from '../dtos/mapaconfig.dto';
@@ -24,15 +24,21 @@ export class MapaService {
   private mapaUpdatesSource = new Subject<MapaDto>();
   private configUpdateSubject = new Subject<{ mapaId: number, mapaDto: MapaDto }>();
   private backgroundImageUpdateSubject = new Subject<{ mapaId: number, imagem: ImagemDto | null }>();
+  tokenAddSubject = new Subject<TokenDto>();
+  tokenDeleteSubject = new Subject<string>();
+  tokenUpdates$ = new Subject<TokenDto>();
+  private mapVisibilityUpdateSubject = new Subject<{ mapaId: number, isVisible: boolean }>();
 
 
   // Expose como observables
-  tokenUpdates$ = this.tokenUpdateSubject.asObservable();
   mapaUpdates$ = this.mapaUpdateSubject.asObservable();
   estadoUpdates$ = this.estadoUpdateSubject.asObservable();
   mapaUpdatesSource$ = this.mapaUpdatesSource.asObservable();
   configUpdates$ = this.configUpdateSubject.asObservable();
   backgroundImageUpdates$ = this.backgroundImageUpdateSubject.asObservable();
+  tokenDeletes$ = this.tokenDeleteSubject.asObservable();
+  tokenAdditions$ = this.tokenAddSubject.asObservable();
+  public mapVisibilityUpdates$ = this.mapVisibilityUpdateSubject.asObservable();
 
   constructor(private http: HttpClient) {
     this.startConnection();
@@ -104,15 +110,32 @@ export class MapaService {
       this.backgroundImageUpdateSubject.next({ mapaId, imagem });
     });
 
-    // Listener para atualizações individuais de tokens
+    // Adicione um listener específico para atualizações de configuração
+    this.hubConnection.on('ReceiveMapConfigUpdate', (mapaId: number, mapaDto: MapaDto) => {
+      this.configUpdateSubject.next({ mapaId, mapaDto });
+    });
+
     this.hubConnection.on('ReceiveTokenUpdate', (token: TokenDto) => {
+      this.tokenUpdates$.next(token);
+    });
+
+    this.hubConnection.on('ReceiveTokenAddition', (token: TokenDto) => {
+      this.tokenAddSubject.next(token);
+    });
+
+    this.hubConnection.on('AddToken', (token: TokenDto) => {
+      this.tokenAddSubject.next(token);
+    });
+
+    this.hubConnection.on('UpdateToken', (token: TokenDto) => {
       this.tokenUpdateSubject.next(token);
     });
 
-    // Adicione um listener específico para atualizações de configuração
-    this.hubConnection.on('ReceiveMapConfigUpdate', (mapaId: number, mapaDto: MapaDto) => {
-        this.configUpdateSubject.next({ mapaId, mapaDto });
+    this.hubConnection.on('DeleteToken', (tokenId: string) => {
+      this.tokenDeleteSubject.next(tokenId);
     });
+
+    this.hubConnection.start().catch(console.error);
   }
 
   // Métodos de conexão
@@ -286,32 +309,54 @@ export class MapaService {
     );
   }
 
-  updateToken(mesaId: number, mapaId: number, token: TokenDto): Observable<any> {
-    return this.http.put(`${this.baseUrl}/api/mapa/${mapaId}/token/${token.id}`, token).pipe(
-      switchMap(() => {
-        return this.hubConnection.invoke('UpdateToken', mesaId, mapaId, token);
-      }),
-      catchError(error => {
-        console.error('Erro ao atualizar token:', error);
-        return throwError(error);
-      })
-    );
+  // Novo: Obter tokens do mapa
+  getTokensDoMapa(mesaId: number, mapaId: number): Observable<TokenDto[]> {
+    return this.http.get<TokenDto[]>(`${this.baseUrl}/api/mapa/${mesaId}/mapa/${mapaId}/tokens`);
   }
 
+  // Novo: Adicionar token
   addToken(mesaId: number, mapaId: number, token: TokenDto): Observable<TokenDto> {
     return this.http.post<TokenDto>(
       `${this.baseUrl}/api/mapa/${mesaId}/mapa/${mapaId}/token`,
       token
-    ).pipe(
-      switchMap((tokenAdicionado) => {
-        // Usa AddOrUpdateToken em vez de AddToken
-        return from(this.hubConnection.invoke('AddOrUpdateToken', tokenAdicionado, mesaId))
-          .pipe(map(() => tokenAdicionado));
-      }),
-      catchError(error => {
-        console.error('Erro ao adicionar token:', error);
-        return throwError(error);
-      })
+    );
+  }
+
+  // Novo: Atualizar token
+  updateToken(mesaId: number, mapaId: number, tokenId: string, changes: TokenUpdateDto): Observable<TokenDto> {
+    // Converter valores numéricos em strings nos metadados
+    if (changes.metadados) {
+      const convertedMetadados: { [key: string]: string } = {};
+
+      Object.entries(changes.metadados).forEach(([key, value]) => {
+        // Converter apenas propriedades numéricas conhecidas
+        if (['rotation', 'width', 'height'].includes(key) && typeof value === 'number') {
+          convertedMetadados[key] = value.toString();
+        } else {
+          convertedMetadados[key] = value;
+        }
+      });
+
+      changes.metadados = convertedMetadados;
+    }
+
+    return this.http.put<TokenDto>(
+      `${this.baseUrl}/api/mapa/${mesaId}/mapa/${mapaId}/token/${tokenId}`,
+      changes
+    );
+  }
+
+  // Novo: Remover token
+  removeToken(mesaId: number, mapaId: number, tokenId: string): Observable<void> {
+    return this.http.delete<void>(
+      `${this.baseUrl}/api/mapa/${mesaId}/mapa/${mapaId}/token/${tokenId}`
+    );
+  }
+
+  // Novo: Obter token específico
+  getToken(mesaId: number, mapaId: number, tokenId: string): Observable<TokenDto> {
+    return this.http.get<TokenDto>(
+      `${this.baseUrl}/api/mapa/${mesaId}/mapa/${mapaId}/token/${tokenId}`
     );
   }
 

@@ -287,24 +287,32 @@ namespace experience_trpg_backend.Controllers
         }
 
         // DELETE: api/fichas/5
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteFicha(int id)
+        [HttpDelete("{fichaId}")]
+        public async Task<IActionResult> DeleteFicha(int fichaId)
         {
-            var ficha = await _context.Fichas.FindAsync(id);
+            var ficha = await _context.Fichas
+                .Include(f => f.Atributos)
+                .Include(f => f.Habilidades)
+                .Include(f => f.Proficiencias)
+                .Include(f => f.Equipamentos)
+                .FirstOrDefaultAsync(f => f.FichaId == fichaId);
+
             if (ficha == null)
             {
                 return NotFound();
             }
 
+            // Remove todos os relacionamentos primeiro
+            _context.Atributos.RemoveRange(ficha.Atributos);
+            _context.Habilidades.RemoveRange(ficha.Habilidades);
+            _context.Proficiencias.RemoveRange(ficha.Proficiencias);
+            _context.Equipamentos.RemoveRange(ficha.Equipamentos);
+
+            // Agora remove a ficha
             _context.Fichas.Remove(ficha);
             await _context.SaveChangesAsync();
 
             return NoContent();
-        }
-
-        private bool FichaExists(int id)
-        {
-            return _context.Fichas.Any(e => e.FichaId == id);
         }
 
         // POST: api/fichas/{fichaId}/vincular/{imagemId}

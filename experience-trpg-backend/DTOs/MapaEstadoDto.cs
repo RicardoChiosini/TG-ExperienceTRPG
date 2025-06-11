@@ -27,6 +27,7 @@ namespace experience_trpg_backend.DTOs
         public Dictionary<string, string> Metadados { get; set; } = new Dictionary<string, string>();
         public DateTime DataCriacao { get; set; } = DateTime.UtcNow;
         public DateTime? DataAtualizacao { get; set; }
+        public int Version { get; set; }
     }
 
     public class TokenUpdateDto

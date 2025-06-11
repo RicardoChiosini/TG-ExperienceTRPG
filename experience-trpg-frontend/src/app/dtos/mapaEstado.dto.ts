@@ -16,6 +16,16 @@ export interface TokenDto {
     [key: string]: any;
   };
   dataCriacao?: string; // Usaremos string para facilitar, pode converter para Date quando necessário
+  version: number;
+}
+
+export interface TokenUpdateDto {
+    x?: number;
+    y?: number;
+    z?: number;
+    visivelParaTodos?: boolean;
+    bloqueado?: boolean;
+    metadados?: { [key: string]: any };
 }
 
 export interface CamadaDto {

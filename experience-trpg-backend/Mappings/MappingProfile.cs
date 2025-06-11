@@ -41,10 +41,10 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.Estado, opt => opt.ConvertUsing(new JsonToEstadoConverter(), src => src.EstadoJson))
             .ForMember(dest => dest.ImaFundo, opt => opt.MapFrom(src => src.ImaFundo));
 
-            CreateMap<MapaDto, Mapa>()
-            .ForMember(dest => dest.ImagemFundo, opt => opt.MapFrom(src => src.ImagemFundo))
-            .ForMember(dest => dest.ImaFundo, opt => opt.Ignore()) // Ignoramos pois será tratado separadamente
-            .ForMember(dest => dest.MapMesa, opt => opt.Ignore()); // Ignoramos a navegação para Mesa
+        CreateMap<MapaDto, Mapa>()
+        .ForMember(dest => dest.ImagemFundo, opt => opt.MapFrom(src => src.ImagemFundo))
+        .ForMember(dest => dest.ImaFundo, opt => opt.Ignore()) // Ignoramos pois será tratado separadamente
+        .ForMember(dest => dest.MapMesa, opt => opt.Ignore()); // Ignoramos a navegação para Mesa
 
         CreateMap<Mapa, MapaDto>()
             .ForMember(dest => dest.ImagemFundo, opt => opt.MapFrom(src => src.ImagemFundo))
@@ -54,6 +54,17 @@ public class MappingProfile : Profile
         // Mapeamento para MapaEstadoDto e TokenDto (se necessário)
         CreateMap<MapaEstadoDto, MapaEstadoDto>(); // Pode ser útil para cópias
         CreateMap<TokenDto, TokenDto>(); // Pode ser útil para cópias
+
+        // Mapeamento para Equipamento
+        CreateMap<Equipamento, EquipamentoDto>()
+            .ForMember(dest => dest.Arma, opt => opt.MapFrom<EquipamentoArmaResolver>())
+            .ForMember(dest => dest.Armadura, opt => opt.MapFrom<EquipamentoArmaduraResolver>())
+            .ForMember(dest => dest.Escudo, opt => opt.MapFrom<EquipamentoEscudoResolver>())
+            .ForMember(dest => dest.Item, opt => opt.MapFrom<EquipamentoItemResolver>());
+
+        // Mapeamento para EquipamentoDto -> Equipamento
+        CreateMap<EquipamentoDto, Equipamento>()
+            .ForMember(dest => dest.EstadoJson, opt => opt.MapFrom<EquipamentoJsonResolver>());
     }
 }
 
@@ -86,5 +97,89 @@ public class EstadoToJsonConverter : IValueConverter<MapaEstadoDto, string>
             return "{}";
 
         return JsonSerializer.Serialize(sourceMember, _options);
+    }
+}
+
+public class EquipamentoArmaResolver : IValueResolver<Equipamento, EquipamentoDto, ArmaDto?>
+{
+    private static readonly JsonSerializerOptions _options = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    public ArmaDto? Resolve(Equipamento source, EquipamentoDto destination, ArmaDto? destMember, ResolutionContext context)
+    {
+        if (source.Descricao != "Arma" || string.IsNullOrEmpty(source.EstadoJson))
+            return null;
+
+        return JsonSerializer.Deserialize<ArmaDto>(source.EstadoJson, _options);
+    }
+}
+
+public class EquipamentoArmaduraResolver : IValueResolver<Equipamento, EquipamentoDto, ArmaduraDto?>
+{
+    private static readonly JsonSerializerOptions _options = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    public ArmaduraDto? Resolve(Equipamento source, EquipamentoDto destination, ArmaduraDto? destMember, ResolutionContext context)
+    {
+        if (source.Descricao != "Armadura" || string.IsNullOrEmpty(source.EstadoJson))
+            return null;
+
+        return JsonSerializer.Deserialize<ArmaduraDto>(source.EstadoJson, _options);
+    }
+}
+
+public class EquipamentoEscudoResolver : IValueResolver<Equipamento, EquipamentoDto, EscudoDto?>
+{
+    private static readonly JsonSerializerOptions _options = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    public EscudoDto? Resolve(Equipamento source, EquipamentoDto destination, EscudoDto? destMember, ResolutionContext context)
+    {
+        if (source.Descricao != "Escudo" || string.IsNullOrEmpty(source.EstadoJson))
+            return null;
+
+        return JsonSerializer.Deserialize<EscudoDto>(source.EstadoJson, _options);
+    }
+}
+
+public class EquipamentoItemResolver : IValueResolver<Equipamento, EquipamentoDto, ItemDto?>
+{
+    private static readonly JsonSerializerOptions _options = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    public ItemDto? Resolve(Equipamento source, EquipamentoDto destination, ItemDto? destMember, ResolutionContext context)
+    {
+        if (source.Descricao != "Item" || string.IsNullOrEmpty(source.EstadoJson))
+            return null;
+
+        return JsonSerializer.Deserialize<ItemDto>(source.EstadoJson, _options);
+    }
+}
+
+public class EquipamentoJsonResolver : IValueResolver<EquipamentoDto, Equipamento, string>
+{
+    private static readonly JsonSerializerOptions _options = new()
+    {
+        WriteIndented = false
+    };
+
+    public string Resolve(EquipamentoDto source, Equipamento destination, string destMember, ResolutionContext context)
+    {
+        return source switch
+        {
+            { Arma: not null } => JsonSerializer.Serialize(source.Arma, _options),
+            { Armadura: not null } => JsonSerializer.Serialize(source.Armadura, _options),
+            { Escudo: not null } => JsonSerializer.Serialize(source.Escudo, _options),
+            { Item: not null } => JsonSerializer.Serialize(source.Item, _options),
+            _ => string.Empty
+        };
     }
 }

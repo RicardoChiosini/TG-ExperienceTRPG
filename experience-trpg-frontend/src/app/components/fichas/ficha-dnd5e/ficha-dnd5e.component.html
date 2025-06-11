@@ -4,7 +4,8 @@
       @if (selectedImage) {
       <div class="position-relative">
         <!-- Usa imageUrl diretamente -->
-        <img [src]="selectedImage.imageUrl || ('data:image/' + selectedImage.extensao + ';base64,' + selectedImage.dados)"
+        <img
+          [src]="selectedImage.imageUrl || ('data:image/' + selectedImage.extensao + ';base64,' + selectedImage.dados)"
           alt="Imagem do Personagem" class="img-fluid rounded"
           style="width: 100%; height: auto; max-height: 200px; object-fit: cover;" />
         <button class="btn btn-sm btn-danger position-absolute top-0 start-0 m-1" (click)="removerImagem()"
@@ -32,8 +33,8 @@
             @for (image of mesaImages; track image.imagemId) {
             <div class="image-selector-item" (click)="selecionarImagem(image)">
               <!-- Usa imageUrl diretamente com fallback para base64 -->
-              <img [src]="image.imageUrl || ('data:image/' + image.extensao + ';base64,' + image.dados)" [alt]="image.nome"
-                class="img-thumbnail" />
+              <img [src]="image.imageUrl || ('data:image/' + image.extensao + ';base64,' + image.dados)"
+                [alt]="image.nome" class="img-thumbnail" />
               <div class="image-name">{{ image.nome }}</div>
             </div>
             }
@@ -184,7 +185,7 @@
               <div class="card-body d-flex flex-row justify-content-between">
                 <!-- Força -->
                 <div class="card-body d-flex flex-column align-items-center justify-content-center">
-                  <h5>For</h5>
+                  <h5 class="clickable" (click)="rollAttribute('Força', forModifier)">For</h5>
                   <span class="badge bg-secondary atributo-badge" style="width: 40px;">{{ forModifier >= 0 ? '+' : ''
                     }}{{ forModifier }}</span>
                   <input type="number" (input)="setForValue($event)" [(ngModel)]="forValue" (blur)="atualizarForca()"
@@ -194,7 +195,7 @@
                 </div>
                 <!-- Destreza -->
                 <div class="card-body d-flex flex-column align-items-center justify-content-center">
-                  <h5>Des</h5>
+                  <h5 class="clickable" (click)="rollAttribute('Destreza', desModifier)">Des</h5>
                   <span class="badge bg-secondary atributo-badge" style="width: 40px;">{{ desModifier >= 0 ? '+' : ''
                     }}{{ desModifier }}</span>
                   <input type="number" (input)="setDesValue($event)" [(ngModel)]="desValue" (blur)="atualizarDestreza()"
@@ -204,7 +205,7 @@
                 </div>
                 <!-- Constituição -->
                 <div class="card-body d-flex flex-column align-items-center justify-content-center">
-                  <h5>Con</h5>
+                  <h5 class="clickable" (click)="rollAttribute('Constituição', conModifier)">Con</h5>
                   <span class="badge bg-secondary atributo-badge" style="width: 40px;">{{ conModifier >= 0 ? '+' : ''
                     }}{{ conModifier }}</span>
                   <input type="number" (input)="setConValue($event)" [(ngModel)]="conValue"
@@ -214,7 +215,7 @@
                 </div>
                 <!-- Inteligência -->
                 <div class="card-body d-flex flex-column align-items-center justify-content-center">
-                  <h5>Int</h5>
+                  <h5 class="clickable" (click)="rollAttribute('Inteligência', intModifier)">Int</h5>
                   <span class="badge bg-secondary atributo-badge" style="width: 40px;">{{ intModifier >= 0 ? '+' : ''
                     }}{{ intModifier }}</span>
                   <input type="number" (input)="setIntValue($event)" [(ngModel)]="intValue"
@@ -224,7 +225,7 @@
                 </div>
                 <!-- Sabedoria -->
                 <div class="card-body d-flex flex-column align-items-center justify-content-center">
-                  <h5>Sab</h5>
+                  <h5 class="clickable" (click)="rollAttribute('Sabedoria', sabModifier)">Sab</h5>
                   <span class="badge bg-secondary atributo-badge" style="width: 40px;">{{ sabModifier >= 0 ? '+' : ''
                     }}{{ sabModifier }}</span>
                   <input type="number" (input)="setSabValue($event)" [(ngModel)]="sabValue"
@@ -234,7 +235,7 @@
                 </div>
                 <!-- Carisma -->
                 <div class="card-body d-flex flex-column align-items-center justify-content-center">
-                  <h5>Car</h5>
+                  <h5 class="clickable" (click)="rollAttribute('Carisma', carModifier)">Car</h5>
                   <span class="badge bg-secondary atributo-badge" style="width: 40px;">{{ carModifier >= 0 ? '+' : ''
                     }}{{ carModifier }}</span>
                   <input type="number" (input)="setCarValue($event)" [(ngModel)]="carValue" (blur)="atualizarCarisma()"
@@ -269,7 +270,7 @@
           <div class="col-md-4">
             <div class="card bg-dark text-light mb-1">
               <div class="card-body d-flex flex-row align-items-center justify-content-center">
-                <h5>Iniciativa:</h5>
+                <h5 class="clickable" (click)="rollSkill('Iniciativa', iniciativa)">Iniciativa:</h5>
                 <span class="badge bg-secondary cainit-badge" style="width: 40px; align-content: center;">{{ iniciativa
                   }}</span>
               </div>
@@ -394,7 +395,9 @@
                     <span class="badge bg-secondary modifier-badge" style="width: 30px;"><small>{{ forResistencia >= 0 ?
                         '+' :
                         '' }}{{ forResistencia }}</small></span>
-                    <h6 style="margin-left: 5px;"><small>Força</small></h6>
+                    <h6 style="margin-left: 5px;" class="clickable" (click)="rollSavingThrow('Força', forResistencia)">
+                      <small>Força</small>
+                    </h6>
                   </div>
                   <div style="display: flex; align-items: center;">
                     <input type="checkbox" [(ngModel)]="desResistenciaCheckbox" (change)="updateDesResistencia($event)"
@@ -402,7 +405,8 @@
                     <span class="badge bg-secondary modifier-badge" style="width: 30px;"><small>{{ desResistencia >= 0 ?
                         '+' :
                         '' }}{{ desResistencia }}</small></span>
-                    <h6 style="margin-left: 5px;"><small>Destreza</small></h6>
+                    <h6 style="margin-left: 5px;" class="clickable"
+                      (click)="rollSavingThrow('Destreza', desResistencia)"><small>Destreza</small></h6>
                   </div>
                   <div style="display: flex; align-items: center;">
                     <input type="checkbox" [(ngModel)]="conResistenciaCheckbox" (change)="updateConResistencia($event)"
@@ -410,7 +414,8 @@
                     <span class="badge bg-secondary modifier-badge" style="width: 30px;"><small>{{ conResistencia >= 0 ?
                         '+' :
                         '' }}{{ conResistencia }}</small></span>
-                    <h6 style="margin-left: 5px;"><small>Constituição</small></h6>
+                    <h6 style="margin-left: 5px;" class="clickable"
+                      (click)="rollSavingThrow('Constituição', conResistencia)"><small>Constituição</small></h6>
                   </div>
                   <div style="display: flex; align-items: center;">
                     <input type="checkbox" [(ngModel)]="intResistenciaCheckbox" (change)="updateIntResistencia($event)"
@@ -418,7 +423,8 @@
                     <span class="badge bg-secondary modifier-badge" style="width: 30px;"><small>{{ intResistencia >= 0 ?
                         '+' :
                         '' }}{{ intResistencia }}</small></span>
-                    <h6 style="margin-left: 5px;"><small>Inteligência</small></h6>
+                    <h6 style="margin-left: 5px;" class="clickable"
+                      (click)="rollSavingThrow('Inteligência', intResistencia)"><small>Inteligência</small></h6>
                   </div>
                   <div style="display: flex; align-items: center;">
                     <input type="checkbox" [(ngModel)]="sabResistenciaCheckbox" (change)="updateSabResistencia($event)"
@@ -426,7 +432,8 @@
                     <span class="badge bg-secondary modifier-badge" style="width: 30px;"><small>{{ sabResistencia >= 0 ?
                         '+' :
                         '' }}{{ sabResistencia }}</small></span>
-                    <h6 style="margin-left: 5px;"><small>Sabedoria</small></h6>
+                    <h6 style="margin-left: 5px;" class="clickable"
+                      (click)="rollSavingThrow('Sabedoria', sabResistencia)"><small>Sabedoria</small></h6>
                   </div>
                   <div style="display: flex; align-items: center;">
                     <input type="checkbox" [(ngModel)]="carResistenciaCheckbox" (change)="updateCarResistencia($event)"
@@ -434,7 +441,8 @@
                     <span class="badge bg-secondary modifier-badge" style="width: 30px;"><small>{{ carResistencia >= 0 ?
                         '+' :
                         '' }}{{ carResistencia }}</small></span>
-                    <h6 style="margin-left: 5px;"><small>Carisma</small></h6>
+                    <h6 style="margin-left: 5px;" class="clickable"
+                      (click)="rollSavingThrow('Carisma', carResistencia)"><small>Carisma</small></h6>
                   </div>
                 </div>
               </div>
@@ -464,7 +472,8 @@
                                   '+' : '' }}{{
                                   acrobaciaModifier
                                   }}</small></span></td>
-                            <td style="padding: 1px;"><small>Acrobacia</small></td>
+                            <td style="padding: 1px;" class="clickable"
+                              (click)="rollSkill('Acrobacia', acrobaciaModifier)"><small>Acrobacia</small></td>
                           </tr>
                           <tr>
                             <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="adestrarAnimaisCheckbox"
@@ -476,7 +485,9 @@
                                   adestrarAnimaisModifier
                                   }}</small></span>
                             </td>
-                            <td style="padding: 1px;"><small>Adest. Animais</small></td>
+                            <td style="padding: 1px;" class="clickable"
+                              (click)="rollSkill('Adestrar Animais', adestrarAnimaisModifier)"><small>Adest.
+                                Animais</small></td>
                           </tr>
                           <tr>
                             <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="arcanismoCheckbox"
@@ -486,7 +497,8 @@
                                   '+' : '' }}{{
                                   arcanismoModifier
                                   }}</small></span></td>
-                            <td style="padding: 1px;"><small>Arcanismo</small></td>
+                            <td style="padding: 1px;" class="clickable"
+                              (click)="rollSkill('Arcanismo', arcanismoModifier)"><small>Arcanismo</small></td>
                           </tr>
                           <tr>
                             <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="atletismoCheckbox"
@@ -496,7 +508,8 @@
                                   '+' : '' }}{{
                                   atletismoModifier
                                   }}</small></span></td>
-                            <td style="padding: 1px;"><small>Atletismo</small></td>
+                            <td style="padding: 1px;" class="clickable"
+                              (click)="rollSkill('Atletismo', atletismoModifier)"><small>Atletismo</small></td>
                           </tr>
                           <tr>
                             <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="enganacaoCheckbox"
@@ -506,7 +519,8 @@
                                   '+' : '' }}{{
                                   enganacaoModifier
                                   }}</small></span></td>
-                            <td style="padding: 1px;"><small>Enganação</small></td>
+                            <td style="padding: 1px;" class="clickable"
+                              (click)="rollSkill('Enganação', enganacaoModifier)"><small>Enganação</small></td>
                           </tr>
                           <tr>
                             <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="furtividadeCheckbox"
@@ -517,7 +531,8 @@
                                   '+' : '' }}{{
                                   furtividadeModifier
                                   }}</small></span></td>
-                            <td style="padding: 1px;"><small>Furtividade</small></td>
+                            <td style="padding: 1px;" class="clickable"
+                              (click)="rollSkill('Furtividade', furtividadeModifier)"><small>Furtividade</small></td>
                           </tr>
                         </tbody>
                       </table>
@@ -540,7 +555,8 @@
                                   '+' : '' }}{{
                                   historiaModifier }}</small></span>
                             </td>
-                            <td style="padding: 1px;"><small>História</small></td>
+                            <td style="padding: 1px;" class="clickable"
+                              (click)="rollSkill('História', historiaModifier)"><small>História</small></td>
                           </tr>
                           <tr>
                             <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="intimidacaoCheckbox"
@@ -551,7 +567,8 @@
                                   '+' : '' }}{{
                                   intimidacaoModifier
                                   }}</small></span></td>
-                            <td style="padding: 1px;"><small>Intimidação</small></td>
+                            <td style="padding: 1px;" class="clickable"
+                              (click)="rollSkill('Intimidação', intimidacaoModifier)"><small>Intimidação</small></td>
                           </tr>
                           <tr>
                             <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="intuicaoCheckbox"
@@ -561,7 +578,8 @@
                                   '+' : '' }}{{
                                   intuicaoModifier }}</small></span>
                             </td>
-                            <td style="padding: 1px;"><small>Intuição</small></td>
+                            <td style="padding: 1px;" class="clickable"
+                              (click)="rollSkill('Intuição', intuicaoModifier)"><small>Intuição</small></td>
                           </tr>
                           <tr>
                             <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="investigacaoCheckbox"
@@ -572,7 +590,8 @@
                                   '+' : '' }}{{
                                   investigacaoModifier
                                   }}</small></span></td>
-                            <td style="padding: 1px;"><small>Investigação</small></td>
+                            <td style="padding: 1px;" class="clickable"
+                              (click)="rollSkill('Investigação', investigacaoModifier)"><small>Investigação</small></td>
                           </tr>
                           <tr>
                             <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="medicinaCheckbox"
@@ -582,7 +601,8 @@
                                   '+' : '' }}{{
                                   medicinaModifier }}</small></span>
                             </td>
-                            <td style="padding: 1px;"><small>Medicina</small></td>
+                            <td style="padding: 1px;" class="clickable"
+                              (click)="rollSkill('Medicina', medicinaModifier)"><small>Medicina</small></td>
                           </tr>
                           <tr>
                             <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="naturezaCheckbox"
@@ -592,7 +612,8 @@
                                   '+' : '' }}{{
                                   naturezaModifier }}</small></span>
                             </td>
-                            <td style="padding: 1px;"><small>Natureza</small></td>
+                            <td style="padding: 1px;" class="clickable"
+                              (click)="rollSkill('Natureza', naturezaModifier)"><small>Natureza</small></td>
                           </tr>
                         </tbody>
                       </table>
@@ -615,7 +636,8 @@
                                   '+' : '' }}{{
                                   percepcaoModifier
                                   }}</small></span></td>
-                            <td style="padding: 1px;"><small>Percepção</small></td>
+                            <td style="padding: 1px;" class="clickable"
+                              (click)="rollSkill('Percepção', percepcaoModifier)"><small>Percepção</small></td>
                           </tr>
                           <tr>
                             <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="performanceCheckbox"
@@ -626,7 +648,8 @@
                                   '+' : '' }}{{
                                   performanceModifier
                                   }}</small></span></td>
-                            <td style="padding: 1px;"><small>Performance</small></td>
+                            <td style="padding: 1px;" class="clickable"
+                              (click)="rollSkill('Performance', performanceModifier)"><small>Performance</small></td>
                           </tr>
                           <tr>
                             <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="persuasaoCheckbox"
@@ -636,7 +659,8 @@
                                   '+' : '' }}{{
                                   persuasaoModifier
                                   }}</small></span></td>
-                            <td style="padding: 1px;"><small>Persuasão</small></td>
+                            <td style="padding: 1px;" class="clickable"
+                              (click)="rollSkill('Persuasão', persuasaoModifier)"><small>Persuasão</small></td>
                           </tr>
                           <tr>
                             <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="prestidigitacaoCheckbox"
@@ -647,7 +671,10 @@
                                   '+' : '' }}{{
                                   prestidigitacaoModifier
                                   }}</small></span></td>
-                            <td style="padding: 1px;"><small>Prestidigitação</small></td>
+                            <td style="padding: 1px;" class="clickable"
+                              (click)="rollSkill('Prestidigitação', prestidigitacaoModifier)">
+                              <small>Prestidigitação</small>
+                            </td>
                           </tr>
                           <tr>
                             <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="religiaoCheckbox"
@@ -657,7 +684,8 @@
                                   '+' : '' }}{{
                                   religiaoModifier }}</small></span>
                             </td>
-                            <td style="padding: 1px;"><small>Religião</small></td>
+                            <td style="padding: 1px;" class="clickable"
+                              (click)="rollSkill('Religião', religiaoModifier)"><small>Religião</small></td>
                           </tr>
                           <tr>
                             <td style="padding: 1px;"><input type="checkbox" [(ngModel)]="sobrevivenciaCheckbox"
@@ -668,7 +696,9 @@
                                   '+' : '' }}{{
                                   sobrevivenciaModifier
                                   }}</small></span></td>
-                            <td style="padding: 1px;"><small>Sobrevivência</small></td>
+                            <td style="padding: 1px;" class="clickable"
+                              (click)="rollSkill('Sobrevivência', sobrevivenciaModifier)"><small>Sobrevivência</small>
+                            </td>
                           </tr>
                         </tbody>
                       </table>
@@ -873,7 +903,405 @@
     <div class="tab-pane fade" [class.active]="activeTab === 'inventario'" [class.show]="activeTab === 'inventario'">
       <div class="container">
         <div class="row g-1">
+          <!-- Seção de Inventário -->
+          <div class="row g-1 mt-2">
+            <!-- Coluna Esquerda (Armaduras, Armas, Escudos) -->
+            <div class="col-md-6">
+              <!-- ARMADURAS -->
+              <div class="card bg-dark text-light mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                  <h5 class="mb-0"><strong>Armaduras</strong></h5>
+                  <button class="btn btn-sm btn-success" (click)="adicionarEquipamento('Armadura')">+</button>
+                </div>
+                <div class="card-body p-0">
+                  <ul class="list-group list-group-flush">
+                    <li *ngFor="let item of equipamentos | filterEquipamento:'Armadura'; trackBy: trackByEquipamentoId"
+                      class="list-group-item bg-dark text-light d-flex flex-column">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                          {{ item.nome }}
+                        </div>
+                        <div>
+                          <button class="toggle-btn" (click)="toggleExpandir(item.equipamentoId)">
+                            {{ expandedStates[item.equipamentoId] ? 'V' : 'V' }}
+                          </button>
+                        </div>
+                      </div>
 
+                      <!-- ÁREA EXPANDIDA -->
+                      <div *ngIf="expandedStates[item.equipamentoId]" class="mt-2 p-2 border-top">
+                        <div class="row mb-1">
+                          <div class="col-md-12 d-flex flex-column align-items-center">
+                            <label>Nome:</label>
+                            <input type="text" class="form-control bg-dark text-light" [(ngModel)]="item.nome"
+                              (blur)="onItemChange(item)">
+                          </div>
+                        </div>
+                        <div class="row mb-1">
+                          <div class="col-md-4 d-flex flex-column align-items-center">
+                            <label>Equipado:</label>
+                            <div class="form-check">
+                              <input type="checkbox" class="form-check-input" *ngIf="item.armadura"
+                                [(ngModel)]="item.armadura.equipado" (ngModelChange)="onItemChange(item)">
+                            </div>
+                          </div>
+                          <div class="col-md-8 d-flex flex-column align-items-center">
+                            <label>Tipo Armadura:</label>
+                            <select class="form-select bg-dark text-light" *ngIf="item.armadura"
+                              [(ngModel)]="item.armadura.tipoArmadura" (ngModelChange)="onItemChange(item)">
+                              <option value="">-</option>
+                              <option value="Leve">Leve</option>
+                              <option value="Média">Média</option>
+                              <option value="Pesada">Pesada</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div class="row">
+                          <div class="col-md-4 d-flex flex-column align-items-center">
+                            <label>CA Base:</label>
+                            <input type="number" class="form-control bg-dark text-light" *ngIf="item.armadura"
+                              [(ngModel)]="item.armadura.baseArmadura" (ngModelChange)="onItemChange(item)">
+                          </div>
+                          <div class="col-md-4 d-flex flex-column align-items-center">
+                            <label>Des:</label>
+                            <input type="number" class="form-control bg-dark text-light" *ngIf="item.armadura"
+                              [(ngModel)]="item.armadura.bonusDes" (ngModelChange)="onItemChange(item)">
+                          </div>
+                          <div class="col-md-4 d-flex flex-column align-items-center">
+                            <label>Mágico:</label>
+                            <input type="number" class="form-control bg-dark text-light" *ngIf="item.armadura"
+                              [(ngModel)]="item.armadura.bonusMagico" (ngModelChange)="onItemChange(item)">
+                          </div>
+                        </div>
+                        <!-- Botão de Excluir -->
+                        <div class="row mt-2">
+                          <div class="col-md-12 d-flex justify-content-end">
+                            <button class="btn btn-sm btn-danger" (click)="excluirEquipamento(item)">
+                              Excluir
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <!-- ARMAS -->
+              <div class="card bg-dark text-light mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                  <h5 class="mb-0"><strong>Armas</strong></h5>
+                  <button class="btn btn-sm btn-success" (click)="adicionarEquipamento('Arma')">+</button>
+                </div>
+                <div class="card-body p-0">
+                  <ul class="list-group list-group-flush">
+                    <li *ngFor="let item of equipamentos | filterEquipamento:'Arma'; trackBy: trackByEquipamentoId"
+                      class="list-group-item bg-dark text-light d-flex flex-column">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <div>{{ item.nome }}</div>
+                        <div>
+                          <button class="toggle-btn" (click)="toggleExpandir(item.equipamentoId)">
+                            {{ expandedStates[item.equipamentoId] ? 'V' : 'V' }}
+                          </button>
+                        </div>
+                      </div>
+
+                      <!-- ÁREA EXPANDIDA -->
+                      <div *ngIf="expandedStates[item.equipamentoId]" class="mt-2 p-2 border-top">
+                        <div class="row mb-1">
+                          <div class="col-md-8 d-flex flex-column align-items-center">
+                            <label>Nome:</label>
+                            <input type="text" class="form-control bg-dark text-light" [(ngModel)]="item.nome"
+                              (blur)="onItemChange(item)">
+                          </div>
+                          <div class="col-md-4 d-flex flex-column align-items-center">
+                            <label>Quantidade:</label>
+                            <input type="number" class="form-control bg-dark text-light" *ngIf="item.arma"
+                              [(ngModel)]="item.arma.quantidade" (ngModelChange)="onItemChange(item)">
+                          </div>
+                        </div>
+                        <div class="row mb-1">
+                          <div class="col-md-12 d-flex flex-column align-items-center">
+                            <label>Descrição:</label>
+                            <textarea class="form-control bg-dark text-light" rows="2" *ngIf="item.arma"
+                              [(ngModel)]="item.arma.descricao" (blur)="onItemChange(item)"></textarea>
+                          </div>
+                        </div>
+                        <div class="row mb-1">
+                          <div class="col-md-4 d-flex flex-column align-items-center">
+                            <label>Proficiente:</label>
+                            <div class="form-check">
+                              <input type="checkbox" class="form-check-input" *ngIf="item.arma"
+                                [(ngModel)]="item.arma.proficiencia" (ngModelChange)="onItemChange(item)">
+                            </div>
+                          </div>
+                          <div class="col-md-8 d-flex flex-column align-items-center">
+                            <label>Bônus Mágico:</label>
+                            <input type="number" class="form-control bg-dark text-light" *ngIf="item.arma"
+                              [(ngModel)]="item.arma.bonusMagico" (ngModelChange)="onItemChange(item)">
+                          </div>
+                        </div>
+                        <div class="row mb-1">
+                          <div class="col-md-4 d-flex flex-column align-items-center">
+                            <label>Acerto:</label>
+                            <select class="form-select bg-dark text-light" *ngIf="item.arma"
+                              [(ngModel)]="item.arma.tipoAcerto" (ngModelChange)="onItemChange(item)">
+                              <option value="For">For</option>
+                              <option value="Des">Des</option>
+                              <option value="Con">Con</option>
+                              <option value="Int">Int</option>
+                              <option value="Sab">Sab</option>
+                              <option value="Car">Car</option>
+                            </select>
+                          </div>
+                          <div class="col-md-4 d-flex flex-column align-items-center">
+                            <label>Bônus:</label>
+                            <input type="text" class="form-control bg-dark text-light" *ngIf="item.arma"
+                              [(ngModel)]="item.arma.bonusAcerto" (ngModelChange)="onItemChange(item)">
+                          </div>
+                        </div>
+
+                        <!-- Dano 1 -->
+                        <div class="row mb-1">
+                          <div class="col-md-4 d-flex flex-column align-items-center">
+                            <label>Dano:</label>
+                            <input type="text" class="form-control bg-dark text-light" *ngIf="item.arma"
+                              [(ngModel)]="item.arma.dadosDano1" (blur)="onItemChange(item)">
+                          </div>
+                          <div class="col-md-4 d-flex flex-column align-items-center">
+                            <label>Modificador:</label>
+                            <select class="form-select bg-dark text-light" *ngIf="item.arma"
+                              [(ngModel)]="item.arma.bonusDano1" (ngModelChange)="onItemChange(item)">
+                              <option value="For">For</option>
+                              <option value="Des">Des</option>
+                              <option value="Con">Con</option>
+                              <option value="Int">Int</option>
+                              <option value="Sab">Sab</option>
+                              <option value="Car">Car</option>
+                            </select>
+                          </div>
+                          <div class="col-md-4 d-flex flex-column align-items-center">
+                            <label>+</label>
+                            <input type="text" class="form-control bg-dark text-light" *ngIf="item.arma"
+                              [(ngModel)]="item.arma.bonusDano1" (blur)="onItemChange(item)">
+                          </div>
+                        </div>
+                        <div class="row mb-1">
+                          <div class="col-md-6 d-flex flex-column align-items-center">
+                            <label>Tipo:</label>
+                            <input type="text" class="form-control bg-dark text-light" *ngIf="item.arma"
+                              [(ngModel)]="item.arma.tipoDano1" (blur)="onItemChange(item)">
+                          </div>
+                          <div class="col-md-6 d-flex flex-column align-items-center">
+                            <label>Dano Crítico:</label>
+                            <input type="text" class="form-control bg-dark text-light" *ngIf="item.arma"
+                              [(ngModel)]="item.arma.dadosCritico1" (blur)="onItemChange(item)">
+                          </div>
+                        </div>
+
+                        <!-- Dano 2 -->
+                        <div class="row mb-1">
+                          <div class="col-md-4 d-flex flex-column align-items-center">
+                            <label>Dano:</label>
+                            <input type="text" class="form-control bg-dark text-light" *ngIf="item.arma"
+                              [(ngModel)]="item.arma.dadosDano2" (blur)="onItemChange(item)">
+                          </div>
+                          <div class="col-md-4 d-flex flex-column align-items-center">
+                            <label>Modificador:</label>
+                            <select class="form-select bg-dark text-light" *ngIf="item.arma"
+                              [(ngModel)]="item.arma.bonusDano2" (ngModelChange)="onItemChange(item)">
+                              <option value="For">For</option>
+                              <option value="Des">Des</option>
+                              <option value="Con">Con</option>
+                              <option value="Int">Int</option>
+                              <option value="Sab">Sab</option>
+                              <option value="Car">Car</option>
+                            </select>
+                          </div>
+                          <div class="col-md-4 d-flex flex-column align-items-center">
+                            <label>+</label>
+                            <input type="text" class="form-control bg-dark text-light" *ngIf="item.arma"
+                              [(ngModel)]="item.arma.bonusDano2" (blur)="onItemChange(item)">
+                          </div>
+                        </div>
+                        <div class="row mb-1">
+                          <div class="col-md-6 d-flex flex-column align-items-center">
+                            <label>Tipo:</label>
+                            <input type="text" class="form-control bg-dark text-light" *ngIf="item.arma"
+                              [(ngModel)]="item.arma.tipoDano2" (blur)="onItemChange(item)">
+                          </div>
+                          <div class="col-md-6 d-flex flex-column align-items-center">
+                            <label>Dano Crítico:</label>
+                            <input type="text" class="form-control bg-dark text-light" *ngIf="item.arma"
+                              [(ngModel)]="item.arma.dadosCritico2" (blur)="onItemChange(item)">
+                          </div>
+                        </div>
+                        <!-- Botão de Excluir -->
+                        <div class="row mt-2">
+                          <div class="col-md-12 d-flex justify-content-end">
+                            <button class="btn btn-sm btn-danger" (click)="excluirEquipamento(item)">
+                              Excluir
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <!-- ESCUDOS -->
+              <div class="card bg-dark text-light mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                  <h5 class="mb-0"><strong>Escudos</strong></h5>
+                  <button class="btn btn-sm btn-success" (click)="adicionarEquipamento('Escudo')">+</button>
+                </div>
+                <div class="card-body p-0">
+                  <ul class="list-group list-group-flush">
+                    <li *ngFor="let item of equipamentos | filterEquipamento:'Escudo'; trackBy: trackByEquipamentoId"
+                      class="list-group-item bg-dark text-light d-flex flex-column">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                          {{ item.nome }}
+                        </div>
+                        <div>
+                          <button class="toggle-btn" (click)="toggleExpandir(item.equipamentoId)">
+                            {{ expandedStates[item.equipamentoId] ? 'V' : 'V' }}
+                          </button>
+                        </div>
+                      </div>
+
+                      <!-- ÁREA EXPANDIDA -->
+                      <div *ngIf="expandedStates[item.equipamentoId]" class="mt-2 p-2 border-top">
+                        <div class="row mb-1">
+                          <div class="col-md-8 d-flex flex-column align-items-center">
+                            <label>Nome:</label>
+                            <input type="text" class="form-control bg-dark text-light" [(ngModel)]="item.nome"
+                              (blur)="onItemChange(item)">
+                          </div>
+                          <div class="col-md-4 d-flex flex-column align-items-center">
+                            <label>Equipado:</label>
+                            <div class="form-check">
+                              <input type="checkbox" class="form-check-input" *ngIf="item.escudo"
+                                [(ngModel)]="item.escudo.equipado" (ngModelChange)="onItemChange(item)">
+                            </div>
+                          </div>
+                        </div>
+                        <div class="row">
+                          <div class="col-md-6 d-flex flex-column align-items-center">
+                            <label>CA Adicional:</label>
+                            <input type="number" class="form-control bg-dark text-light" *ngIf="item.escudo"
+                              [(ngModel)]="item.escudo.baseEscudo" (ngModelChange)="onItemChange(item)">
+                          </div>
+                          <div class="col-md-6 d-flex flex-column align-items-center">
+                            <label>Bônus Mágico:</label>
+                            <input type="number" class="form-control bg-dark text-light" *ngIf="item.escudo"
+                              [(ngModel)]="item.escudo.bonusMagico" (ngModelChange)="onItemChange(item)">
+                          </div>
+                        </div>
+                        <!-- Botão de Excluir -->
+                        <div class="row mt-2">
+                          <div class="col-md-12 d-flex justify-content-end">
+                            <button class="btn btn-sm btn-danger" (click)="excluirEquipamento(item)">
+                              Excluir
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- Coluna Direita (Moedas e Itens) -->
+            <div class="col-md-6 d-flex flex-column">
+              <!-- Moedas (Topo) -->
+              <div class="card bg-dark text-light mb-4">
+                <div class="card-header">
+                  <h5 class="mb-0"><strong>Moedas</strong></h5>
+                </div>
+                <div class="card-body">
+                  <div class="d-flex justify-content-around">
+                    <div class="text-center">
+                      <label>PC</label>
+                      <input type="text" class="form-control bg-dark text-light text-center" [(ngModel)]="moedasCobre"
+                        (blur)="atualizarMoedasCobre()">
+                    </div>
+                    <div class="text-center">
+                      <label>PP</label>
+                      <input type="text" class="form-control bg-dark text-light text-center" [(ngModel)]="moedasPrata"
+                        (blur)="atualizarMoedasPrata()">
+                    </div>
+                    <div class="text-center">
+                      <label>PO</label>
+                      <input type="text" class="form-control bg-dark text-light text-center" [(ngModel)]="moedasOuro"
+                        (blur)="atualizarMoedasOuro()">
+                    </div>
+                    <div class="text-center">
+                      <label>PL</label>
+                      <input type="text" class="form-control bg-dark text-light text-center" [(ngModel)]="moedasPlatina"
+                        (blur)="atualizarMoedasPlatina()">
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ITENS -->
+              <div class="card bg-dark text-light flex-grow-1">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                  <h5 class="mb-0"><strong>Itens</strong></h5>
+                  <button class="btn btn-sm btn-success" (click)="adicionarEquipamento('Item')">+</button>
+                </div>
+                <div class="card-body p-0" style="overflow-y: auto; max-height: 300px;">
+                  <ul class="list-group list-group-flush">
+                    <li *ngFor="let item of equipamentos | filterEquipamento:'Item'; trackBy: trackByEquipamentoId"
+                      class="list-group-item bg-dark text-light d-flex flex-column">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <div>{{ item.nome }}</div>
+                        <div>
+                          <button class="toggle-btn" (click)="toggleExpandir(item.equipamentoId)">
+                            {{ expandedStates[item.equipamentoId] ? 'V' : 'V' }}
+                          </button>
+                        </div>
+                      </div>
+
+                      <!-- ÁREA EXPANDIDA -->
+                      <div *ngIf="expandedStates[item.equipamentoId]" class="mt-2 p-2 border-top">
+                        <div class="row mb-1">
+                          <div class="col-md-8 d-flex flex-column align-items-center">
+                            <label>Nome:</label>
+                            <input type="text" class="form-control bg-dark text-light" [(ngModel)]="item.nome"
+                              (blur)="onItemChange(item)">
+                          </div>
+                          <div class="col-md-4 d-flex flex-column align-items-center">
+                            <label>Quantidade:</label>
+                            <input type="number" class="form-control bg-dark text-light" *ngIf="item.item"
+                              [(ngModel)]="item.item.quantidade" (ngModelChange)="onItemChange(item)">
+                          </div>
+                        </div>
+                        <div class="row mb-1">
+                          <div class="col-md-12 d-flex flex-column align-items-center">
+                            <label>Descrição:</label>
+                            <textarea class="form-control bg-dark text-light" rows="3" *ngIf="item.item"
+                              [(ngModel)]="item.item.descricao" (blur)="onItemChange(item)"></textarea>
+                          </div>
+                        </div>
+                        <!-- Botão de Excluir -->
+                        <div class="row mt-2">
+                          <div class="col-md-12 d-flex justify-content-end">
+                            <button class="btn btn-sm btn-danger" (click)="excluirEquipamento(item)">
+                              Excluir
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

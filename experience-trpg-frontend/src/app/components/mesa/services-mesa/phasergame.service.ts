@@ -5,6 +5,7 @@ import { MapaDto } from '../../../dtos/mapa.dto';
 import { MapaEstadoDto, TokenDto } from '../../../dtos/mapaEstado.dto';
 import { ImagemDto } from '../../../dtos/imagem.dto';
 import { ImageService } from './image.service';
+import { Subject } from 'rxjs';
 
 export interface HexGridConfig {
     cols: number;
@@ -53,19 +54,23 @@ export class PhaserGameService {
     }
 
     // Propriedades para seleção de token
-    private selectedToken?: Phaser.GameObjects.Sprite;
-    private rotationHandle?: Phaser.GameObjects.Arc;
-    private resizeHandle?: Phaser.GameObjects.Rectangle;
-    private selectionRectangle?: Phaser.GameObjects.Rectangle;
+    private keyboardSetupDone: boolean = false;
+    onTokenSelected = new Subject<TokenDto>();
+    onTokenDeselected = new Subject<void>();
+    onTokenRemoved = new Subject<string>();
+    private selectedToken: Phaser.GameObjects.Sprite | null = null;
+    private selectionRectangle: Phaser.GameObjects.Graphics | null = null;
+    private resizeHandle: Phaser.GameObjects.Ellipse | null = null;
+    private tokenSprites: { [id: string]: Phaser.GameObjects.Sprite } = {};
 
     // Propriedades de estado (serão fornecidas externamente)
     public isCriador: boolean = false;
     public usuarioId?: number;
     public mesaId?: number;
 
-    public onTokenSelected = new EventEmitter<TokenDto>();
     public onTokenUpdated = new EventEmitter<{ token: TokenDto, changes: any }>();
     public onTokenAdded = new EventEmitter<TokenDto>();
+    public onTokenDeleteRequested = new Subject<string>();
 
     public get activeScene(): Phaser.Scene | null {
 
@@ -184,70 +189,66 @@ export class PhaserGameService {
         // Lógica contínua do loop de atualização (se necessário).
     }
 
-    // Aplica as mudanças do estado (tokens) na cena, delegando à TokenService (sem passar a cena)
-    public applyMapChanges(mapState: MapaEstadoDto): void {
-        if (!this.phaserGame || !this.currentMap || this.currentMap.mapaId !== mapState.mapaId) {
-            return;
+    private setupKeyboardShortcuts(scene: Phaser.Scene): void {
+        try {
+            const keyboard = scene.input.keyboard;
+
+            if (!keyboard) {
+                console.warn('Keyboard plugin not available in scene');
+                return;
+            }
+
+            // Configurar tecla DELETE
+            keyboard.on('keydown-DELETE', (event: KeyboardEvent) => {
+                if (this.selectedToken) {
+                    const tokenId = this.selectedToken.name.replace('token-', '');
+                    // Emite evento de solicitação de exclusão
+                    this.onTokenDeleteRequested.next(tokenId);
+                    this.clearSelection();
+                }
+            });
+
+            // Configurar ESC para limpar seleção
+            keyboard.on('keydown-ESC', (event: KeyboardEvent) => {
+                this.clearSelection();
+            });
+
+        } catch (error) {
+            console.error('Error setting up keyboard shortcuts:', error);
+        }
+    }
+
+    private setupCanvasFocus(scene: Phaser.Scene): void {
+        const canvas = scene.game.canvas;
+        if (!canvas) return;
+
+        canvas.tabIndex = -1;
+
+        scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+            const hitObjects = scene.input.hitTestPointer(pointer);
+            if (hitObjects.length === 0 ||
+                (hitObjects.length === 1 && hitObjects[0] instanceof Phaser.GameObjects.Graphics)) {
+                // Só focar se clicar em área vazia do mapa
+                canvas.focus();
+            }
+        });
+    }
+
+    public drawHexGrid(scene: Phaser.Scene, config?: HexGridConfig): void {
+        if (this.gridContainer) {
+            this.gridContainer.destroy(true);
+            this.gridContainer = null;
         }
 
-        const scene = this.phaserGame.scene.scenes[0];
-        if (!scene) return;
+        const gridConfig = config || this.getCurrentGridConfig();
+        const hexRadius = gridConfig.hexRadius;
+        const cols = gridConfig.cols;
+        const rows = gridConfig.rows;
 
-        // Otimização: Cria um mapa dos tokens existentes para atualização eficiente
-        const existingTokens = new Map<string, Phaser.GameObjects.Sprite>();
-        scene.children.each(child => {
-            if (child instanceof Phaser.GameObjects.Sprite && child.getData('tokenData')) {
-                const tokenData = child.getData('tokenData');
-                if (tokenData.mapaId === this.currentMapId) {
-                    existingTokens.set(tokenData.id, child);
-                }
-            }
-        });
-
-        // Processa cada token do novo estado
-        (mapState.tokens || []).forEach((token: TokenDto) => {
-            try {
-                if (token.mapaId === this.currentMapId) {
-                    const key = `token-${token.id}`;
-                    const existingToken = existingTokens.get(token.id);
-
-                    if (existingToken) {
-                        // Atualiza token existente
-                        this.updateExistingToken(key, token);
-                        existingTokens.delete(token.id); // Remove do mapa para não ser destruído
-                    } else {
-                        // Cria novo token
-                        if (scene.textures.exists(key)) {
-                            this.instantiateToken(key, token);
-                        } else {
-                            this.createTokenSprite(key, token);
-                        }
-                    }
-                }
-            } catch (e) {
-                console.error('Erro ao aplicar mudanças no token:', e);
-            }
-        });
-
-        // Destroi tokens que não estão mais no estado
-        existingTokens.forEach(token => token.destroy());
-    }
-
-   public drawHexGrid(scene: Phaser.Scene, config?: HexGridConfig): void {
-    if (this.gridContainer) {
-        this.gridContainer.destroy(true);
-        this.gridContainer = null;
-    }
-
-    const gridConfig = config || this.getCurrentGridConfig(); 
-    const hexRadius = gridConfig.hexRadius;
-    const cols = gridConfig.cols;
-    const rows = gridConfig.rows;
-
-    // Criar novo container
-    this.gridContainer = scene.add.container(0, 0);
-    const graphics = scene.add.graphics().setData('gridElement', true);
-    this.gridContainer.add(graphics);
+        // Criar novo container
+        this.gridContainer = scene.add.container(0, 0);
+        const graphics = scene.add.graphics().setData('gridElement', true);
+        this.gridContainer.add(graphics);
 
         // Desenha o grid hexagonal
         for (let y = 0; y < rows; y++) {
@@ -749,345 +750,314 @@ export class PhaserGameService {
     // MÉTODOS DE TOKEN
     /////////////////////////////////
 
-    public createTokenSprite(textureKey: string, token: TokenDto): void {
-        if (!this.phaserGame) {
-            console.error("PhaserGame não inicializado!");
-            return;
-        }
+    // Novo: Aplicar mudanças de estado do mapa
+    public applyMapChanges(estado: MapaEstadoDto): void {
+        if (!this.phaserGame) return;
 
         const scene = this.phaserGame.scene.scenes[0];
+        if (!scene) return;
 
-        if (!scene) {
-            console.error("Cena do Phaser não disponível!");
-            return;
-        }
-
-        try {
-            // Se a textura já existe, cria o token imediatamente
-            if (scene.textures.exists(textureKey)) {
-                this.instantiateToken(textureKey, token);
-                return;
+        // 1. Limpar tokens existentes
+        scene.children.each(child => {
+            if (child instanceof Phaser.GameObjects.Sprite && child.name.startsWith('token-')) {
+                child.destroy();
             }
+        });
 
-            // Configurar callbacks para carregamento
-            const onLoad = () => {
-                scene.load.off(`filecomplete-image-${textureKey}`, onLoad);
-                this.instantiateToken(textureKey, token);
-            };
+        // 2. Adicionar novos tokens
+        const tokens = estado.tokens || [];
+        tokens.forEach(token => {
+            this.adicionarTokenVisual(token);
+        });
+    }
 
-            const onError = () => {
-                scene.load.off(`loaderror-image-${textureKey}`, onError);
-                console.error(`Falha ao carregar textura: ${textureKey}`);
-            };
+    // Novo: Adicionar token visualmente
+    public adicionarTokenVisual(token: TokenDto): void {
+        if (!this.phaserGame) return;
 
-            scene.load.once(`filecomplete-image-${textureKey}`, onLoad);
-            scene.load.once(`loaderror-image-${textureKey}`, onError);
+        const scene = this.phaserGame.scene.scenes[0];
+        if (!scene) return;
 
-            // Carregar a imagem
-            if (token.imagemDados.startsWith('http') || token.imagemDados.startsWith('data:')) {
-                scene.load.image(textureKey, token.imagemDados);
-            } else {
-                scene.textures.addBase64(textureKey, token.imagemDados);
-            }
+        // Carregar textura se necessário
+        const textureKey = `token-${token.id}`;
+        if (!scene.textures.exists(textureKey)) {
+            scene.load.image(textureKey, token.imagemDados);
+            scene.load.once(`filecomplete-image-${textureKey}`, () => {
+                this.criarSpriteToken(scene, textureKey, token);
+            });
             scene.load.start();
-        } catch (error) {
-            console.error("Erro ao criar token:", error);
+        } else {
+            this.criarSpriteToken(scene, textureKey, token);
         }
     }
 
-    public instantiateToken(textureKey: string, token: TokenDto): void {
-        if (!this.phaserGame) return;
-        const scene = this.phaserGame.scene.scenes[0];
-        if (!scene) return;
-        const sprite = scene.add.sprite(token.x, token.y, textureKey)
-            .setInteractive()
-            .setData('tokenData', token)
-            .setDisplaySize(token.metadados?.width || 80, token.metadados?.height || 80)
-            .setDepth(token.z || 1)
-            .setName(`token-${token.id}`);  // Nome único para identificação
-        // Aplicar rotação se existir
-        if (token.metadados?.rotation) {
-            sprite.setAngle(token.metadados.rotation);
+    private criarSpriteToken(scene: Phaser.Scene, textureKey: string, token: TokenDto): void {
+        // Forçar token quadrado 60x60 se não houver metadados
+        const baseSize = 60;
+        let displayWidth = baseSize;
+        let displayHeight = baseSize;
+
+        if (token.metadados) {
+            // Manter proporção quadrada usando apenas a largura
+            if (token.metadados.width) {
+                displayWidth = token.metadados.width;
+                displayHeight = token.metadados.width; // Forçar altura igual à largura
+            }
         }
-        // Configurar clique para seleção
+
+        const sprite = scene.add.sprite(token.x, token.y, textureKey)
+            .setName(`token-${token.id}`)
+            .setInteractive()
+            .setDisplaySize(displayWidth, displayHeight) // Tamanho quadrado
+            .setData('tokenData', token);
+
+        // Configurar teclado apenas uma vez
+        if (!this.keyboardSetupDone) {
+            this.setupKeyboardShortcuts(scene);
+            this.setupCanvasFocus(scene); // Adicione esta linha
+            this.keyboardSetupDone = true;
+        }
+
+        // Evento de clique para seleção
         sprite.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
             if (pointer.leftButtonDown()) {
                 this.selectToken(sprite);
+
+                // Garantir foco no canvas
+                if (scene.game.canvas) {
+                    scene.game.canvas.focus();
+                }
             }
         });
-        // Habilitar drag & drop se for permitido
-        if (this.isCriador || token.donoId === this.usuarioId) {
-            scene.input.setDraggable(sprite);
-            this.setupTokenDrag(sprite, token);
+
+        // Configurar arrasto
+        sprite.on('drag', (pointer: Phaser.Input.Pointer, dragX: number, dragY: number) => {
+            sprite.x = dragX;
+            sprite.y = dragY;
+
+            // Atualizar elementos de seleção durante o movimento
+            if (this.selectedToken === sprite) {
+                this.updateSelectionElements();
+            }
+        });
+
+        sprite.on('dragstart', () => {
+            sprite.setAlpha(0.7);
+        });
+
+        sprite.on('dragend', () => {
+            sprite.setAlpha(1);
+
+            // Encaixa no grid
+            const snappedPos = this.snapToGrid(sprite.x, sprite.y);
+            sprite.setPosition(snappedPos.x, snappedPos.y);
+
+            // Atualizar token
+            this.atualizarTokenPosicao(token.id, snappedPos.x, snappedPos.y);
+
+            // ATUALIZAR SELEÇÃO (nova linha)
+            if (this.selectedToken === sprite) {
+                this.updateSelectionElements();
+            }
+        });
+
+        scene.input.setDraggable(sprite);
+    }
+
+    public snapToGrid(worldX: number, worldY: number): { x: number, y: number } {
+        if (!this.phaserGame) return { x: worldX, y: worldY };
+
+        const scene = this.phaserGame.scene.scenes[0];
+        const gridConfig = this.getCurrentGridConfig();
+
+        // Converte as coordenadas do mundo para coordenadas de grid
+        const gridPos = this.screenToHexGrid(worldX, worldY, gridConfig.hexRadius);
+
+        // Converte de volta para coordenadas do mundo, alinhadas ao grid
+        return this.hexGridToScreen(gridPos.col, gridPos.row, gridConfig.hexRadius);
+    }
+
+
+    // Novo: Atualizar token visualmente
+    public atualizarTokenVisual(token: TokenDto): void {
+        if (!this.phaserGame) return;
+
+        const scene = this.phaserGame.scene.scenes[0];
+        if (!scene) return;
+
+        const sprite = scene.children.getByName(`token-${token.id}`) as Phaser.GameObjects.Sprite;
+        if (sprite) {
+            sprite.setPosition(token.x, token.y);
+
+            if (token.metadados) {
+                if (token.metadados.width && token.metadados.height) {
+                    sprite.setDisplaySize(token.metadados.width, token.metadados.height);
+                }
+                if (token.metadados.rotation) {
+                    sprite.setAngle(token.metadados.rotation);
+                }
+            }
         }
     }
 
-    public selectToken(token: Phaser.GameObjects.Sprite): void {
-        if (!this.phaserGame) return;
-        const scene = this.phaserGame.scene.scenes[0];
-        if (!scene) return;
-        // Remover seleção anterior
+    private selectToken(tokenSprite: Phaser.GameObjects.Sprite): void {
         this.clearSelection();
-        this.selectedToken = token;
-        // Criar retângulo de seleção
-        this.selectionRectangle = scene.add.rectangle(
-            token.x,
-            token.y,
-            token.displayWidth + 20,
-            token.displayHeight + 20
-        )
-            .setStrokeStyle(2, 0x0066cc)
-            .setFillStyle(0, 0)
-            .setDepth(token.depth + 1);
-        // Criar alça de rotação
-        this.rotationHandle = scene.add.circle(
-            token.x,
-            token.y - token.displayHeight / 2 - 20,
-            10,
-            0x0066cc
-        )
-            .setDepth(token.depth + 2)
-            .setInteractive({ cursor: 'pointer' });
-        // Criar alça de redimensionamento
-        this.resizeHandle = scene.add.rectangle(
-            token.x + token.displayWidth / 2 + 10,
-            token.y + token.displayHeight / 2 + 10,
-            15,
-            15,
-            0x0066cc
-        )
-            .setDepth(token.depth + 2)
-            .setInteractive({ cursor: 'nwse-resize' });
-        // Configurar interações
-        this.setupRotationHandle();
-        this.setupResizeHandle();
-        // Feedback visual
-        token.setTint(0xcccccc);
-    }
+        this.selectedToken = tokenSprite;
 
-    public setupTokenDrag(sprite: Phaser.GameObjects.Sprite, token: TokenDto): void {
-        if (!this.phaserGame) return;
-        const scene = this.phaserGame.scene.scenes[0];
-        if (!scene) return;
-        const gridConfig = this.getCurrentGridConfig();
-        const hexRadius = gridConfig.hexRadius;
-        sprite.on('drag', (pointer: Phaser.Input.Pointer, dragX: number, dragY: number) => {
-            try {
-                const snapEnabled = true;
-                if (snapEnabled) {
-                    const gridPos = this.screenToHexGrid(dragX, dragY, hexRadius);
-                    const snappedPos = this.hexGridToScreen(gridPos.col, gridPos.row, hexRadius);
-                    sprite.x = snappedPos.x;
-                    sprite.y = snappedPos.y;
-                } else {
-                    sprite.x = dragX;
-                    sprite.y = dragY;
-                }
-                if (this.selectedToken === sprite) {
-                    this.updateHandlePositions();
-                }
-            } catch (error) {
-                console.error("Erro durante drag:", error);
-            }
-        });
-        sprite.on('dragend', () => {
-            const tokenData = sprite.getData('tokenData') as TokenDto;
-            this.onTokenUpdated.emit({
-                token: tokenData,
-                changes: { x: sprite.x, y: sprite.y }
-            });
-        });
-    }
+        // Removido: tokenSprite.setTint(0x00ff00); // Remover destaque de cor interna
 
-    public setupRotationHandle(): void {
-        if (!this.activeScene || !this.rotationHandle || !this.selectedToken) return;
-
-        let isRotating = false;
-        let startAngle = 0;
-        let startRotation = 0;
-        const ROTATION_SNAP = 45;
-
-        this.rotationHandle.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-            isRotating = true;
-            startAngle = Phaser.Math.Angle.Between(
-                this.selectedToken!.x,
-                this.selectedToken!.y,
-                pointer.x,
-                pointer.y
+        // Criar retângulo de seleção AZUL
+        const bounds = tokenSprite.getBounds();
+        this.selectionRectangle = tokenSprite.scene.add.graphics()
+            .lineStyle(2, 0x0000ff)
+            .strokeRect(
+                bounds.x - 5,
+                bounds.y - 5,
+                bounds.width + 10,
+                bounds.height + 10
             );
-            startRotation = this.selectedToken!.angle;
-        });
 
-        this.activeScene.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-            if (isRotating && pointer.isDown) {
-                const newAngle = Phaser.Math.Angle.Between(
-                    this.selectedToken!.x,
-                    this.selectedToken!.y,
-                    pointer.x,
-                    pointer.y
-                );
-                const rotationDelta = Phaser.Math.Angle.Wrap(newAngle - startAngle);
-                const newRotation = startRotation + Phaser.Math.RadToDeg(rotationDelta);
+        // Criar alça de redimensionamento AZUL (canto inferior direito)
+        this.resizeHandle = tokenSprite.scene.add.ellipse(
+            bounds.right,
+            bounds.bottom,
+            15, 15, 0x0000ff // AZUL
+        ).setInteractive();
 
-                // Aplicar snap
-                const snappedRotation = Math.round(newRotation / ROTATION_SNAP) * ROTATION_SNAP;
-                this.selectedToken!.setAngle(snappedRotation);
-                this.updateHandlePositions();
-            }
-        });
-
-        this.activeScene.input.on('pointerup', () => {
-            if (isRotating) {
-                isRotating = false;
-                const tokenData = this.selectedToken!.getData('tokenData') as TokenDto;
-                this.onTokenUpdated.emit({
-                    token: tokenData,
-                    changes: { rotation: this.selectedToken!.angle }
-                });
-            }
-        });
+        // Configurar interações
+        this.setupResizeInteraction();
     }
 
-    public setupResizeHandle(): void {
-        if (!this.activeScene || !this.resizeHandle || !this.selectedToken) return;
+    private setupResizeInteraction(): void {
+        if (!this.selectedToken || !this.resizeHandle) return;
 
-        let isResizing = false;
-        let startWidth = 0;
-        let startHeight = 0;
-        let startPointerX = 0;
-        let startPointerY = 0;
-        const originalAspectRatio = this.selectedToken.displayWidth / this.selectedToken.displayHeight;
+        const scene = this.selectedToken.scene;
+        const token = this.selectedToken;
+        const handle = this.resizeHandle;
 
-        this.resizeHandle.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-            isResizing = true;
-            startWidth = this.selectedToken!.displayWidth;
-            startHeight = this.selectedToken!.displayHeight;
-            startPointerX = pointer.x;
-            startPointerY = pointer.y;
+        scene.input.setDraggable(handle);
+
+        let initialWidth: number;
+        let startX: number;
+
+        handle.on('dragstart', () => {
+            initialWidth = token.displayWidth;
+            startX = scene.input.activePointer.x;
         });
 
-        this.activeScene.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-            if (isResizing && pointer.isDown) {
-                const deltaX = pointer.x - startPointerX;
-                let newWidth = startWidth + deltaX;
-                let newHeight = newWidth / originalAspectRatio;
+        handle.on('drag', (pointer: Phaser.Input.Pointer) => {
+            // Calcular diferença de movimento
+            const deltaX = pointer.x - startX;
 
-                // Limites de tamanho
-                const MIN_TOKEN_SIZE = 40;
-                const MAX_TOKEN_SIZE = 20000;
-                newWidth = Phaser.Math.Clamp(newWidth, MIN_TOKEN_SIZE, MAX_TOKEN_SIZE);
-                newHeight = Phaser.Math.Clamp(newHeight, MIN_TOKEN_SIZE, MAX_TOKEN_SIZE);
+            // Calcular novo tamanho mantendo proporção
+            const newWidth = Math.max(20, initialWidth + deltaX);
+            token.setDisplaySize(newWidth, newWidth);
 
-                this.selectedToken!.setDisplaySize(newWidth, newHeight);
-                this.updateHandlePositions();
-            }
+            this.updateSelectionElements();
         });
 
-        this.activeScene.input.on('pointerup', () => {
-            if (isResizing) {
-                isResizing = false;
-                const tokenData = this.selectedToken!.getData('tokenData') as TokenDto;
+        handle.on('dragend', () => {
+            if (this.selectedToken) {
+                const tokenId = this.selectedToken.name.replace('token-', '');
                 this.onTokenUpdated.emit({
-                    token: tokenData,
+                    token: { id: tokenId } as TokenDto,
                     changes: {
-                        width: this.selectedToken!.displayWidth,
-                        height: this.selectedToken!.displayHeight
+                        metadados: {
+                            width: this.selectedToken.displayWidth.toString(), // Converta para string
+                            height: this.selectedToken.displayHeight.toString() // Converta para string
+                        }
                     }
                 });
             }
         });
     }
 
-    public updateExistingToken(textureKey: string, token: TokenDto): void {
+    private updateSelectionElements(): void {
+        if (!this.selectedToken || !this.selectionRectangle || !this.resizeHandle) return;
+
+        const bounds = this.selectedToken.getBounds();
+
+        // Atualizar retângulo
+        this.selectionRectangle.clear()
+            .lineStyle(2, 0x00ff00)
+            .strokeRect(
+                bounds.x - 5,
+                bounds.y - 5,
+                bounds.width + 10,
+                bounds.height + 10
+            );
+
+        // Atualizar alças
+        this.resizeHandle.setPosition(bounds.right, bounds.bottom);
+    }
+
+    // Novo: Remover token visualmente
+    public removerTokenVisual(tokenId: string): void {
         if (!this.phaserGame) return;
+
         const scene = this.phaserGame.scene.scenes[0];
         if (!scene) return;
-        // Buscar token existente pelo ID
-        const existingSprite = scene.children.getByName(`token-${token.id}`) as Phaser.GameObjects.Sprite;
-        if (existingSprite) {
-            // Atualizar propriedades
-            existingSprite.setPosition(token.x, token.y);
-            existingSprite.setDepth(token.z || 1);
-            if (token.metadados) {
-                if (typeof token.metadados.width === 'number' && typeof token.metadados.height === 'number') {
-                    existingSprite.setDisplaySize(
-                        token.metadados.width,
-                        token.metadados.height
-                    );
-                }
-                if (typeof token.metadados.rotation === 'number') {
-                    existingSprite.setAngle(token.metadados.rotation);
-                }
-            }
-            // Atualizar dados
-            existingSprite.setData('tokenData', token);
 
-        } else {
-            // Criar novo se não existir
-            this.createTokenSprite(textureKey, token);
+        const sprite = scene.children.getByName(`token-${tokenId}`) as Phaser.GameObjects.Sprite;
+        if (sprite) {
+            sprite.destroy(); // Remove o sprite do token
+        }
+
+        // Limpa a seleção se o token excluído estava selecionado
+        if (this.selectedToken?.name === `token-${tokenId}`) {
+            this.clearSelection();
         }
     }
 
-    public addTokenToMapVisual(token: TokenDto): void {
-        if (!this.activeScene) return;
+    // Novo: Atualizar posição (chamado quando usuário arrasta token)
+    private atualizarTokenPosicao(tokenId: string, x: number, y: number): void {
+        // Crie um token parcial com o ID e novas posições
+        const tokenUpdate: Partial<TokenDto> & { id: string } = {
+            id: tokenId,
+            x,
+            y
+        };
 
-        const textureKey = `token-${token.id}`;
-
-        if (this.activeScene.textures.exists(textureKey)) {
-            this.updateExistingToken(textureKey, token);
-        } else {
-            if (token.imagemDados.startsWith('http') || token.imagemDados.startsWith('data:')) {
-                this.activeScene.load.image(textureKey, token.imagemDados);
-            } else {
-                this.activeScene.textures.addBase64(textureKey, token.imagemDados);
-            }
-
-            this.activeScene.load.once(`filecomplete-image-${textureKey}`, () => {
-                this.instantiateToken(textureKey, token);
-            });
-
-            this.activeScene.load.start();
-        }
+        this.onTokenUpdated.next({
+            token: tokenUpdate as TokenDto,
+            changes: { x, y }
+        });
     }
 
-    private updateHandlePositions(): void {
-        if (!this.activeScene || !this.selectedToken || !this.selectionRectangle ||
-            !this.rotationHandle || !this.resizeHandle) return;
+    private finalizeTokenChanges(): void {
+        if (!this.selectedToken) return;
 
-        // Atualizar retângulo de seleção
-        this.selectionRectangle
-            .setPosition(this.selectedToken.x, this.selectedToken.y)
-            .setSize(this.selectedToken.displayWidth + 20, this.selectedToken.displayHeight + 20);
+        const tokenId = this.selectedToken.name.replace('token-', '');
+        const tokenData = this.selectedToken.getData('tokenData') as TokenDto;
 
-        // Atualizar alça de rotação
-        this.rotationHandle.setPosition(
-            this.selectedToken.x,
-            this.selectedToken.y - this.selectedToken.displayHeight / 2 - 20
-        );
+        const changes: Partial<TokenDto> = {
+            x: this.selectedToken.x,
+            y: this.selectedToken.y,
+            metadados: {
+                rotation: this.selectedToken.angle,
+                width: this.selectedToken.displayWidth,
+                height: this.selectedToken.displayHeight
+            }
+        };
 
-        // Atualizar alça de redimensionamento
-        this.resizeHandle.setPosition(
-            this.selectedToken.x + this.selectedToken.displayWidth / 2 + 10,
-            this.selectedToken.y + this.selectedToken.displayHeight / 2 + 10
-        );
+        this.onTokenUpdated.next({
+            token: { ...tokenData, ...changes } as TokenDto,
+            changes
+        });
     }
 
     private clearSelection(): void {
         if (this.selectedToken) {
             this.selectedToken.clearTint();
-            this.selectedToken = undefined;
+            this.selectedToken = null
         }
         if (this.selectionRectangle) {
             this.selectionRectangle.destroy();
-            this.selectionRectangle = undefined;
-        }
-        if (this.rotationHandle) {
-            this.rotationHandle.destroy();
-            this.rotationHandle = undefined;
+            this.selectionRectangle = null;
         }
         if (this.resizeHandle) {
             this.resizeHandle.destroy();
-            this.resizeHandle = undefined;
+            this.resizeHandle = null;
         }
     }
 }

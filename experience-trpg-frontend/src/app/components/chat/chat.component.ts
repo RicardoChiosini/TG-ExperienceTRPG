@@ -5,6 +5,7 @@ import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import * as math from 'mathjs';
 import { ChatMessage } from '../../models/chat-message.model';
+import { DiceRollService, RollData } from '../../services/dice-roll.service';
 
 interface DiceRollResult {
   quantia: number;
@@ -15,6 +16,10 @@ interface DiceRollResult {
   operacoes?: string;
   expressaoOriginal?: string;
   erro?: string;
+  // Adicione estas novas propriedades
+  tipo?: 'attribute' | 'skill' | 'saving-throw' | 'custom';
+  nome?: string;
+  personagem?: string;
 }
 
 @Component({
@@ -37,7 +42,8 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   constructor(
     private chatService: ChatService,
-    private authService: AuthService
+    private authService: AuthService,
+    private diceRollService: DiceRollService
   ) { }
 
   ngOnInit(): void {
@@ -56,6 +62,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
     }).catch(err => {
       console.error('Erro ao entrar no grupo da mesa:', err);
     });
+    this.iniciarEscutaRolagens();
   }
 
   ngOnDestroy(): void {
@@ -123,6 +130,61 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
         next: (msg: ChatMessage) => this.processarNovaMensagem(msg),
         error: (err) => console.error('Erro ao receber mensagem:', err)
       });
+  }
+
+  private iniciarEscutaRolagens(): void {
+    this.diceRollService.rollRequested$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(rollData => {
+        this.processarRolagem(rollData);
+      });
+  }
+
+  private processarRolagem(rollData: RollData): void {
+    // Primeiro envia a mensagem de ação
+    const acaoMessage = this.criarMensagemAcao(rollData);
+    this.chatService.sendMessage(acaoMessage)
+      .catch(err => this.tratarErroEnvio(err));
+
+    // Depois processa a rolagem em si
+    const resultado = this.interpretarComandoDados(`/r ${rollData.expression}`);
+
+    if (resultado) {
+      // Adiciona informações extras ao resultado
+      resultado.tipo = rollData.type;
+      resultado.nome = rollData.name;
+      resultado.personagem = rollData.nome;
+
+      this.enviarMensagemDados(resultado);
+    }
+  }
+
+  private criarMensagemAcao(rollData: RollData): ChatMessage {
+    let acaoTexto = '';
+
+    switch (rollData.type) {
+      case 'attribute':
+        acaoTexto = `${rollData.nome} testa ${rollData.name}`;
+        break;
+      case 'skill':
+        acaoTexto = `${rollData.nome} usa ${rollData.name}`;
+        break;
+      case 'saving-throw':
+        acaoTexto = `${rollData.nome} tenta resistir com ${rollData.name}`;
+        break;
+      default:
+        acaoTexto = `${rollData.nome} realiza uma ação`;
+    }
+
+    return {
+      user: rollData.nome,
+      message: `<div class="action-message"><strong>${rollData.nome}:</strong> ${acaoTexto}</div>`,
+      texto: acaoTexto,
+      tipoMensagem: 'acao',
+      usuarioId: this.authService.getUserId()!,
+      mesaId: rollData.mesaId,
+      dataHora: new Date().toISOString()
+    };
   }
 
   private processarNovaMensagem(msg: ChatMessage): void {
@@ -408,7 +470,23 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
       return `<span class="dice-normal">${numStr}</span>`;
     };
 
-    let mensagem = `<div class="dice-roll"><span class="dice-roll-content"><strong>${usuario}:</strong> `;
+    let mensagem = `<div class="dice-roll"><span class="dice-roll-content"><strong>${resultado.personagem || usuario}:</strong> `;
+
+    if (resultado.tipo && resultado.nome) {
+      let tipoTexto = '';
+      switch (resultado.tipo) {
+        case 'attribute':
+          tipoTexto = `Utiliza ${resultado.nome}`;
+          break;
+        case 'skill':
+          tipoTexto = `Usa ${resultado.nome}`;
+          break;
+        case 'saving-throw':
+          tipoTexto = `Tenta resistir com ${resultado.nome}`;
+          break;
+      }
+      mensagem += `<span class="roll-type">${tipoTexto}: </span>`;
+    }
 
     // Trata mensagens de erro
     if (resultado.erro) {

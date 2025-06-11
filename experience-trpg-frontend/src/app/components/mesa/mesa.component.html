@@ -8,7 +8,8 @@
   <!-- Conteúdo Principal (80%) com o Mapa SEMPRE visível -->
   <div class="conteudo-principal">
     <!-- Container do Phaser (sempre visível) -->
-    <div #gameContainer class="game-container" (dragover)="allowDrop($event)" (drop)="onDrop($event)"></div>
+    <div #gameContainer class="game-container" (contextmenu)="$event.preventDefault()" (dragover)="allowDrop($event)"
+      (drop)="onDrop($event)"></div>
 
     <!-- Controles no canto superior direito -->
     <div class="map-controls-top">
@@ -132,14 +133,14 @@
     <!-- Controles de zoom no canto inferior direito -->
     <div class="zoom-controls">
       <button (click)="zoomIn()" title="Zoom In (+10%)" class="zoom-button zoom-in"
-        [disabled]="isZooming || zoomPercentual >= 200">
+        [disabled]="isZooming || zoomPercentual >= 250">
         <i class="fas fa-search-plus"></i>
       </button>
       <div class="zoom-display">
         {{ zoomPercentual }}%
       </div>
       <button (click)="zoomOut()" title="Zoom Out (-10%)" class="zoom-button zoom-out"
-        [disabled]="isZooming || zoomPercentual <= 50">
+        [disabled]="isZooming || zoomPercentual <= 10">
         <i class="fas fa-search-minus"></i>
       </button>
     </div>
@@ -164,8 +165,11 @@
       <!-- Aba de Fichas -->
       <div *ngIf="activeTab === 'fichas'" class="aba-fichas">
         <button (click)="adicionarFicha()" class="btn btn-primary mb-3">Adicionar Ficha</button>
-        <div *ngFor="let ficha of fichas" class="ficha-item" (click)="abrirFicha(ficha)">
-          {{ ficha.nome }}
+        <div *ngFor="let ficha of fichas" class="ficha-item d-flex justify-content-between align-items-center">
+          <span (click)="abrirFicha(ficha)" class="flex-grow-1">{{ ficha.nome }}</span>
+          <button (click)="confirmarExclusao(ficha.fichaId, $event)" class="btn btn-sm btn-danger ms-2">
+            X
+          </button>
         </div>
       </div>
 
@@ -215,14 +219,22 @@
 
 <!-- Modals abertas -->
 <ng-container *ngFor="let modal of modalsAbertas">
-  <div class="modal-window" [id]="modal.modalId" [ngStyle]="{ 'top.px': modal.top, 'left.px': modal.left }">
-    <div class="modal-header" (mousedown)="iniciarArrastar($event, modal.modalId)">
+  <div class="modal-window" [id]="modal.modalId" [ngStyle]="{ 
+         'top.px': modal.top, 
+         'left.px': modal.left,
+         'height': modal.minimizada ? '40px' : 'auto'
+       }" [class.minimized]="modal.minimizada"> <!-- Classe adicional -->
+
+    <div class="modal-header" (mousedown)="iniciarArrastar($event, modal.modalId)"
+      (dblclick)="toggleMinimizar(modal.modalId)"> <!-- Duplo clique aqui -->
+
       <h5 class="modal-title">{{ modal.ficha.nome }}</h5>
       <button type="button" class="btn-close" (click)="fecharModal(modal.modalId)"></button>
     </div>
-    <div class="modal-body">
+
+    <div class="modal-body" [class.d-none]="modal.minimizada"> <!-- Esconde o body quando minimizado -->
       <ng-container *ngComponentOutlet="getComponenteFicha(modal.ficha.sistemaId); 
-                                       inputs: { fichaId: modal.ficha.fichaId }">
+                                   inputs: { fichaId: modal.ficha.fichaId }">
       </ng-container>
     </div>
   </div>

@@ -3,7 +3,7 @@ export interface ChatMessage {
   user: string;
   message: string;  
   texto: string;    
-  tipoMensagem: 'normal' | 'dado'; 
+  tipoMensagem: 'normal' | 'dado' | 'acao'; 
   dadosFormatados?: string;
   usuarioId: number;
   mesaId: number;

@@ -34,10 +34,14 @@ import { FichaTormenta20Component } from '../fichas/ficha-tormenta20/ficha-torme
   providers: [ImageService, MapaStateService, PhaserGameService]
 })
 export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
+  @HostListener('contextmenu', ['$event'])
+  onRightClick(event: MouseEvent): void {
+    event.preventDefault(); // Bloqueia o menu de contexto
+  }
   @ViewChild('gameContainer', { static: false }) gameContainer!: ElementRef;
 
   // Estado do componente
-  activeTab: string = 'chat';
+  activeTab: string = 'fichas';
   mesaId: number = 0;
   usuarioId: number = 0;
   isCriador: boolean = false;
@@ -93,6 +97,7 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.activeTab = 'fichas';
     this.loadedTabs['fichas'] = true;
 
+
     // Configura serviços que não dependem da view
     this.setupServices();
 
@@ -109,9 +114,6 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.mapaStateService.setMesaId(this.mesaId);
     this.mapaStateService.setIsCriador(this.isCriador);
     this.phaserGameService.usuarioId = this.usuarioId;
-
-    // Configura listeners do mapa
-    this.mapaStateService.setupMapaListeners();
   }
   private async carregarDadosIniciais(): Promise<void> {
     // 1. Verifica se é criador
@@ -119,6 +121,11 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // 2. Carrega fichas
     this.carregarFichas();
+
+    // Inscreva-se para atualizações
+    this.fichaStateService.fichasPorMesa$.subscribe(fichasPorMesa => {
+      this.fichas = fichasPorMesa[this.mesaId] || [];
+    });
 
     // 3. Carrega imagens
     this.imageService.carregarImagensDaMesa().subscribe();
@@ -141,8 +148,6 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
       this.recursosCarregados.chat = true;
       this.verificarCarregamentoCompleto();
     });
-
-    this.setActiveTab('chat');
 
     // 6. Configura listeners para atualizações em tempo real
     this.configurarListeners();
@@ -181,11 +186,11 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Listener para atualizações de configuração
     this.subscriptions.add(
-    this.mapaService.configUpdates$.pipe(
+      this.mapaService.configUpdates$.pipe(
         filter(({ mapaId }) => mapaId === this.mapaStateService.currentMap?.mapaId)
-    ).subscribe(({ mapaId, mapaDto }) => {
+      ).subscribe(({ mapaId, mapaDto }) => {
         console.log('Atualização completa do mapa recebida:', mapaDto);
-        
+
         // 1. Atualizar estado local
         this.mapaStateService.currentMap = { ...this.mapaStateService.currentMap, ...mapaDto };
         this.phaserGameService.setCurrentMapData(this.mapaStateService.currentMap);
@@ -195,13 +200,44 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
 
         // 3. Redesenhar grid se necessário
         if (this.phaserGameService.phaserGame) {
-            const scene = this.phaserGameService.phaserGame.scene.scenes[0];
-            if (scene) {
-                this.phaserGameService.drawHexGrid(scene);
-            }
+          const scene = this.phaserGameService.phaserGame.scene.scenes[0];
+          if (scene) {
+            this.phaserGameService.drawHexGrid(scene);
+          }
         }
-    })
-);
+        this.mapaStateService.carregarMapa(this.mapaStateService.currentMapId);
+      })
+    );
+
+    // Adicição de token via SignalR
+    this.subscriptions.add(
+      this.mapaService.tokenAdditions$.subscribe(token => {
+        if (token.mapaId === this.mapaStateService.currentMapId) {
+          this.phaserGameService.adicionarTokenVisual(token);
+        }
+      })
+    );
+
+    // Atualização de token via SignalR
+    this.subscriptions.add(
+      this.mapaService.tokenUpdates$.subscribe(token => {
+        this.phaserGameService.atualizarTokenVisual(token);
+      })
+    );
+
+    // Remoção de token via SignalR
+    this.subscriptions.add(
+      this.mapaService.tokenDeletes$.subscribe(tokenId => {
+        this.phaserGameService.removerTokenVisual(tokenId);
+      })
+    );
+
+    // Atualizações locais (quando usuário arrasta token)
+    this.subscriptions.add(
+      this.phaserGameService.onTokenUpdated.subscribe(({ token, changes }) => {
+        this.mapaStateService.atualizarToken(token.id, changes).subscribe();
+      })
+    );
   }
 
   async ngAfterViewInit(): Promise<void> {
@@ -273,30 +309,29 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // Métodos de ficha
   carregarFichas(): void {
-    this.apiService.getFichasPorMesa(this.mesaId).subscribe(
-      (data: FichaDto[]) => {
-        this.fichas = data;
-        this.recursosCarregados.fichas = true;
-        this.verificarCarregamentoCompleto();
-      },
-      (error) => {
-        console.error('Erro ao carregar fichas:', error);
-        this.recursosCarregados.fichas = true; // Prossegue mesmo com erro
-        this.verificarCarregamentoCompleto();
-      }
-    );
-  }
+  this.apiService.getFichasPorMesa(this.mesaId).subscribe(
+    (data: FichaDto[]) => {
+      this.fichas = data;
+      this.recursosCarregados.fichas = true;
+      this.fichaStateService.setFichas(this.mesaId, this.fichas);
+      this.verificarCarregamentoCompleto();
+    },
+    (error) => {
+      console.error('Erro ao carregar fichas:', error);
+      this.recursosCarregados.fichas = true;
+      this.verificarCarregamentoCompleto();
+    }
+  );
+}
 
   private verificarCarregamentoCompleto(): void {
-    console.log('Estado do carregamento:', this.recursosCarregados);
-
-    if (this.recursosCarregados.fichas &&
+    if (
+      this.recursosCarregados.fichas &&
       this.recursosCarregados.chat &&
-      this.recursosCarregados.criador) {
-
-      console.log('Todos os recursos carregados, mudando para chat...');
-
+      this.recursosCarregados.criador
+    ) {
       setTimeout(() => {
+        // Muda para aba de CHAT quando tudo estiver carregado
         this.activeTab = 'chat';
         this.loadedTabs['chat'] = true;
         this.isLoading = false;
@@ -318,9 +353,37 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.apiService.criarFicha(this.mesaId).subscribe(
       (data: FichaDto) => {
         this.fichas.push(data); // Adiciona a nova ficha à lista
+        this.fichaStateService.setFichas(this.mesaId, this.fichas);
       },
       (error) => {
         console.error('Erro ao criar ficha:', error);
+      }
+    );
+  }
+
+  confirmarExclusao(fichaId: number, event: MouseEvent) {
+    event.stopPropagation();
+
+    if (confirm('Tem certeza que deseja excluir esta ficha?')) {
+      // Remove a ficha imediatamente da lista
+      this.fichas = this.fichas.filter(f => f.fichaId !== fichaId);
+      this.fichaStateService.setFichas(this.mesaId, this.fichas);
+
+      // Chama a API para exclusão real
+      this.excluirFicha(fichaId);
+    }
+  }
+
+  excluirFicha(fichaId: number): void {
+    this.apiService.excluirFicha(fichaId).subscribe(
+      () => {
+        // A ficha já foi removida visualmente, então só atualizamos o state
+        this.fichaStateService.setFichas(this.mesaId, this.fichas);
+      },
+      (error) => {
+        console.error('Erro ao excluir ficha:', error);
+        // Se ocorrer erro, podemos recarregar as fichas ou mostrar uma mensagem
+        this.carregarFichas(); // Método para recarregar as fichas do servidor
       }
     );
   }
@@ -337,16 +400,21 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   abrirFicha(ficha: FichaDto): void {
-    // Notifica o serviço de estado sobre a ficha que está sendo aberta
-    this.fichaStateService.updateFicha(ficha);
+    this.fichaStateService.updateFicha(this.mesaId, ficha);
 
-    // Verifica se a ficha já está aberta
     const fichaAberta = this.modalsAbertas.find(m => m.ficha.fichaId === ficha.fichaId);
 
     if (fichaAberta) {
-      // Se já está aberta, traz para frente
       this.modalsAbertas = this.modalsAbertas.filter(m => m.modalId !== fichaAberta.modalId);
       this.modalsAbertas.push(fichaAberta);
+
+      // Focar no primeiro campo input da modal após um pequeno delay
+      setTimeout(() => {
+        const modalElement = document.querySelector(`#${fichaAberta.modalId} input`);
+        if (modalElement) {
+          (modalElement as HTMLElement).focus();
+        }
+      }, 100);
       return;
     }
 
@@ -356,10 +424,51 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
       modalId,
       top: 50 + (this.modalsAbertas.length * 20),
       left: 50 + (this.modalsAbertas.length * 20),
-      isDragging: false
+      isDragging: false,
+      minimizada: false
     };
 
     this.modalsAbertas.push(novaModal);
+  }
+
+  toggleMinimizar(modalId: string): void {
+    const modal = this.modalsAbertas.find(m => m.modalId === modalId);
+    if (modal) {
+      modal.minimizada = !modal.minimizada;
+
+      if (modal.minimizada) {
+        // Salva a posição atual antes de minimizar
+        const modalElement = document.getElementById(modalId);
+        if (modalElement) {
+          modal.savedPosition = {
+            top: modalElement.style.top,
+            left: modalElement.style.left
+          };
+          setTimeout(() => {
+            modalElement.style.height = '40px';
+          }, 10);
+        }
+      } else {
+        // Desminimizando - ajusta altura e posição
+        setTimeout(() => {
+          const modalElement = document.getElementById(modalId);
+          if (modalElement) {
+            modalElement.style.height = 'auto';
+
+            const safeTop = modal.savedPosition?.top ?
+              Math.max(50, parseInt(modal.savedPosition.top)) : 100;
+            const safeLeft = modal.savedPosition?.left ?
+              Math.max(50, parseInt(modal.savedPosition.left)) : 100;
+
+            // Atualiza tanto no DOM quanto no objeto modal
+            modal.left = safeLeft;
+            modal.top = safeTop;
+            modalElement.style.top = `${safeTop}px`;
+            modalElement.style.left = `${safeLeft}px`;
+          }
+        }, 10);
+      }
+    }
   }
 
   fecharModal(modalId: string): void {
@@ -367,40 +476,43 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   iniciarArrastar(event: MouseEvent, modalId: string): void {
+    event.stopPropagation();
     const modal = this.modalsAbertas.find(m => m.modalId === modalId);
     if (modal) {
       modal.isDragging = true;
-      const offsetX = event.clientX - modal.left;
-      const offsetY = event.clientY - modal.top;
+
+      // Obter a posição atual real do elemento DOM
+      const modalElement = document.getElementById(modalId);
+      if (!modalElement) return;
+
+      // Usar getBoundingClientRect para pegar a posição atual correta
+      const rect = modalElement.getBoundingClientRect();
+
+      // Calcular offsets baseados na posição real, não nas propriedades do objeto
+      const offsetX = event.clientX - rect.left;
+      const offsetY = event.clientY - rect.top;
 
       const moverModal = (e: MouseEvent) => {
         if (modal.isDragging) {
-          // Calcular nova posição
-          let newLeft = e.clientX - offsetX;
-          let newTop = e.clientY - offsetY;
-
           // Obter dimensões da modal
-          const modalWidth = 300; // Largura padrão
-          const modalHeight = 200; // Altura padrão (ajuste conforme necessário)
-          const windowWidth = window.innerWidth;
-          const windowHeight = window.innerHeight;
+          const modalWidth = modalElement.offsetWidth || 850;
+          const modalHeight = modal.minimizada ? 40 : (modalElement.offsetHeight || 400);
 
-          // Restringir a nova posição
-          if (newTop < 0) {
-            newTop = 0; // Limita a parte superior
-          } else if (newTop + modalHeight > windowHeight) {
-            newTop = windowHeight - modalHeight; // Limita a parte inferior
-          }
+          // Calcular limites máximos
+          const maxLeft = window.innerWidth - modalWidth;
+          const maxTop = window.innerHeight - modalHeight;
 
-          if (newLeft < 0) {
-            newLeft = 0; // Limita a parte esquerda
-          } else if (newLeft + modalWidth > windowWidth) {
-            newLeft = windowWidth - modalWidth; // Limita a parte direita
-          }
+          // Calcular nova posição
+          const newLeft = e.clientX - offsetX;
+          const newTop = e.clientY - offsetY;
 
-          // Atualizar a posição da modal
-          modal.left = newLeft;
-          modal.top = newTop;
+          // Restringir posição dentro dos limites e atualizar
+          modal.left = Math.max(0, Math.min(newLeft, maxLeft));
+          modal.top = Math.max(0, Math.min(newTop, maxTop));
+
+          // Atualizar também no DOM imediatamente para feedback visual
+          modalElement.style.left = `${modal.left}px`;
+          modalElement.style.top = `${modal.top}px`;
         }
       };
 
@@ -480,15 +592,12 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   onDrop(event: DragEvent): void {
-    console.log('Drop event triggered', event);
-    console.log('Current map ID:', this.mapaStateService.currentMapId);
-
-    const estadoAtual = this.mapaStateService.getEstadoMapaAtual();
-    console.log('Estado atual:', estadoAtual);
+    // Verifica se há mapa carregado
     if (!this.mapaStateService.currentMapId || !this.mapaStateService.currentMap) {
       this.toastr.warning('Nenhum mapa carregado para adicionar tokens');
       return;
     }
+
     event.preventDefault();
 
     const data = event.dataTransfer?.getData('text/plain');
@@ -496,39 +605,53 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
 
     try {
       const tokenData = JSON.parse(data);
-      const pointer = this.phaserGameService.getPhaserGame()?.scene.scenes[0]?.input.activePointer;
+      const phaserGame = this.phaserGameService.getPhaserGame();
+      if (!phaserGame) return;
 
-      if (pointer && this.mapaStateService.currentMapId) {
-        const worldPoint = pointer.position;
+      const scene = phaserGame.scene.scenes[0];
 
-        // Garantir que temos um estado válido
-        const estadoAtual = this.mapaStateService.getEstadoMapaAtual();
-        const tokens = estadoAtual.tokens || []; // Fallback para array vazio
+      // Obter as coordenadas do drop relativas ao canvas
+      const canvas = phaserGame.canvas as HTMLCanvasElement;
+      const rect = canvas.getBoundingClientRect();
+      const localX = event.clientX - rect.left;
+      const localY = event.clientY - rect.top;
 
-        const newToken: TokenDto = {
-          id: `token-${Date.now()}`,
-          nome: tokenData.nome,
-          x: worldPoint.x,
-          y: worldPoint.y,
-          z: 1,
-          imagemDados: tokenData.imageUrl,
-          donoId: this.usuarioId,
-          visivelParaTodos: true,
-          bloqueado: false,
-          mapaId: this.mapaStateService.currentMapId,
-          metadados: {}
-        };
+      // Converter as coordenadas locais para coordenadas do mundo (considerando zoom e scroll)
+      const worldPoint = scene.cameras.main.getWorldPoint(localX, localY);
 
-        // Atualizar o estado local
-        estadoAtual.tokens = [...tokens, newToken];
+      // 'Snapar' as coordenadas para o grid
+      // Caso o método 'snapToGrid' seja private, considere alterar sua visibilidade ou extrair essa lógica
+      const snappedPoint = this.phaserGameService.snapToGrid(worldPoint.x, worldPoint.y);
 
-        this.mapaStateService.adicionarTokenAoMapa(newToken);
-      }
+      // Cria o novo token utilizando as coordenadas ajustadas
+      const newToken: Partial<TokenDto> = {
+        nome: tokenData.nome,
+        x: snappedPoint.x,
+        y: snappedPoint.y,
+        z: 1,
+        imagemDados: tokenData.imageUrl,
+        donoId: this.usuarioId,
+        visivelParaTodos: true,
+        bloqueado: false,
+        mapaId: this.mapaStateService.currentMapId!,
+        metadados: {},
+      };
+
+      // Enviar para o backend; após receber o token com ID definitivo, adiciona-o visualmente
+      this.mapaStateService.adicionarToken(newToken as TokenDto).subscribe({
+        next: (tokenAdicionado) => {
+          this.phaserGameService.adicionarTokenVisual(tokenAdicionado);
+        },
+        error: (err) => {
+          console.error('Erro ao adicionar token:', err);
+        }
+      });
     } catch (error) {
       console.error('Erro ao processar drop:', error);
       this.toastr.error('Erro ao adicionar token ao mapa');
     }
   }
+
 
   // Métodos do template que delegam para os serviços
   toggleGridControls(): void {
@@ -602,9 +725,10 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
 
       // 2. Obtém o mapa atualizado - considere clonar para evitar mutações
       const mapaAtualizado = { ...this.mapaStateService.currentMap };
+      const currentMapId = mapaAtualizado.mapaId;
 
       // 3. Debug logs
-      console.debug('Salvando mapa:', mapaAtualizado.mapaId, 'com imagemFundo:', mapaAtualizado.imagemFundo);
+      console.debug('Salvando mapa:', currentMapId, 'com imagemFundo:', mapaAtualizado.imagemFundo);
 
       // 4. Se houver imagem de fundo, carrega os detalhes
       if (mapaAtualizado.imagemFundo) {
@@ -616,7 +740,7 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
           }
 
           mapaAtualizado.imaFundo = imagemDetalhes;
-          const textureKey = `mapBackground_${mapaAtualizado.mapaId}`;
+          const textureKey = `mapBackground_${currentMapId}`;
           const imageUrl = this.imageService.getImageUrl(imagemDetalhes);
 
           // Verifica acessibilidade da imagem
@@ -636,9 +760,13 @@ export class MesaComponent implements OnInit, OnDestroy, AfterViewInit {
         }
       } else {
         // Limpa a imagem de fundo se não houver
-        const textureKey = `mapBackground_${mapaAtualizado.mapaId}`;
+        const textureKey = `mapBackground_${currentMapId}`;
         this.phaserGameService.clearBackground(textureKey);
       }
+
+      // 5. Reload the full map state including tokens
+      await this.mapaStateService.carregarMapa(currentMapId);
+
     } catch (error) {
       console.error('Erro ao salvar configurações:', error);
       this.toastr.error('Erro ao salvar configurações');

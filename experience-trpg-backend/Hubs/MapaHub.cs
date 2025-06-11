@@ -40,16 +40,22 @@ namespace experience_trpg_backend.Hubs
             });
         }
 
-        public async Task AddOrUpdateToken(TokenDto token, int mesaId)
+        public async Task AddToken(TokenDto token, int mesaId)
         {
-            _logger.LogInformation($"Token {token.Id} adicionado/atualizado na mesa {mesaId}");
+            _logger.LogInformation($"Token {token.Id} adicionado na mesa {mesaId}");
+            await Clients.OthersInGroup(mesaId.ToString()).SendAsync("ReceiveTokenAddition", token);
+        }
+
+        public async Task UpdateToken(TokenDto token, int mesaId)
+        {
+            _logger.LogInformation($"Token {token.Id} atualizado na mesa {mesaId}");
             await Clients.OthersInGroup(mesaId.ToString()).SendAsync("ReceiveTokenUpdate", token);
         }
 
-        public async Task RemoveToken(string tokenId, int mesaId)
+        public async Task DeleteToken(string tokenId, int mesaId)
         {
             _logger.LogInformation($"Token {tokenId} removido da mesa {mesaId}");
-            await Clients.OthersInGroup(mesaId.ToString()).SendAsync("RemoveToken", tokenId);
+            await Clients.OthersInGroup(mesaId.ToString()).SendAsync("DeleteToken", tokenId);
         }
 
         public async Task SendMapUpdate(int mesaId, int mapaId, MapaEstadoDto estado)

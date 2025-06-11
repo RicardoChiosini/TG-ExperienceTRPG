@@ -28,6 +28,7 @@ import { AuthService } from '../services/auth.service';
 import { ChatService } from '../services/chat.service';
 import { MapaService } from '../services/mapa.service';
 import { CommonModule } from '@angular/common';
+import { FilterEquipamentoPipe } from "../components/fichas/filter-equipamento.pipe";
 
 @NgModule({
   declarations: [
@@ -54,8 +55,9 @@ import { CommonModule } from '@angular/common';
     HttpClientModule,
     FormsModule,
     NgbModule,
-    ToastrModule.forRoot()
-  ],
+    ToastrModule.forRoot(),
+    FilterEquipamentoPipe
+],
   providers: [ApiService, AuthService, ChatService, MapaService, provideAnimationsAsync()],
   bootstrap: [AppComponent]
 })

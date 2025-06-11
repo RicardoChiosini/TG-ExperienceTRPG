@@ -129,3 +129,30 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.clickable {
+  cursor: pointer;
+  /* Você pode adicionar outros estilos, como mudança de cor ao passar o mouse */
+  transition: color 0.2s;
+}
+.clickable:hover {
+  color: blue; /* por exemplo, mudar a cor ao passar o mouse */
+}
+
+.toggle-btn {
+    width: 30px;          /* Largura aumentada */
+    height: 30px;         /* Altura aumentada */
+    border-radius: 50%;   /* Faz o botão circular */
+    border: 1px solid #fff; /* Borda branca */
+    background-color: transparent; /* Fundo transparente */
+    color: #fff;          /* Cor do texto branca */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.toggle-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1); /* Efeito hover sutil */
+}
